@@ -23,6 +23,14 @@ def calcular_rendimiento(gamma, relacion_presiones):
     return 1 - 1 / (relacion_presiones ** ((gamma - 1) / gamma))
 
 
+def calcular_rendimientos(gamma, relaciones_presiones=(5, 10, 15, 20, 25)):
+    # Reutilizamos el cálculo del ciclo y ordenamos las relaciones de menor a mayor.
+    return [
+        (relacion, calcular_rendimiento(gamma, relacion) * 100)
+        for relacion in sorted(relaciones_presiones)
+    ]
+
+
 # Datos del ciclo: gamma es el cociente entre cp y cv.
 #cp = 
 #cv = 
@@ -37,6 +45,13 @@ rendimiento = calcular_rendimiento(gamma, relacion_presiones)
 print("SIMULADOR DEL CICLO BRAYTON")
 print("Relación de presiones:", relacion_presiones)
 print("Rendimiento térmico:", round(rendimiento * 100, 2), "%")
+
+# Mostramos una tabla alineada con el rendimiento de cada relación de presiones.
+print()
+print(f"{'Relación de presiones':>21} | {'Rendimiento térmico (%)':>23}")
+print("-" * 47)
+for relacion, rendimiento_porcentaje in calcular_rendimientos(gamma):
+    print(f"{relacion:>21} | {rendimiento_porcentaje:>23.2f}")
 
 # Generamos 100 relaciones de presiones, incluyendo los extremos 2 y 30.
 relaciones_presiones = np.linspace(2, 30, 100)
