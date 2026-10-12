@@ -79,6 +79,116 @@ def calcular_balance_energetico(T1, T2, T3, T4, cp):
     }
 
 
+def calcular_ciclo_ideal(T1, T3, gamma, cp, relacion_presiones, p1):
+    temperaturas = calcular_temperaturas(T1, T3, gamma, relacion_presiones)
+    _, presiones, _ = calcular_estados_pv(temperaturas, cp, gamma, relacion_presiones, p1)
+    balance = calcular_balance_energetico(*temperaturas, cp)
+    return {
+        "temperaturas": temperaturas,
+        "presiones": presiones,
+        "T2s": temperaturas[1],
+        "T4s": temperaturas[3],
+        **balance,
+        "back_work_ratio": balance["trabajo_compresor"] / balance["trabajo_turbina"],
+    }
+
+
+def calcular_ciclo_noideal(T1, T3, gamma, cp, relacion_presiones, p1,
+                          eta_c, eta_t, perdida_presion_combustor):
+    for nombre, eficiencia in (("eta_c", eta_c), ("eta_t", eta_t)):
+        if not isfinite(eficiencia) or not 0 < eficiencia <= 1:
+            raise ValueError(f"{nombre} debe ser finita y cumplir 0 < {nombre} <= 1.")
+    if not isfinite(perdida_presion_combustor) or not 0 <= perdida_presion_combustor < 1:
+        raise ValueError("La pérdida relativa de presión debe ser finita y estar entre 0 y 1 (excluido).")
+    if not isfinite(p1) or p1 <= 0:
+        raise ValueError("p1 debe ser positiva y finita, en kPa.")
+
+    # T2s corresponde a la compresión reversible entre p1 y p2.
+    _, T2s, _, _ = calcular_temperaturas(T1, T3, gamma, relacion_presiones)
+    p2 = p1 * relacion_presiones
+    p3 = p2 * (1 - perdida_presion_combustor)
+    p4 = p1
+    presiones_reales = (p1, p2, p3, p4)
+    if not all(isfinite(p) and p > 0 for p in presiones_reales):
+        raise ValueError("Todas las presiones reales deben ser positivas y finitas.")
+    if p3 <= p4:
+        raise ValueError("La presión a la entrada de la turbina debe superar la de salida.")
+
+    T2_real = T1 + (T2s - T1) / eta_c
+    # T4s usa p3 real: con pérdida de presión difiere del T4 del ciclo ideal.
+    T4s = T3 * (p4 / p3) ** ((gamma - 1) / gamma)
+    T4_real = T3 - eta_t * (T3 - T4s)
+    temperaturas_reales = (T1, T2_real, T3, T4_real)
+    # El balance cp·ΔT sirve también para los equipos adiabáticos irreversibles.
+    # Rechaza temperaturas inválidas, calor no positivo y trabajo neto no positivo.
+    balance_real = calcular_balance_energetico(*temperaturas_reales, cp)
+    return {
+        "temperaturas": temperaturas_reales,
+        "presiones": presiones_reales,
+        "T2s": T2s,
+        "T4s": T4s,
+        **balance_real,
+        "back_work_ratio": balance_real["trabajo_compresor"] / balance_real["trabajo_turbina"],
+    }
+
+
+def comprobar_comparacion_ciclos(ideal, noideal, eta_c, eta_t, perdida_presion_combustor):
+    if eta_c < 1:
+        if not (noideal["temperaturas"][1] > noideal["T2s"]
+                and noideal["trabajo_compresor"] > ideal["trabajo_compresor"]):
+            raise ValueError("El compresor irreversible debe consumir más trabajo y tener T2 > T2s.")
+    if eta_t < 1 and not noideal["temperaturas"][3] > noideal["T4s"]:
+        raise ValueError("La turbina irreversible debe tener T4 > T4s.")
+    if (eta_t < 1 or perdida_presion_combustor > 0) and not (
+        noideal["trabajo_turbina"] < ideal["trabajo_turbina"]
+    ):
+        raise ValueError("La turbina no ideal debe producir menos trabajo que la ideal.")
+    if eta_c < 1 or eta_t < 1 or perdida_presion_combustor > 0:
+        if not noideal["rendimiento"] < ideal["rendimiento"]:
+            raise ValueError("El rendimiento no ideal debe ser menor que el ideal.")
+    else:
+        # Límite reversible: ambos modelos deben dar los mismos estados y balances.
+        if not np.allclose(noideal["temperaturas"], ideal["temperaturas"], rtol=1e-9, atol=1e-12):
+            raise ValueError("El límite reversible no reproduce las temperaturas ideales.")
+        for clave in ("trabajo_compresor", "trabajo_turbina", "trabajo_neto",
+                      "calor_aportado", "rendimiento", "back_work_ratio"):
+            if not isclose(noideal[clave], ideal[clave], rel_tol=1e-9, abs_tol=1e-12):
+                raise ValueError("El límite reversible no reproduce el balance ideal.")
+
+
+def guardar_comparaciones_ciclos(T1, T3, gamma, cp, p1, eta_c, eta_t,
+                                perdida_presion_combustor, carpeta):
+    relaciones = np.linspace(2, 30, 300)
+    ciclos_ideales = []
+    ciclos_noideales = []
+    for relacion in relaciones:
+        ideal = calcular_ciclo_ideal(T1, T3, gamma, cp, relacion, p1)
+        noideal = calcular_ciclo_noideal(T1, T3, gamma, cp, relacion, p1,
+                                       eta_c, eta_t, perdida_presion_combustor)
+        comprobar_comparacion_ciclos(ideal, noideal, eta_c, eta_t, perdida_presion_combustor)
+        ciclos_ideales.append(ideal)
+        ciclos_noideales.append(noideal)
+
+    # Los dos gráficos comparten el barrido, pero muestran magnitudes distintas.
+    for clave, factor, eje_y, titulo, archivo in (
+        ("rendimiento", 100, "Rendimiento térmico [%]", "Rendimiento: ciclo ideal y no ideal",
+         "comparacion_ideal_noideal.png"),
+        ("trabajo_neto", 1, "Trabajo específico neto [kJ/kg]", "Trabajo neto: ciclo ideal y no ideal",
+         "trabajo_neto_ideal_noideal.png"),
+    ):
+        figura, ejes = plt.subplots(figsize=(9, 6))
+        ejes.plot(relaciones, [ciclo[clave] * factor for ciclo in ciclos_ideales], label="Ciclo ideal")
+        ejes.plot(relaciones, [ciclo[clave] * factor for ciclo in ciclos_noideales], label="Ciclo no ideal")
+        ejes.set_title(titulo)
+        ejes.set_xlabel("Relación de presiones del compresor")
+        ejes.set_ylabel(eje_y)
+        ejes.grid(True)
+        ejes.legend()
+        figura.tight_layout()
+        figura.savefig(carpeta / archivo, dpi=150)
+        plt.close(figura)
+
+
 def calcular_trabajo_neto(T1, T3, gamma, cp, relacion_presiones):
     # Reutilizamos el cálculo de estados y las validaciones del ciclo motor.
     temperaturas = calcular_temperaturas(T1, T3, gamma, relacion_presiones)
@@ -274,6 +384,9 @@ T1 = 288.15  # K: entrada al compresor.
 T3 = 1600  # K: entrada a la turbina.
 cp = 1005  # J/(kg·K).
 p1 = 100  # kPa: presión de entrada al compresor.
+eta_c = 0.85  # Eficiencia isentrópica del compresor.
+eta_t = 0.90  # Eficiencia isentrópica de la turbina.
+perdida_presion_combustor = 0.05  # Pérdida relativa: 5 % de p2.
 
 # Calculamos el rendimiento utilizando la función.
 rendimiento = calcular_rendimiento(gamma, relacion_presiones)
@@ -385,3 +498,41 @@ print(f"Rendimiento térmico en el óptimo analítico: {rendimiento_optimo * 100
 ruta_trabajo_neto = Path(__file__).resolve().parent / "trabajo_neto_vs_rp.png"
 guardar_grafica_trabajo_neto(relaciones_busqueda, trabajos_busqueda,
                             rp_optima_analitica, trabajo_maximo, ruta_trabajo_neto)
+
+# El modelo no ideal utiliza variables separadas para conservar todos los estados ideales.
+ciclo_ideal = calcular_ciclo_ideal(T1, T3, gamma, cp, relacion_presiones, p1)
+ciclo_noideal = calcular_ciclo_noideal(T1, T3, gamma, cp, relacion_presiones, p1,
+                                     eta_c, eta_t, perdida_presion_combustor)
+comprobar_comparacion_ciclos(ciclo_ideal, ciclo_noideal, eta_c, eta_t, perdida_presion_combustor)
+ciclo_limite_ideal = calcular_ciclo_noideal(T1, T3, gamma, cp, relacion_presiones, p1, 1, 1, 0)
+comprobar_comparacion_ciclos(ciclo_ideal, ciclo_limite_ideal, 1, 1, 0)
+
+print("\nCOMPARACIÓN DEL CICLO IDEAL Y NO IDEAL")
+print(f"eta_c = {eta_c:.2f}; eta_t = {eta_t:.2f}; pérdida de presión = {perdida_presion_combustor * 100:.1f} %")
+print("T2s y T4s: referencias isentrópicas a las presiones de cada modelo.")
+print(f"{'Magnitud':<36} | {'Ideal':>12} | {'No ideal':>12}")
+print("-" * 66)
+for nombre, valor_ideal, valor_real in (
+    ("T2s [K]", ciclo_ideal["T2s"], ciclo_noideal["T2s"]),
+    ("T2 [K]", ciclo_ideal["temperaturas"][1], ciclo_noideal["temperaturas"][1]),
+    ("T4s [K]", ciclo_ideal["T4s"], ciclo_noideal["T4s"]),
+    ("T4 [K]", ciclo_ideal["temperaturas"][3], ciclo_noideal["temperaturas"][3]),
+):
+    print(f"{nombre:<36} | {valor_ideal:>12.2f} | {valor_real:>12.2f}")
+for estado, (p_ideal, p_real) in enumerate(zip(ciclo_ideal["presiones"], ciclo_noideal["presiones"]), start=1):
+    print(f"{f'p{estado} [kPa]':<36} | {p_ideal:>12.2f} | {p_real:>12.2f}")
+for etiqueta, clave, factor in (
+    ("Trabajo compresor [kJ/kg]", "trabajo_compresor", 1),
+    ("Trabajo turbina [kJ/kg]", "trabajo_turbina", 1),
+    ("Trabajo neto [kJ/kg]", "trabajo_neto", 1),
+    ("Calor aportado [kJ/kg]", "calor_aportado", 1),
+    ("Rendimiento térmico [%]", "rendimiento", 100),
+    ("Back work ratio [-]", "back_work_ratio", 1),
+):
+    print(f"{etiqueta:<36} | {ciclo_ideal[clave] * factor:>12.4f} | {ciclo_noideal[clave] * factor:>12.4f}")
+print("Comprobaciones correctas: T2 > T2s, T4 > T4s, mayor consumo del compresor,")
+print("menor trabajo de la turbina y menor rendimiento para los parámetros actuales.")
+print("El modelo no ideal reproduce el ideal con eta_c = eta_t = 1 y pérdida = 0.")
+
+guardar_comparaciones_ciclos(T1, T3, gamma, cp, p1, eta_c, eta_t,
+                            perdida_presion_combustor, Path(__file__).resolve().parent)
