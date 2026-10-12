@@ -79,6 +79,53 @@ def calcular_balance_energetico(T1, T2, T3, T4, cp):
     }
 
 
+def calcular_trabajo_neto(T1, T3, gamma, cp, relacion_presiones):
+    # Reutilizamos el cálculo de estados y las validaciones del ciclo motor.
+    temperaturas = calcular_temperaturas(T1, T3, gamma, relacion_presiones)
+    return calcular_balance_energetico(*temperaturas, cp)["trabajo_neto"]
+
+
+def calcular_relacion_optima(T1, T3, gamma):
+    calcular_rendimiento(gamma, 2)  # Validación de gamma.
+    if not all(isfinite(T) and T > 0 for T in (T1, T3)) or T3 <= T1:
+        raise ValueError("Se requieren temperaturas finitas con T3 > T1 > 0.")
+    # Con x = rp**((gamma-1)/gamma), dw_neto/dx = cp·(T3/x² - T1).
+    # La segunda derivada es negativa: x = sqrt(T3/T1) es un máximo.
+    relacion_optima = (T3 / T1) ** (gamma / (2 * (gamma - 1)))
+    if not isfinite(relacion_optima) or relacion_optima <= 1:
+        raise ValueError("La relación óptima debe ser finita y mayor que 1.")
+    return relacion_optima
+
+
+def buscar_optimo_numerico(T1, T3, gamma, cp):
+    # El paso de aproximadamente 0.00049 permite localizar bien el máximo.
+    relaciones = np.linspace(1.01, 50, 100001)
+    trabajos = np.array([
+        calcular_trabajo_neto(T1, T3, gamma, cp, relacion)
+        for relacion in relaciones
+    ])
+    indice_maximo = int(np.argmax(trabajos))
+    return relaciones, trabajos, indice_maximo
+
+
+def guardar_grafica_trabajo_neto(relaciones, trabajos, rp_optima, trabajo_maximo, ruta):
+    figura, ejes = plt.subplots(figsize=(9, 6))
+    ejes.plot(relaciones, trabajos, label="Trabajo específico neto")
+    ejes.scatter([rp_optima], [trabajo_maximo], color="red", s=70, zorder=5,
+                 label="Máximo analítico (verificado numéricamente)")
+    ejes.annotate(f"rp = {rp_optima:.4f}\nTrabajo máximo = {trabajo_maximo:.2f} kJ/kg",
+                  xy=(rp_optima, trabajo_maximo), xytext=(15, -55),
+                  textcoords="offset points", arrowprops={"arrowstyle": "->"})
+    ejes.set_title("Trabajo neto del ciclo Brayton ideal")
+    ejes.set_xlabel("Relación de presiones")
+    ejes.set_ylabel("Trabajo específico neto [kJ/kg]")
+    ejes.grid(True)
+    ejes.legend(loc="lower right")
+    figura.tight_layout()
+    figura.savefig(ruta, dpi=150)
+    plt.close(figura)
+
+
 def calcular_entropias(T1, T2, T3, T4, cp):
     # Aplicamos las mismas validaciones físicas que al balance energético.
     calcular_balance_energetico(T1, T2, T3, T4, cp)
@@ -218,3 +265,36 @@ plt.close()
 # Guardamos también el diagrama T-s junto al programa, sin abrir ventanas.
 ruta_diagrama_ts = Path(__file__).resolve().parent / "diagrama_ts_brayton.png"
 guardar_diagrama_ts((T1, T2, T3, T4), (s1, s2, s3, s4), cp, ruta_diagrama_ts)
+
+# Estudio independiente del óptimo: conservamos los estados del ciclo con rp = 10.
+rp_optima_analitica = calcular_relacion_optima(T1, T3, gamma)
+relaciones_busqueda, trabajos_busqueda, indice_optimo = buscar_optimo_numerico(T1, T3, gamma, cp)
+rp_optima_numerica = float(relaciones_busqueda[indice_optimo])
+paso_busqueda = float(relaciones_busqueda[1] - relaciones_busqueda[0])
+
+# Solo podemos verificar el máximo analítico si está dentro del intervalo barrido.
+if not relaciones_busqueda[0] <= rp_optima_analitica <= relaciones_busqueda[-1]:
+    raise ValueError("El óptimo analítico queda fuera del intervalo de búsqueda [1.01, 50].")
+if not isclose(rp_optima_numerica, rp_optima_analitica, rel_tol=0, abs_tol=paso_busqueda):
+    raise ValueError("Los óptimos numérico y analítico difieren en más de un paso de búsqueda.")
+
+temperaturas_optimas = calcular_temperaturas(T1, T3, gamma, rp_optima_analitica)
+balance_optimo = calcular_balance_energetico(*temperaturas_optimas, cp)
+trabajo_maximo = calcular_trabajo_neto(T1, T3, gamma, cp, rp_optima_analitica)
+rendimiento_optimo = calcular_rendimiento(gamma, rp_optima_analitica)
+if not isclose(balance_optimo["rendimiento"], rendimiento_optimo, rel_tol=1e-9, abs_tol=1e-12):
+    raise ValueError("El balance energético no coincide con el rendimiento en el óptimo.")
+
+print("\nÓPTIMO DE TRABAJO ESPECÍFICO NETO")
+print(f"Relación de presiones óptima analítica: {rp_optima_analitica:.6f}")
+print(f"Relación de presiones óptima numérica: {rp_optima_numerica:.6f}")
+print(f"Comprobación: los óptimos coinciden dentro del paso de búsqueda ({paso_busqueda:.6f}).")
+print(f"Trabajo neto máximo analítico: {trabajo_maximo:.6f} kJ/kg")
+print(f"Trabajo neto máximo numérico: {trabajos_busqueda[indice_optimo]:.6f} kJ/kg")
+print(f"T2 en el óptimo analítico: {temperaturas_optimas[1]:.2f} K")
+print(f"T4 en el óptimo analítico: {temperaturas_optimas[3]:.2f} K")
+print(f"Rendimiento térmico en el óptimo analítico: {rendimiento_optimo * 100:.2f} %")
+
+ruta_trabajo_neto = Path(__file__).resolve().parent / "trabajo_neto_vs_rp.png"
+guardar_grafica_trabajo_neto(relaciones_busqueda, trabajos_busqueda,
+                            rp_optima_analitica, trabajo_maximo, ruta_trabajo_neto)
