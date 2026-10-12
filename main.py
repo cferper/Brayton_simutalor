@@ -3,6 +3,7 @@
 # Rendimiento térmico de un ciclo Brayton ideal
 
 from pathlib import Path
+from math import isclose, isfinite
 
 import numpy as np
 import matplotlib
@@ -14,9 +15,9 @@ import matplotlib.pyplot as plt
 
 def calcular_rendimiento(gamma, relacion_presiones):
     # Comprobamos que los datos sean válidos para el ciclo Brayton ideal.
-    if gamma <= 1:
+    if not isfinite(gamma) or gamma <= 1:
         raise ValueError("gamma debe ser mayor que 1.")
-    if relacion_presiones <= 1:
+    if not isfinite(relacion_presiones) or relacion_presiones <= 1:
         raise ValueError("La relación de presiones debe ser mayor que 1.")
 
     # Devolvemos el rendimiento como una fracción, no como un porcentaje.
@@ -31,20 +32,85 @@ def calcular_rendimientos(gamma, relaciones_presiones=(5, 10, 15, 20, 25)):
     ]
 
 
-# Datos del ciclo: gamma es el cociente entre cp y cv.
-#cp = 
-#cv = 
-#ganma # cp/cv
+def calcular_temperaturas(T1, T3, gamma, relacion_presiones):
+    # Reutilizamos las validaciones de gamma y de la relación de presiones.
+    calcular_rendimiento(gamma, relacion_presiones)
+    if not all(isfinite(T) and T > 0 for T in (T1, T3)):
+        raise ValueError("T1 y T3 deben ser temperaturas absolutas positivas y finitas.")
+
+    # Compresión 1→2 y expansión 3→4 isentrópicas, con gamma constante.
+    factor = relacion_presiones ** ((gamma - 1) / gamma)
+    T2 = T1 * factor
+    T4 = T3 / factor
+    if not all(isfinite(T) for T in (T2, T4)):
+        raise ValueError("Las temperaturas calculadas deben ser finitas.")
+    if T3 <= T2:
+        raise ValueError("T3 debe superar T2 para aportar calor y producir trabajo neto.")
+    return T1, T2, T3, T4
+
+
+def calcular_balance_energetico(T1, T2, T3, T4, cp):
+    if not isfinite(cp) or cp <= 0:
+        raise ValueError("cp debe ser positivo y finito, en J/(kg·K).")
+    if not all(isfinite(T) and T > 0 for T in (T1, T2, T3, T4)):
+        raise ValueError("Todas las temperaturas deben ser positivas y finitas.")
+    if not (T2 > T1 and T3 > T2 and T3 > T4 and T4 > T1):
+        raise ValueError("Las temperaturas deben permitir compresión, calentamiento, expansión y enfriamiento.")
+
+    # cp·ΔT da J/kg; dividimos entre 1000 para obtener kJ/kg.
+    # El trabajo del compresor se expresa como consumo positivo.
+    trabajo_compresor = cp * (T2 - T1) / 1000
+    trabajo_turbina = cp * (T3 - T4) / 1000
+    trabajo_neto = trabajo_turbina - trabajo_compresor
+    calor_aportado = cp * (T3 - T2) / 1000
+    if not all(isfinite(valor) and valor > 0 for valor in (
+        trabajo_compresor, trabajo_turbina, trabajo_neto, calor_aportado
+    )):
+        raise ValueError("Los trabajos y el calor deben ser finitos y positivos para un ciclo motor.")
+    rendimiento_balance = trabajo_neto / calor_aportado
+    if not 0 < rendimiento_balance < 1:
+        raise ValueError("El rendimiento térmico debe estar entre 0 y 1.")
+    return {
+        "trabajo_compresor": trabajo_compresor,
+        "trabajo_turbina": trabajo_turbina,
+        "trabajo_neto": trabajo_neto,
+        "calor_aportado": calor_aportado,
+        "rendimiento": rendimiento_balance,
+    }
+
+
+# Datos del ciclo: gas ideal con cp y gamma constantes; gamma = cp/cv.
 gamma = 1.4
 relacion_presiones = 10
+T1 = 288.15  # K: entrada al compresor.
+T3 = 1600  # K: entrada a la turbina.
+cp = 1005  # J/(kg·K).
 
 # Calculamos el rendimiento utilizando la función.
 rendimiento = calcular_rendimiento(gamma, relacion_presiones)
+T1, T2, T3, T4 = calcular_temperaturas(T1, T3, gamma, relacion_presiones)
+balance = calcular_balance_energetico(T1, T2, T3, T4, cp)
+
+# Comparamos los valores sin redondear, admitiendo el error numérico de cálculo.
+if not isclose(balance["rendimiento"], rendimiento, rel_tol=1e-9, abs_tol=1e-12):
+    raise ValueError("El rendimiento del balance no coincide con la fórmula del ciclo ideal.")
 
 # Mostramos el rendimiento en porcentaje, redondeado a dos decimales.
 print("SIMULADOR DEL CICLO BRAYTON")
 print("Relación de presiones:", relacion_presiones)
 print("Rendimiento térmico:", round(rendimiento * 100, 2), "%")
+print()
+for nombre, temperatura in zip(("T1", "T2", "T3", "T4"), (T1, T2, T3, T4)):
+    print(f"{nombre}: {temperatura:.2f} K")
+for etiqueta, clave in (
+    ("Trabajo específico del compresor (consumido)", "trabajo_compresor"),
+    ("Trabajo específico de la turbina (producido)", "trabajo_turbina"),
+    ("Trabajo neto", "trabajo_neto"),
+    ("Calor aportado", "calor_aportado"),
+):
+    print(f"{etiqueta}: {balance[clave]:.2f} kJ/kg")
+print(f"Rendimiento por balance energético: {balance['rendimiento'] * 100:.2f} %")
+print("Comprobación: el balance energético coincide con la fórmula original.")
 
 # Mostramos una tabla alineada con el rendimiento de cada relación de presiones.
 print()
