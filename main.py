@@ -193,18 +193,96 @@ def guardar_diagrama_ts(temperaturas, entropias, cp, ruta):
     plt.close(figura)
 
 
+def comprobar_estados_pv(temperaturas, presiones, volumenes, R, gamma):
+    # Las presiones se reciben en kPa; Pv = RT requiere Pa si R está en J/(kg·K).
+    if not all(len(valores) == 4 for valores in (temperaturas, presiones, volumenes)):
+        raise ValueError("Se requieren cuatro temperaturas, presiones y volúmenes.")
+    if not isfinite(R) or R <= 0 or not isfinite(gamma) or gamma <= 1:
+        raise ValueError("Se requieren R positivo y gamma mayor que 1, ambos finitos.")
+    if not all(isfinite(valor) and valor > 0
+               for valores in (temperaturas, presiones, volumenes) for valor in valores):
+        raise ValueError("Las temperaturas, presiones y volúmenes deben ser positivos y finitos.")
+    for estado, (T, p, v) in enumerate(zip(temperaturas, presiones, volumenes), start=1):
+        if not isclose(p * 1000 * v, R * T, rel_tol=1e-9, abs_tol=1e-12):
+            raise ValueError(f"El estado {estado} no cumple la ecuación del gas ideal.")
+    p1, p2, p3, p4 = presiones
+    v1, v2, v3, v4 = volumenes
+    if not (p2 > p1 and isclose(p2, p3, rel_tol=1e-9)
+            and isclose(p4, p1, rel_tol=1e-9)):
+        raise ValueError("Las presiones deben corresponder a las dos isóbaras del ciclo Brayton.")
+    # Usar kPa en ambos extremos no altera la comprobación de Pv^gamma constante.
+    for inicio, fin in ((0, 1), (2, 3)):
+        if not isclose(presiones[inicio] * volumenes[inicio] ** gamma,
+                       presiones[fin] * volumenes[fin] ** gamma, rel_tol=1e-9):
+            raise ValueError("Los estados no cumplen Pv^gamma constante en las isentrópicas.")
+    if not (v2 < v1 and v3 > v2 and v4 > v3 and v1 < v4):
+        raise ValueError("Los volúmenes no permiten el recorrido del ciclo motor.")
+
+
+def calcular_estados_pv(temperaturas, cp, gamma, relacion_presiones, p1):
+    calcular_rendimiento(gamma, relacion_presiones)
+    # Validamos las temperaturas, cp y la coherencia de las etapas isentrópicas.
+    calcular_entropias(*temperaturas, cp)
+    if not isfinite(p1) or p1 <= 0:
+        raise ValueError("p1 debe ser positiva y finita, en kPa.")
+    R = cp * (1 - 1 / gamma)  # J/(kg·K), pues R = cp - cv y cv = cp/gamma.
+    presiones = (p1, relacion_presiones * p1, relacion_presiones * p1, p1)
+    volumenes = tuple(R * T / (p * 1000) for T, p in zip(temperaturas, presiones))
+    comprobar_estados_pv(temperaturas, presiones, volumenes, R, gamma)
+    return R, presiones, volumenes
+
+
+def guardar_diagrama_pv(temperaturas, presiones, volumenes, R, gamma, ruta):
+    comprobar_estados_pv(temperaturas, presiones, volumenes, R, gamma)
+    p1, p2, p3, p4 = presiones
+    v1, v2, v3, v4 = volumenes
+    # Muestreamos en el sentido del ciclo: las isentrópicas son curvas, no rectas.
+    volumenes_12 = np.linspace(v1, v2, 200)
+    presiones_12 = p1 * (v1 / volumenes_12) ** gamma
+    volumenes_34 = np.linspace(v3, v4, 200)
+    presiones_34 = p3 * (v3 / volumenes_34) ** gamma
+    procesos = (
+        (volumenes_12, presiones_12, "1→2: compresión isentrópica"),
+        (np.linspace(v2, v3, 200), np.full(200, p2), "2→3: calentamiento a presión constante"),
+        (volumenes_34, presiones_34, "3→4: expansión isentrópica"),
+        (np.linspace(v4, v1, 200), np.full(200, p4), "4→1: enfriamiento a presión constante"),
+    )
+    figura, ejes = plt.subplots(figsize=(9, 6))
+    for valores_v, valores_p, etiqueta in procesos:
+        linea, = ejes.plot(valores_v, valores_p, label=etiqueta)
+        ejes.annotate("", xy=(valores_v[110], valores_p[110]),
+                      xytext=(valores_v[90], valores_p[90]),
+                      arrowprops={"arrowstyle": "->", "color": linea.get_color(), "lw": 2})
+    ejes.scatter(volumenes, presiones, color="black", zorder=5)
+    for estado, v, p in zip((1, 2, 3, 4), volumenes, presiones):
+        ejes.annotate(str(estado), (v, p), xytext=(8, 8), textcoords="offset points")
+    ejes.set_title("Diagrama P-v del ciclo Brayton ideal")
+    ejes.set_xlabel("Volumen específico [m³/kg]")
+    ejes.set_ylabel("Presión [kPa]")
+    ejes.grid(True)
+    ejes.margins(x=0.08, y=0.12)
+    ejes.legend(loc="upper right", fontsize=8)
+    figura.tight_layout()
+    figura.savefig(ruta, dpi=150)
+    plt.close(figura)
+
+
 # Datos del ciclo: gas ideal con cp y gamma constantes; gamma = cp/cv.
 gamma = 1.4
 relacion_presiones = 10
 T1 = 288.15  # K: entrada al compresor.
 T3 = 1600  # K: entrada a la turbina.
 cp = 1005  # J/(kg·K).
+p1 = 100  # kPa: presión de entrada al compresor.
 
 # Calculamos el rendimiento utilizando la función.
 rendimiento = calcular_rendimiento(gamma, relacion_presiones)
 T1, T2, T3, T4 = calcular_temperaturas(T1, T3, gamma, relacion_presiones)
 balance = calcular_balance_energetico(T1, T2, T3, T4, cp)
 s1, s2, s3, s4 = calcular_entropias(T1, T2, T3, T4, cp)
+R, presiones, volumenes = calcular_estados_pv((T1, T2, T3, T4), cp, gamma, relacion_presiones, p1)
+p1, p2, p3, p4 = presiones
+v1, v2, v3, v4 = volumenes
 
 # Comparamos los valores sin redondear, admitiendo el error numérico de cálculo.
 if not isclose(balance["rendimiento"], rendimiento, rel_tol=1e-9, abs_tol=1e-12):
@@ -232,6 +310,12 @@ for estado, entropia in zip((1, 2, 3, 4), (s1, s2, s3, s4)):
 print(f"Incremento de entropía 2->3: {s3 - s2:.6f} kJ/(kg·K)")
 print(f"Incremento de entropía 1->4: {cp / 1000 * log(T4 / T1):.6f} kJ/(kg·K)")
 print("Comprobación: ambos incrementos de entropía coinciden.")
+print(f"\nConstante específica del gas R: {R:.6f} J/(kg·K)")
+print(f"{'Estado':>6} | {'Presión [kPa]':>14} | {'Volumen específico [m³/kg]':>27}")
+print("-" * 53)
+for estado, p, v in zip((1, 2, 3, 4), presiones, volumenes):
+    print(f"{estado:>6} | {p:>14.2f} | {v:>27.6f}")
+print("Comprobación: los cuatro estados cumplen Pv = RT y las isentrópicas conservan Pv^gamma.")
 
 # Mostramos una tabla alineada con el rendimiento de cada relación de presiones.
 print()
@@ -265,6 +349,9 @@ plt.close()
 # Guardamos también el diagrama T-s junto al programa, sin abrir ventanas.
 ruta_diagrama_ts = Path(__file__).resolve().parent / "diagrama_ts_brayton.png"
 guardar_diagrama_ts((T1, T2, T3, T4), (s1, s2, s3, s4), cp, ruta_diagrama_ts)
+
+ruta_diagrama_pv = Path(__file__).resolve().parent / "diagrama_pv_brayton.png"
+guardar_diagrama_pv((T1, T2, T3, T4), presiones, volumenes, R, gamma, ruta_diagrama_pv)
 
 # Estudio independiente del óptimo: conservamos los estados del ciclo con rp = 10.
 rp_optima_analitica = calcular_relacion_optima(T1, T3, gamma)
