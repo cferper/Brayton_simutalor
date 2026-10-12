@@ -3,7 +3,7 @@
 # Rendimiento térmico de un ciclo Brayton ideal
 
 from pathlib import Path
-from math import isclose, isfinite
+from math import isclose, isfinite, log
 
 import numpy as np
 import matplotlib
@@ -79,6 +79,73 @@ def calcular_balance_energetico(T1, T2, T3, T4, cp):
     }
 
 
+def calcular_entropias(T1, T2, T3, T4, cp):
+    # Aplicamos las mismas validaciones físicas que al balance energético.
+    calcular_balance_energetico(T1, T2, T3, T4, cp)
+    cp_kj = cp / 1000  # kJ/(kg·K).
+    incremento_23 = cp_kj * log(T3 / T2)
+    incremento_14 = cp_kj * log(T4 / T1)
+    # Comparamos sin redondear: la tolerancia es menor que la precisión impresa.
+    if not isclose(incremento_23, incremento_14, rel_tol=1e-9, abs_tol=1e-12):
+        raise ValueError("Los incrementos de entropía 2→3 y 1→4 no coinciden: el ciclo no es isentrópico.")
+    s1 = 0.0  # Referencia arbitraria de entropía específica relativa.
+    s2 = s1  # Compresión isentrópica.
+    s3 = s2 + incremento_23
+    s4 = s3  # Expansión isentrópica.
+    return s1, s2, s3, s4
+
+
+def guardar_diagrama_ts(temperaturas, entropias, cp, ruta):
+    T1, T2, T3, T4 = temperaturas
+    # Validamos también las entradas cuando se llama a esta función por separado.
+    esperadas = calcular_entropias(T1, T2, T3, T4, cp)
+    if len(entropias) != 4 or not all(
+        isclose(s, esperado, rel_tol=1e-9, abs_tol=1e-12)
+        for s, esperado in zip(entropias, esperadas)
+    ):
+        raise ValueError("Las entropías deben corresponder al ciclo con s1 = 0.")
+    s1, s2, s3, s4 = entropias
+    cp_kj = cp / 1000
+
+    # En una isóbara, s(T) = s_inicial + cp·ln(T/T_inicial).
+    # Muestreamos las curvas en el sentido de recorrido del ciclo.
+    temperaturas_23 = np.linspace(T2, T3, 100)
+    entropias_23 = s2 + cp_kj * np.log(temperaturas_23 / T2)
+    temperaturas_41 = np.linspace(T4, T1, 100)
+    entropias_41 = s4 + cp_kj * np.log(temperaturas_41 / T4)
+    procesos = (
+        ([s1, s2], [T1, T2], "1→2: compresión isentrópica"),
+        (entropias_23, temperaturas_23, "2→3: calentamiento a presión constante"),
+        ([s3, s4], [T3, T4], "3→4: expansión isentrópica"),
+        (entropias_41, temperaturas_41, "4→1: enfriamiento a presión constante"),
+    )
+    figura, ejes = plt.subplots(figsize=(9, 6))
+    for valores_s, valores_T, etiqueta in procesos:
+        linea, = ejes.plot(valores_s, valores_T, label=etiqueta)
+        # Una flecha sobre cada proceso indica el sentido del ciclo.
+        if len(valores_s) == 2:
+            inicio = (valores_s[0], valores_T[0] + 0.4 * (valores_T[1] - valores_T[0]))
+            fin = (valores_s[1], valores_T[0] + 0.6 * (valores_T[1] - valores_T[0]))
+        else:
+            inicio = (valores_s[40], valores_T[40])
+            fin = (valores_s[60], valores_T[60])
+        ejes.annotate("", xy=fin, xytext=inicio,
+                      arrowprops={"arrowstyle": "->", "color": linea.get_color(), "lw": 2})
+
+    ejes.scatter(entropias, temperaturas, color="black", zorder=5)
+    for estado, s, T in zip((1, 2, 3, 4), entropias, temperaturas):
+        ejes.annotate(str(estado), (s, T), xytext=(8, 8), textcoords="offset points")
+    ejes.set_title("Diagrama T-s del ciclo Brayton ideal")
+    ejes.set_xlabel("Entropía específica relativa [kJ/(kg·K)]")
+    ejes.set_ylabel("Temperatura [K]")
+    ejes.grid(True)
+    ejes.margins(x=0.12, y=0.12)
+    ejes.legend(loc="upper left", fontsize=8)
+    figura.tight_layout()
+    figura.savefig(ruta, dpi=150)
+    plt.close(figura)
+
+
 # Datos del ciclo: gas ideal con cp y gamma constantes; gamma = cp/cv.
 gamma = 1.4
 relacion_presiones = 10
@@ -90,6 +157,7 @@ cp = 1005  # J/(kg·K).
 rendimiento = calcular_rendimiento(gamma, relacion_presiones)
 T1, T2, T3, T4 = calcular_temperaturas(T1, T3, gamma, relacion_presiones)
 balance = calcular_balance_energetico(T1, T2, T3, T4, cp)
+s1, s2, s3, s4 = calcular_entropias(T1, T2, T3, T4, cp)
 
 # Comparamos los valores sin redondear, admitiendo el error numérico de cálculo.
 if not isclose(balance["rendimiento"], rendimiento, rel_tol=1e-9, abs_tol=1e-12):
@@ -111,6 +179,12 @@ for etiqueta, clave in (
     print(f"{etiqueta}: {balance[clave]:.2f} kJ/kg")
 print(f"Rendimiento por balance energético: {balance['rendimiento'] * 100:.2f} %")
 print("Comprobación: el balance energético coincide con la fórmula original.")
+print()
+for estado, entropia in zip((1, 2, 3, 4), (s1, s2, s3, s4)):
+    print(f"s{estado}: {entropia:.6f} kJ/(kg·K)")
+print(f"Incremento de entropía 2->3: {s3 - s2:.6f} kJ/(kg·K)")
+print(f"Incremento de entropía 1->4: {cp / 1000 * log(T4 / T1):.6f} kJ/(kg·K)")
+print("Comprobación: ambos incrementos de entropía coinciden.")
 
 # Mostramos una tabla alineada con el rendimiento de cada relación de presiones.
 print()
@@ -141,3 +215,6 @@ ruta_grafica = Path(__file__).resolve().parent / "rendimiento_brayton.png"
 plt.savefig(ruta_grafica)
 plt.close()
 
+# Guardamos también el diagrama T-s junto al programa, sin abrir ventanas.
+ruta_diagrama_ts = Path(__file__).resolve().parent / "diagrama_ts_brayton.png"
+guardar_diagrama_ts((T1, T2, T3, T4), (s1, s2, s3, s4), cp, ruta_diagrama_ts)
