@@ -10,3 +10,6 @@ __pycache__/
 
 # Archivos temporales
 *.tmp
+
+# Informes HTML generados en cada ejecución
+outputs/

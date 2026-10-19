@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Brayton Simulator — Configuración del ciclo</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+<main>
+  <header>
+    <p class="eyebrow">Simulación termodinámica · Interfaz local</p>
+    <h1>Brayton Simulator — Configuración del ciclo</h1>
+    <p>Modelo educativo de gas ideal con cp y gamma constantes. Introduce los parámetros y genera un informe con los ciclos ideal y no ideal y sus seis gráficas.</p>
+  </header>
+  {% if errores %}
+  <aside class="error-summary" role="alert">
+    <h2>{{ 'Error interno' if errores.get('servidor') else 'No se ha completado la simulación' }}</h2>
+    {% if errores.get('modelo') %}<p>{{ errores['modelo'] }}</p>
+    {% elif errores.get('servidor') %}<p>{{ errores['servidor'] }}</p>
+    {% else %}<p>Revisa los campos señalados. No se ha generado ningún informe.</p>{% endif %}
+  </aside>
+  {% endif %}
+  <form method="post" action="{{ url_for('index') }}">
+    {% for titulo, nombres in grupos %}
+    <fieldset>
+      <legend>{{ titulo }}</legend>
+      <div class="fields">
+      {% for nombre in nombres %}
+        {% set etiqueta, unidad, ayuda, minimo, maximo = campos[nombre] %}
+        <div class="field">
+          <label for="{{ nombre }}">{{ etiqueta }} <span class="unit">[{{ unidad }}]</span></label>
+          <input type="number" step="any" required id="{{ nombre }}" name="{{ nombre }}"
+                 min="{{ minimo }}" {% if maximo %}max="{{ maximo }}"{% endif %}
+                 value="{{ valores.get(nombre, '') }}"
+                 aria-describedby="{{ nombre }}-ayuda{% if errores.get(nombre) %} {{ nombre }}-error{% endif %}"
+                 {% if errores.get(nombre) %}aria-invalid="true"{% endif %}>
+          <small id="{{ nombre }}-ayuda">{{ ayuda }}</small>
+          {% if errores.get(nombre) %}
+          <p class="field-error" id="{{ nombre }}-error">{{ errores[nombre] }} Valor recibido: «{{ valores.get(nombre, '') }}».</p>
+          {% endif %}
+        </div>
+      {% endfor %}
+      </div>
+    </fieldset>
+    {% endfor %}
+    <div class="actions">
+      <button type="submit">Ejecutar simulación</button>
+      <a class="reset" href="{{ url_for('index') }}">Restablecer valores</a>
+    </div>
+  </form>
+  <footer>
+    <p>Se mantienen los estudios actuales: trabajo ideal entre rp = 1.01 y 50 y comparación entre rp = 2 y 30. Si un punto no es admisible, el modelo rechaza la ejecución completa.</p>
+    <p>Los informes de terminal y navegador comparten el historial de cuatro ejecuciones completas. Esta herramienta no es un modelo de motor real de alta fidelidad.</p>
+  </footer>
+</main>
+</body>
+</html>

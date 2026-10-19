@@ -1,8 +1,11 @@
 
-# Mi primer programa de ingeniería aeroespacial
-# Rendimiento térmico de un ciclo Brayton ideal
+# Simulador educativo Brayton ideal y no ideal con informe HTML autocontenido.
 
 from pathlib import Path
+from datetime import datetime
+from io import BytesIO
+
+from reporting import crear_informe_html, guardar_informe_html, obtener_version_git
 from math import isclose, isfinite, log
 
 import numpy as np
@@ -11,6 +14,17 @@ import matplotlib
 # Agg permite guardar la gráfica sin abrir ventanas ni utilizar Tkinter.
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+
+
+PARAMETROS_PREDETERMINADOS = {
+    "T1": 288.15, "T3": 1600, "p1": 100, "relacion_presiones": 10,
+    "cp": 1005, "gamma": 1.4, "eta_c": 0.85, "eta_t": 0.90,
+    "perdida_presion_combustor": 0.05,  # Fracción: 5 %.
+}
+
+
+class ErrorModelo(ValueError):
+    """El caso o alguno de los estudios fijos no es admisible para el modelo."""
 
 
 def calcular_rendimiento(gamma, relacion_presiones):
@@ -157,17 +171,20 @@ def comprobar_comparacion_ciclos(ideal, noideal, eta_c, eta_t, perdida_presion_c
 
 
 def guardar_comparaciones_ciclos(T1, T3, gamma, cp, p1, eta_c, eta_t,
-                                perdida_presion_combustor, carpeta):
+                                perdida_presion_combustor, imagenes):
     relaciones = np.linspace(2, 30, 300)
     ciclos_ideales = []
     ciclos_noideales = []
-    for relacion in relaciones:
-        ideal = calcular_ciclo_ideal(T1, T3, gamma, cp, relacion, p1)
-        noideal = calcular_ciclo_noideal(T1, T3, gamma, cp, relacion, p1,
-                                       eta_c, eta_t, perdida_presion_combustor)
-        comprobar_comparacion_ciclos(ideal, noideal, eta_c, eta_t, perdida_presion_combustor)
-        ciclos_ideales.append(ideal)
-        ciclos_noideales.append(noideal)
+    try:
+        for relacion in relaciones:
+            ideal = calcular_ciclo_ideal(T1, T3, gamma, cp, relacion, p1)
+            noideal = calcular_ciclo_noideal(T1, T3, gamma, cp, relacion, p1,
+                                           eta_c, eta_t, perdida_presion_combustor)
+            comprobar_comparacion_ciclos(ideal, noideal, eta_c, eta_t, perdida_presion_combustor)
+            ciclos_ideales.append(ideal)
+            ciclos_noideales.append(noideal)
+    except (ValueError, OverflowError, ZeroDivisionError) as error:
+        raise ErrorModelo(f"El barrido comparativo fijo entre rp=2 y 30 no es admisible: {error}") from error
 
     # Los dos gráficos comparten el barrido, pero muestran magnitudes distintas.
     for clave, factor, eje_y, titulo, archivo in (
@@ -185,7 +202,8 @@ def guardar_comparaciones_ciclos(T1, T3, gamma, cp, p1, eta_c, eta_t,
         ejes.grid(True)
         ejes.legend()
         figura.tight_layout()
-        figura.savefig(carpeta / archivo, dpi=150)
+        imagenes[archivo] = BytesIO()
+        figura.savefig(imagenes[archivo], format="png", dpi=150)
         plt.close(figura)
 
 
@@ -232,7 +250,7 @@ def guardar_grafica_trabajo_neto(relaciones, trabajos, rp_optima, trabajo_maximo
     ejes.grid(True)
     ejes.legend(loc="lower right")
     figura.tight_layout()
-    figura.savefig(ruta, dpi=150)
+    figura.savefig(ruta, format="png", dpi=150)
     plt.close(figura)
 
 
@@ -299,7 +317,7 @@ def guardar_diagrama_ts(temperaturas, entropias, cp, ruta):
     ejes.margins(x=0.12, y=0.12)
     ejes.legend(loc="upper left", fontsize=8)
     figura.tight_layout()
-    figura.savefig(ruta, dpi=150)
+    figura.savefig(ruta, format="png", dpi=150)
     plt.close(figura)
 
 
@@ -373,166 +391,133 @@ def guardar_diagrama_pv(temperaturas, presiones, volumenes, R, gamma, ruta):
     ejes.margins(x=0.08, y=0.12)
     ejes.legend(loc="upper right", fontsize=8)
     figura.tight_layout()
-    figura.savefig(ruta, dpi=150)
+    figura.savefig(ruta, format="png", dpi=150)
     plt.close(figura)
 
 
-# Datos del ciclo: gas ideal con cp y gamma constantes; gamma = cp/cv.
-gamma = 1.4
-relacion_presiones = 10
-T1 = 288.15  # K: entrada al compresor.
-T3 = 1600  # K: entrada a la turbina.
-cp = 1005  # J/(kg·K).
-p1 = 100  # kPa: presión de entrada al compresor.
-eta_c = 0.85  # Eficiencia isentrópica del compresor.
-eta_t = 0.90  # Eficiencia isentrópica de la turbina.
-perdida_presion_combustor = 0.05  # Pérdida relativa: 5 % de p2.
+def guardar_grafica_rendimiento(gamma, ruta):
+    relaciones_presiones = np.linspace(2, 30, 100)
+    rendimientos_porcentaje = np.array([
+        calcular_rendimiento(gamma, relacion) * 100
+        for relacion in relaciones_presiones
+    ])
+    plt.figure(figsize=(9, 6))
+    plt.plot(relaciones_presiones, rendimientos_porcentaje)
+    plt.title(f"Rendimiento térmico del ciclo Brayton ideal (γ = {gamma})")
+    plt.xlabel("Relación de presiones p₂/p₁ (adimensional)")
+    plt.ylabel("Rendimiento térmico (%)")
+    plt.grid(True)
+    plt.tight_layout()
+    plt.savefig(ruta, format="png", dpi=150)
+    plt.close()
 
-# Calculamos el rendimiento utilizando la función.
-rendimiento = calcular_rendimiento(gamma, relacion_presiones)
-T1, T2, T3, T4 = calcular_temperaturas(T1, T3, gamma, relacion_presiones)
-balance = calcular_balance_energetico(T1, T2, T3, T4, cp)
-s1, s2, s3, s4 = calcular_entropias(T1, T2, T3, T4, cp)
-R, presiones, volumenes = calcular_estados_pv((T1, T2, T3, T4), cp, gamma, relacion_presiones, p1)
-p1, p2, p3, p4 = presiones
-v1, v2, v3, v4 = volumenes
 
-# Comparamos los valores sin redondear, admitiendo el error numérico de cálculo.
-if not isclose(balance["rendimiento"], rendimiento, rel_tol=1e-9, abs_tol=1e-12):
-    raise ValueError("El rendimiento del balance no coincide con la fórmula del ciclo ideal.")
+def main(carpeta_salida=None, parametros=None):
+    fecha = datetime.now().astimezone()
+    version = obtener_version_git(Path(__file__).resolve().parent)
+    # Copia por ejecución: el formulario no modifica los valores predeterminados.
+    configuracion = PARAMETROS_PREDETERMINADOS.copy()
+    if parametros is not None:
+        if any(clave not in configuracion for clave in parametros):
+            raise ValueError("La configuración contiene parámetros desconocidos.")
+        configuracion.update(parametros)
+    parametros = configuracion
+    T1 = parametros["T1"]
+    T3 = parametros["T3"]
+    p1 = parametros["p1"]
+    relacion_presiones = parametros["relacion_presiones"]
+    cp = parametros["cp"]
+    gamma = parametros["gamma"]
+    eta_c = parametros["eta_c"]
+    eta_t = parametros["eta_t"]
+    perdida_presion_combustor = parametros["perdida_presion_combustor"]
+    comprobaciones = []
+    try:
+        rendimiento = calcular_rendimiento(gamma, relacion_presiones)
+        T1, T2, T3, T4 = calcular_temperaturas(T1, T3, gamma, relacion_presiones)
+        balance = calcular_balance_energetico(T1, T2, T3, T4, cp)
+        s1, s2, s3, s4 = calcular_entropias(T1, T2, T3, T4, cp)
+        R, presiones, volumenes = calcular_estados_pv((T1, T2, T3, T4), cp, gamma, relacion_presiones, p1)
+        comprobaciones.append("Entradas y estados ideales positivos y finitos; balance de ciclo motor con calor y trabajo neto positivos y rendimiento entre 0 y 1.")
+        comprobaciones.append("Incrementos de entropía 2→3 y 1→4 coincidentes, con rel_tol=1e-9 y abs_tol=1e-12.")
+        comprobaciones.append("Cuatro estados ideales coherentes con Pv=RT, dos isóbaras y Pv^gamma constante en las isentrópicas; recorrido motor de volúmenes.")
+        if not isclose(balance["rendimiento"], rendimiento, rel_tol=1e-9, abs_tol=1e-12):
+            raise ValueError("El rendimiento del balance no coincide con la fórmula del ciclo ideal.")
+        comprobaciones.append("Rendimiento ideal por fórmula y por balance coincidentes, con rel_tol=1e-9 y abs_tol=1e-12.")
 
-# Mostramos el rendimiento en porcentaje, redondeado a dos decimales.
-print("SIMULADOR DEL CICLO BRAYTON")
-print("Relación de presiones:", relacion_presiones)
-print("Rendimiento térmico:", round(rendimiento * 100, 2), "%")
-print()
-for nombre, temperatura in zip(("T1", "T2", "T3", "T4"), (T1, T2, T3, T4)):
-    print(f"{nombre}: {temperatura:.2f} K")
-for etiqueta, clave in (
-    ("Trabajo específico del compresor (consumido)", "trabajo_compresor"),
-    ("Trabajo específico de la turbina (producido)", "trabajo_turbina"),
-    ("Trabajo neto", "trabajo_neto"),
-    ("Calor aportado", "calor_aportado"),
-):
-    print(f"{etiqueta}: {balance[clave]:.2f} kJ/kg")
-print(f"Rendimiento por balance energético: {balance['rendimiento'] * 100:.2f} %")
-print("Comprobación: el balance energético coincide con la fórmula original.")
-print()
-for estado, entropia in zip((1, 2, 3, 4), (s1, s2, s3, s4)):
-    print(f"s{estado}: {entropia:.6f} kJ/(kg·K)")
-print(f"Incremento de entropía 2->3: {s3 - s2:.6f} kJ/(kg·K)")
-print(f"Incremento de entropía 1->4: {cp / 1000 * log(T4 / T1):.6f} kJ/(kg·K)")
-print("Comprobación: ambos incrementos de entropía coinciden.")
-print(f"\nConstante específica del gas R: {R:.6f} J/(kg·K)")
-print(f"{'Estado':>6} | {'Presión [kPa]':>14} | {'Volumen específico [m³/kg]':>27}")
-print("-" * 53)
-for estado, p, v in zip((1, 2, 3, 4), presiones, volumenes):
-    print(f"{estado:>6} | {p:>14.2f} | {v:>27.6f}")
-print("Comprobación: los cuatro estados cumplen Pv = RT y las isentrópicas conservan Pv^gamma.")
+        # Estudio independiente del óptimo: conserva el ciclo de referencia con rp = 10.
+        rp_optima_analitica = calcular_relacion_optima(T1, T3, gamma)
+        relaciones_busqueda, trabajos_busqueda, indice_optimo = buscar_optimo_numerico(T1, T3, gamma, cp)
+        rp_optima_numerica = float(relaciones_busqueda[indice_optimo])
+        paso_busqueda = float(relaciones_busqueda[1] - relaciones_busqueda[0])
+        if not relaciones_busqueda[0] <= rp_optima_analitica <= relaciones_busqueda[-1]:
+            raise ValueError("El óptimo analítico queda fuera del intervalo de búsqueda [1.01, 50].")
+        if not isclose(rp_optima_numerica, rp_optima_analitica, rel_tol=0, abs_tol=paso_busqueda):
+            raise ValueError("Los óptimos numérico y analítico difieren en más de un paso de búsqueda.")
+        comprobaciones.append("Óptimo analítico dentro de [1.01, 50] y coincidente con el numérico dentro de un paso de malla.")
+        temperaturas_optimas = calcular_temperaturas(T1, T3, gamma, rp_optima_analitica)
+        balance_optimo = calcular_balance_energetico(*temperaturas_optimas, cp)
+        trabajo_maximo = calcular_trabajo_neto(T1, T3, gamma, cp, rp_optima_analitica)
+        rendimiento_optimo = calcular_rendimiento(gamma, rp_optima_analitica)
+        if not isclose(balance_optimo["rendimiento"], rendimiento_optimo, rel_tol=1e-9, abs_tol=1e-12):
+            raise ValueError("El balance energético no coincide con el rendimiento en el óptimo.")
+        comprobaciones.append("Rendimiento por balance y por fórmula coincidentes también en el óptimo ideal.")
 
-# Mostramos una tabla alineada con el rendimiento de cada relación de presiones.
-print()
-print(f"{'Relación de presiones':>21} | {'Rendimiento térmico (%)':>23}")
-print("-" * 47)
-for relacion, rendimiento_porcentaje in calcular_rendimientos(gamma):
-    print(f"{relacion:>21} | {rendimiento_porcentaje:>23.2f}")
+        ciclo_ideal = calcular_ciclo_ideal(T1, T3, gamma, cp, relacion_presiones, p1)
+        ciclo_noideal = calcular_ciclo_noideal(T1, T3, gamma, cp, relacion_presiones, p1,
+                                             eta_c, eta_t, perdida_presion_combustor)
+        comprobar_comparacion_ciclos(ciclo_ideal, ciclo_noideal, eta_c, eta_t, perdida_presion_combustor)
+        comprobaciones.append("Eficiencias, pérdida de presión y estados no ideales admisibles; comparación de temperaturas de referencia, trabajos y rendimiento según las pérdidas introducidas.")
+        ciclo_limite_ideal = calcular_ciclo_noideal(T1, T3, gamma, cp, relacion_presiones, p1, 1, 1, 0)
+        comprobar_comparacion_ciclos(ciclo_ideal, ciclo_limite_ideal, 1, 1, 0)
+        comprobaciones.append("Límite reversible: temperaturas y balances recuperan el ideal con eta_c=eta_t=1 y pérdida=0, dentro de las tolerancias establecidas.")
+    except (ValueError, OverflowError, ZeroDivisionError) as error:
+        raise ErrorModelo(f"El caso o los estudios fijos del modelo no son admisibles: {error}") from error
 
-# Generamos 100 relaciones de presiones, incluyendo los extremos 2 y 30.
-relaciones_presiones = np.linspace(2, 30, 100)
+    # Cada buffer contiene una gráfica nueva; no se leen los PNG históricos.
+    imagenes = {
+        nombre: BytesIO() for nombre in (
+            "rendimiento_brayton.png", "diagrama_ts_brayton.png",
+            "diagrama_pv_brayton.png", "trabajo_neto_vs_rp.png",
+        )
+    }
+    try:
+        guardar_grafica_rendimiento(gamma, imagenes["rendimiento_brayton.png"])
+        guardar_diagrama_ts((T1, T2, T3, T4), (s1, s2, s3, s4), cp, imagenes["diagrama_ts_brayton.png"])
+        guardar_diagrama_pv((T1, T2, T3, T4), presiones, volumenes, R, gamma, imagenes["diagrama_pv_brayton.png"])
+        guardar_grafica_trabajo_neto(relaciones_busqueda, trabajos_busqueda,
+                                    rp_optima_analitica, trabajo_maximo, imagenes["trabajo_neto_vs_rp.png"])
+        guardar_comparaciones_ciclos(T1, T3, gamma, cp, p1, eta_c, eta_t,
+                                    perdida_presion_combustor, imagenes)
+        comprobaciones.append("Los 300 pares de ciclos del barrido comparativo entre rp=2 y 30 superan las validaciones de ambos modelos y su comparación.")
+        detalles_ideal = {
+            "R": R, "volumenes": volumenes, "entropias": (s1, s2, s3, s4),
+            "rendimiento_formula": rendimiento,
+            "incremento_23": s3 - s2, "incremento_14": cp / 1000 * log(T4 / T1),
+        }
+        optimo = {
+            "rp_analitica": rp_optima_analitica, "rp_numerica": rp_optima_numerica,
+            "paso": paso_busqueda, "trabajo_analitico": trabajo_maximo,
+            "trabajo_numerico": float(trabajos_busqueda[indice_optimo]),
+            "temperaturas": temperaturas_optimas, "rendimiento": rendimiento_optimo,
+        }
+        contenido = crear_informe_html(
+            parametros, ciclo_ideal, ciclo_noideal, detalles_ideal, optimo,
+            calcular_rendimientos(gamma), comprobaciones,
+            {nombre: buffer.getvalue() for nombre, buffer in imagenes.items()}, fecha, version,
+        )
+    finally:
+        for buffer in imagenes.values():
+            buffer.close()
+        plt.close("all")
+    if carpeta_salida is None:
+        carpeta_salida = Path(__file__).resolve().parent / "outputs"
+    ruta_informe = guardar_informe_html(contenido, carpeta_salida, fecha)
+    print("Ejecución completada.")
+    print(f"Informe HTML: {ruta_informe.resolve()}")
+    print(f"Gráficas incorporadas: {len(imagenes)}")
+    return ruta_informe
 
-# Calculamos cada rendimiento con la función y lo convertimos a porcentaje.
-rendimientos_porcentaje = np.array([
-    calcular_rendimiento(gamma, relacion) * 100
-    for relacion in relaciones_presiones
-])
 
-# Representamos la relación de presiones (sin unidades) y el rendimiento (%).
-plt.figure()
-plt.plot(relaciones_presiones, rendimientos_porcentaje)
-plt.title(f"Rendimiento térmico del ciclo Brayton ideal (γ = {gamma})")
-plt.xlabel("Relación de presiones p₂/p₁ (adimensional)")
-plt.ylabel("Rendimiento térmico (%)")
-plt.grid(True)
-plt.tight_layout()
-# Guardamos la gráfica junto a este archivo, aunque se ejecute desde otra carpeta.
-ruta_grafica = Path(__file__).resolve().parent / "rendimiento_brayton.png"
-plt.savefig(ruta_grafica)
-plt.close()
-
-# Guardamos también el diagrama T-s junto al programa, sin abrir ventanas.
-ruta_diagrama_ts = Path(__file__).resolve().parent / "diagrama_ts_brayton.png"
-guardar_diagrama_ts((T1, T2, T3, T4), (s1, s2, s3, s4), cp, ruta_diagrama_ts)
-
-ruta_diagrama_pv = Path(__file__).resolve().parent / "diagrama_pv_brayton.png"
-guardar_diagrama_pv((T1, T2, T3, T4), presiones, volumenes, R, gamma, ruta_diagrama_pv)
-
-# Estudio independiente del óptimo: conservamos los estados del ciclo con rp = 10.
-rp_optima_analitica = calcular_relacion_optima(T1, T3, gamma)
-relaciones_busqueda, trabajos_busqueda, indice_optimo = buscar_optimo_numerico(T1, T3, gamma, cp)
-rp_optima_numerica = float(relaciones_busqueda[indice_optimo])
-paso_busqueda = float(relaciones_busqueda[1] - relaciones_busqueda[0])
-
-# Solo podemos verificar el máximo analítico si está dentro del intervalo barrido.
-if not relaciones_busqueda[0] <= rp_optima_analitica <= relaciones_busqueda[-1]:
-    raise ValueError("El óptimo analítico queda fuera del intervalo de búsqueda [1.01, 50].")
-if not isclose(rp_optima_numerica, rp_optima_analitica, rel_tol=0, abs_tol=paso_busqueda):
-    raise ValueError("Los óptimos numérico y analítico difieren en más de un paso de búsqueda.")
-
-temperaturas_optimas = calcular_temperaturas(T1, T3, gamma, rp_optima_analitica)
-balance_optimo = calcular_balance_energetico(*temperaturas_optimas, cp)
-trabajo_maximo = calcular_trabajo_neto(T1, T3, gamma, cp, rp_optima_analitica)
-rendimiento_optimo = calcular_rendimiento(gamma, rp_optima_analitica)
-if not isclose(balance_optimo["rendimiento"], rendimiento_optimo, rel_tol=1e-9, abs_tol=1e-12):
-    raise ValueError("El balance energético no coincide con el rendimiento en el óptimo.")
-
-print("\nÓPTIMO DE TRABAJO ESPECÍFICO NETO")
-print(f"Relación de presiones óptima analítica: {rp_optima_analitica:.6f}")
-print(f"Relación de presiones óptima numérica: {rp_optima_numerica:.6f}")
-print(f"Comprobación: los óptimos coinciden dentro del paso de búsqueda ({paso_busqueda:.6f}).")
-print(f"Trabajo neto máximo analítico: {trabajo_maximo:.6f} kJ/kg")
-print(f"Trabajo neto máximo numérico: {trabajos_busqueda[indice_optimo]:.6f} kJ/kg")
-print(f"T2 en el óptimo analítico: {temperaturas_optimas[1]:.2f} K")
-print(f"T4 en el óptimo analítico: {temperaturas_optimas[3]:.2f} K")
-print(f"Rendimiento térmico en el óptimo analítico: {rendimiento_optimo * 100:.2f} %")
-
-ruta_trabajo_neto = Path(__file__).resolve().parent / "trabajo_neto_vs_rp.png"
-guardar_grafica_trabajo_neto(relaciones_busqueda, trabajos_busqueda,
-                            rp_optima_analitica, trabajo_maximo, ruta_trabajo_neto)
-
-# El modelo no ideal utiliza variables separadas para conservar todos los estados ideales.
-ciclo_ideal = calcular_ciclo_ideal(T1, T3, gamma, cp, relacion_presiones, p1)
-ciclo_noideal = calcular_ciclo_noideal(T1, T3, gamma, cp, relacion_presiones, p1,
-                                     eta_c, eta_t, perdida_presion_combustor)
-comprobar_comparacion_ciclos(ciclo_ideal, ciclo_noideal, eta_c, eta_t, perdida_presion_combustor)
-ciclo_limite_ideal = calcular_ciclo_noideal(T1, T3, gamma, cp, relacion_presiones, p1, 1, 1, 0)
-comprobar_comparacion_ciclos(ciclo_ideal, ciclo_limite_ideal, 1, 1, 0)
-
-print("\nCOMPARACIÓN DEL CICLO IDEAL Y NO IDEAL")
-print(f"eta_c = {eta_c:.2f}; eta_t = {eta_t:.2f}; pérdida de presión = {perdida_presion_combustor * 100:.1f} %")
-print("T2s y T4s: referencias isentrópicas a las presiones de cada modelo.")
-print(f"{'Magnitud':<36} | {'Ideal':>12} | {'No ideal':>12}")
-print("-" * 66)
-for nombre, valor_ideal, valor_real in (
-    ("T2s [K]", ciclo_ideal["T2s"], ciclo_noideal["T2s"]),
-    ("T2 [K]", ciclo_ideal["temperaturas"][1], ciclo_noideal["temperaturas"][1]),
-    ("T4s [K]", ciclo_ideal["T4s"], ciclo_noideal["T4s"]),
-    ("T4 [K]", ciclo_ideal["temperaturas"][3], ciclo_noideal["temperaturas"][3]),
-):
-    print(f"{nombre:<36} | {valor_ideal:>12.2f} | {valor_real:>12.2f}")
-for estado, (p_ideal, p_real) in enumerate(zip(ciclo_ideal["presiones"], ciclo_noideal["presiones"]), start=1):
-    print(f"{f'p{estado} [kPa]':<36} | {p_ideal:>12.2f} | {p_real:>12.2f}")
-for etiqueta, clave, factor in (
-    ("Trabajo compresor [kJ/kg]", "trabajo_compresor", 1),
-    ("Trabajo turbina [kJ/kg]", "trabajo_turbina", 1),
-    ("Trabajo neto [kJ/kg]", "trabajo_neto", 1),
-    ("Calor aportado [kJ/kg]", "calor_aportado", 1),
-    ("Rendimiento térmico [%]", "rendimiento", 100),
-    ("Back work ratio [-]", "back_work_ratio", 1),
-):
-    print(f"{etiqueta:<36} | {ciclo_ideal[clave] * factor:>12.4f} | {ciclo_noideal[clave] * factor:>12.4f}")
-print("Comprobaciones correctas: T2 > T2s, T4 > T4s, mayor consumo del compresor,")
-print("menor trabajo de la turbina y menor rendimiento para los parámetros actuales.")
-print("El modelo no ideal reproduce el ideal con eta_c = eta_t = 1 y pérdida = 0.")
-
-guardar_comparaciones_ciclos(T1, T3, gamma, cp, p1, eta_c, eta_t,
-                            perdida_presion_combustor, Path(__file__).resolve().parent)
+if __name__ == "__main__":
+    main()

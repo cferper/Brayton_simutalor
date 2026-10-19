@@ -2,7 +2,7 @@
 
 ## Overview
 
-An educational Python simulator for studying gas turbine thermodynamics through ideal and simplified non-ideal Brayton cycles. It calculates cycle states, energy balances and pressure-ratio trends, and saves thermodynamic diagrams for inspection.
+An educational Python simulator for studying gas turbine thermodynamics through ideal and simplified non-ideal Brayton cycles. It calculates cycle states, energy balances and pressure-ratio trends, and creates a self-contained HTML report for each execution.
 
 ## Objectives
 
@@ -20,10 +20,13 @@ An educational Python simulator for studying gas turbine thermodynamics through 
 - Ideal T-s and P-v diagrams with numbered states, curved thermodynamic processes and direction arrows.
 - Analytical ideal-cycle net-work optimization, checked against a NumPy search over 100,001 pressure ratios from 1.01 to 50.
 - A separate non-ideal model with compressor and turbine isentropic efficiencies and combustor pressure loss.
-- Terminal comparison of ideal and non-ideal temperatures, pressures, energy balances, efficiencies and back work ratios.
+- HTML tables comparing ideal and non-ideal temperatures, pressures, energy balances, efficiencies and back work ratios.
 - Efficiency and net-work comparisons over compressor pressure ratios from 2 to 30.
 - Physical input validation and runtime consistency checks, including recovery of the ideal cycle when both component efficiencies are 1 and pressure loss is zero.
-- Six PNG plots saved beside `main.py` using Matplotlib's `Agg` backend, without opening windows.
+- Six fresh Matplotlib PNG plots embedded as Base64 in a single offline HTML report, using the Agg backend.
+- Four most recent completed reports retained in `outputs/`; historical PNGs and unrelated files are preserved.
+- Brief terminal summary with the report path and number of embedded plots.
+- Optional offline local Flask form for all nine inputs, with server-side validation and the same reports/history as the terminal mode.
 
 ## Thermodynamic model
 
@@ -136,6 +139,8 @@ The ideal net-work optimum is **20.085256** analytically and **20.085236** numer
 
 ## Generated plots
 
+The images below are historical reference previews. New executions embed all six newly generated plots directly in their HTML report and do not overwrite these PNG files.
+
 ![Ideal thermal efficiency](rendimiento_brayton.png)
 
 Ideal thermal efficiency versus pressure ratio from 2 to 30.
@@ -165,6 +170,16 @@ Specific net-work comparison over the same pressure-ratio range.
 ```text
 Brayton_Simulator/
 ├── main.py
+├── reporting.py
+├── web_app.py
+├── templates/index.html
+├── static/style.css
+├── tests/test_reporting.py
+├── tests/test_web_app.py
+├── AGENTS.md
+├── CODE_WALKTHROUGH.md
+├── docs/milestones/
+├── outputs/                    # generated HTML reports, ignored by Git
 ├── requirements.txt
 ├── README.md
 ├── .gitignore
@@ -210,13 +225,47 @@ Alternatively, on Windows:
 .\.venv\Scripts\python.exe main.py
 ```
 
-The program prints cycle results and consistency checks, then saves or overwrites the six PNG files beside `main.py`. It does not open plot windows. To explore other cases, edit the parameter assignments in `main.py`; there is currently no command-line parameter interface. Terminal messages and plot labels are currently in Spanish.
+Each report header records the full Git HEAD hash and warns about staged, unstaged or untracked changes. If Git cannot be queried, it explicitly shows an unknown version state. Ignored reports do not count as changes. All six plots use 1350 × 900 pixels.
+
+The program prints only completion status, the absolute report path and the number of embedded plots. Full results, units, checks and all six fresh plots are in `outputs/brayton_DATE_TIME_MICROSECONDS_UUID.html`. The directory is created automatically beside `main.py`, independently of the working directory. Open the report locally in Chrome or Edge; no Internet connection, image files, server or framework is required.
+
+In VS Code, expand `outputs/`, locate the report named in the terminal, then reveal it in File Explorer and open it in a browser. Opening it in the text editor displays its HTML source; an HTML preview extension is optional.
+
+Only after a complete report has been written and published does the program retain the four newest completed reports it recognizes by exact filename and internal markers. Calculation or publication errors preserve earlier reports and propagate a traceback. A later cleanup error emits a warning and may leave more than four valid reports. Unrelated files and historical PNGs are untouched. Names include microseconds and UUIDs to avoid collisions; concurrent retention is not protected by a process lock. Publication targets the project's Windows environment.
+
+To explore other cases, use the local form below or call `main(parametros={"T3": 1700})` from Python. Inputs not supplied in that dictionary retain `PARAMETROS_PREDETERMINADOS`; internal combustor loss is a fraction. `main(output_folder)` remains compatible. There is no command-line argument parser. Importing `main` or `web_app` does not run simulations or start a server. Terminal messages, form/report content and plot labels are in Spanish.
+
+### Local web interface from VS Code
+
+Open the project folder and a PowerShell terminal in `C:\Proyectos\Brayton_Simulator`. Install the requirements in the existing virtual environment, then start the server:
+
+```powershell
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+.\.venv\Scripts\python.exe web_app.py
+```
+
+With the virtual environment activated, the second command is simply `python web_app.py`. Open [Brayton Simulator locally](http://127.0.0.1:5000) in Chrome or Edge. Edit the nine fields and click **Ejecutar simulación**. Temperatures use K, pressure uses kPa, cp uses J/(kg·K), efficiencies are fractions and combustor pressure loss is entered as a percentage (5 means 5 %, converted internally to 0.05).
+
+The completed report opens after a redirect. **Volver al formulario** lets you run another case without restarting the server; **Restablecer valores** loads the defaults. **Descargar informe HTML** downloads the original self-contained file, without server navigation links. Both modes share `outputs/` and its four-report retention. An older report URL returns 404 after that report is removed by retention.
+
+The server validates missing/non-numeric/non-finite values and all individual ranges. Expected rejections from the existing model or fixed sweeps show a clear message and preserve submitted values. These errors do not publish a report or clean the history. Unexpected failures are logged with a traceback in the terminal and return a generic HTTP 500, without exposing internal details in the browser.
+
+Stop the server with **Ctrl+C**. It binds only to `127.0.0.1:5000`, with debug, reloader and threading disabled. Requests are handled sequentially to keep Matplotlib isolated per simulation. Do not change the bind address for this local workflow. If port 5000 is already occupied, stop the other local instance before restarting. Flask is the only new direct dependency; the initial installation requires downloaded or locally cached packages, but use after installation needs no Internet. This is a local development tool, with no public deployment or accounts.
+
+Run the verification suite from the repository root with the virtual environment active:
+
+```powershell
+python -B -m unittest discover -s tests -v
+```
+
+The tests include five complete runs in temporary directories, numerical reference checks, embedded PNG checks, retention, failure handling and protection of unrelated files. Flask `test_client` additionally checks GET/POST, modified inputs, model rejections, internal errors, download/view restrictions and mixed terminal/web retention without opening sockets. See `CODE_WALKTHROUGH.md` for the educational explanation and `docs/milestones/01_html_reports.md` for this milestone.
 
 ## Technologies
 
 - **Python** — thermodynamic functions and runtime checks.
 - **NumPy** — pressure-ratio grids, arrays and numerical maximum search.
 - **Matplotlib** — plots and thermodynamic diagrams using `Agg`.
+- **Flask** — local form, HTTP routes and template rendering.
 - **Git and GitHub** — version control and repository hosting.
 - **VS Code and Codex** — editor and development assistance.
 
@@ -227,14 +276,14 @@ The program prints cycle results and consistency checks, then saves or overwrite
 - Non-ideal behavior is limited to fixed isentropic efficiencies and combustor pressure loss. Mechanical losses, fuel consumption, thrust and component maps are not calculated.
 - T-s and P-v diagrams and analytical net-work optimization currently describe only the ideal cycle.
 - Pressure-ratio ranges are fixed in the code. Invalid or non-motor conditions raise errors rather than being skipped; changing parameters may make a full sweep infeasible.
-- Consistency checks run with the program; the repository currently has no standalone automated test suite.
+- Runtime checks and standalone tests verify implementation and reporting; they do not constitute validation against experimental engine data.
 
 ## Future improvements
 
 Potential future work, not currently implemented:
 
-- Add automated tests and separate the thermodynamic model from plotting and execution.
-- Accept parameters through a configuration file or command-line arguments.
+- Extend tests as the physical model grows and further separate numerical studies from plotting when needed.
+- Optionally add configuration files or a command-line argument parser; the current local form already accepts parameters.
 - Add non-ideal thermodynamic diagrams and net-work optimization.
 - Explore temperature-dependent gas properties and regenerative cycles.
 
