@@ -56,7 +56,7 @@ def imagen_html(imagen, titulo):
 
 
 def crear_informe_html(parametros, ideal, noideal, detalles_ideal, optimo,
-                       rendimientos, comprobaciones, imagenes, fecha, version):
+                       rendimientos, comprobaciones, imagenes, fecha, version, barrido=None):
     """Presenta resultados y seis PNG suministrados por main, sin recalcular física."""
     if len(imagenes) != 6:
         raise ValueError("El informe requiere exactamente seis gráficas de la ejecución.")
@@ -127,6 +127,49 @@ def crear_informe_html(parametros, ideal, noideal, detalles_ideal, optimo,
         estado_version = "Árbol de trabajo limpio: sin cambios pendientes ni archivos sin seguimiento detectados por Git."
     else:
         estado_version = "Estado Git no disponible: no se ha podido verificar el commit o los cambios locales."
+    dominio_html = ""
+    if barrido is not None:
+        filas = []
+        conteos = []
+        for nombre in ("ideal", "noideal"):
+            d = barrido["dominios"][nombre]
+            intervalo = d["intervalo"]
+            motor = (f"{intervalo[0]:.10g} < rp < {intervalo[1]:.10g}"
+                     if intervalo else "Vacío")
+            raices = ", ".join(f"{rp:.10g}" for rp in d["trabajo"]) or "Sin raíces distintas"
+            filas.append((nombre, motor, f"rp > {d['expansion']:.10g}",
+                          f"rp < {d['calor']:.10g}", raices, "Motor viable"))
+            motivos = barrido[nombre]["motivos"]
+            conteos.append((nombre, int(barrido[nombre]["viable"].sum()),
+                            *(sum(c in fallos for fallos in motivos)
+                              for c in ("compresion", "expansion", "calor_aportado", "trabajo_neto"))))
+        dominio_html = "<section><h2>Dominio físicamente viable</h2>" + (
+            "<p>Se exige compresión rp &gt; 1, expansión p3 &gt; p4, aporte de calor "
+            "T3 &gt; T2 y trabajo neto wt &gt; wc. Las fronteras no son puntos motores. "
+            "En el ideal: 1 &lt; rp &lt; (T3/T1)^(gamma/(gamma−1)). "
+            "Calor positivo no garantiza que la turbina cubra el consumo del compresor.</p>"
+        ) + tabla_html(("Modelo", "Intervalo motor abierto", "Expansión", "Calor positivo",
+                        "Fronteras wn = 0", "Caso de referencia"), filas) + (
+            "<p>En el no ideal, con x=rp^a, h=(T3/T1) eta_c eta_t y k=(1−delta)^(−a), "
+            "wn &gt; 0 equivale a Q(x)=(x−1)(x−h)+h(k−1) &lt; 0. "
+            "La cuadrática convexa demuestra que el dominio es un intervalo abierto o vacío. "
+            "Se localizan las raíces por bisección (tolerancia relativa en x: 1e−12). "
+            "Esto localiza fronteras; no optimiza el modelo no ideal.</p>"
+            "<p>La clasificación excluye una banda relativa de 1e−10 alrededor del cero "
+            "en cada condición, escalada en sus propias unidades. Es una precaución de "
+            "redondeo, no incertidumbre experimental ni cambio de las ecuaciones.</p>"
+        ) + tabla_html(("Modelo", "Puntos motores", "Sin compresión", "Sin expansión",
+                        "Calor no positivo", "Trabajo no positivo"), conteos) + (
+            f"<p>Malla representada: {len(barrido['relaciones'])} puntos entre rp = "
+            f"{barrido['relaciones'][0]:.10g} y {barrido['relaciones'][-1]:.10g}. "
+            "Combina muestreo lineal y logarítmico, fronteras y sus vecindades; "
+            "el extremo de visualización se limita a 10000 y no es una frontera física. "
+            "Las fronteras de la tabla se calculan independientemente del dibujo. "
+            "Los motivos pueden solaparse: sus recuentos no deben sumarse. "
+            "NaN corta las curvas en puntos excluidos; nunca se publica rendimiento motor allí. "
+            "Las bandas tenues y líneas discontinuas indican los dominios y sus fronteras.</p></section>"
+        )
+    intervalo_busqueda = optimo.get("intervalo_busqueda", (1.01, 50))
     return f"""{MARCA_INICIO}
 <!doctype html>
 <html lang="es">
@@ -172,6 +215,7 @@ footer {{ padding: 24px 0; font-size: .85rem; color: #475969; }}
 <section><h2>Parámetros de la ejecución</h2>
 <p class="note">Modelo educativo de gas ideal con cp y gamma constantes. Equipos adiabáticos en régimen estacionario; se desprecian cambios de energía cinética y potencial. No es un modelo de motor real de alta fidelidad.</p>
 {tabla_html(unidades, filas_parametros)}</section>
+{dominio_html}
 <section><h2>Ciclo ideal · caso de referencia</h2>
 <p>Estados: 1 entrada del compresor, 2 salida del compresor, 3 entrada de turbina y 4 salida de turbina. La entropía es relativa, con s1 = 0.</p>
 {tabla_html(("Estado", "T [K]", "p [kPa]", "v [m³/kg]", "s [kJ/(kg·K)]"), estados_ideal)}
@@ -180,13 +224,13 @@ footer {{ padding: 24px 0; font-size: .85rem; color: #475969; }}
 <p>Rendimiento por fórmula ideal: {detalles_ideal['rendimiento_formula'] * 100:.6f} %. Rendimiento por balance: {ideal['rendimiento'] * 100:.6f} %.</p>
 <p>Incremento de entropía 2→3: {detalles_ideal['incremento_23']:.6f} kJ/(kg·K). Incremento 1→4: {detalles_ideal['incremento_14']:.6f} kJ/(kg·K).</p>
 <h3>Rendimiento ideal frente a relación de presiones</h3>
-{tabla_html(("Relación de presiones", "Rendimiento ideal [%]"), [(rp, f"{eta:.2f}") for rp, eta in rendimientos])}
-{imagen_html(imagenes['rendimiento_brayton.png'], 'Rendimiento exclusivamente ideal · 100 puntos entre rp = 2 y 30')}</section>
+{tabla_html(("Relación de presiones", "Rendimiento ideal [%]"), [(rp, f"{eta:.2f}" if eta is not None else "Fuera del dominio motor") for rp, eta in rendimientos])}
+{imagen_html(imagenes['rendimiento_brayton.png'], 'Rendimiento exclusivamente ideal · dominio motor, eje rp logarítmico')}</section>
 <section><h2>Diagramas termodinámicos exclusivamente ideales</h2>
 {imagen_html(imagenes['diagrama_ts_brayton.png'], 'Diagrama T-s del ciclo ideal de referencia')}
 {imagen_html(imagenes['diagrama_pv_brayton.png'], 'Diagrama P-v del ciclo ideal de referencia')}</section>
 <section><h2>Optimización exclusivamente ideal</h2>
-<p>Máximo de trabajo específico neto a temperaturas extremas fijas. No es una maximización del rendimiento ni una optimización del modelo no ideal. Búsqueda numérica: 100001 puntos entre rp = 1.01 y 50.</p>
+<p>Máximo de trabajo específico neto a temperaturas extremas fijas. No es una maximización del rendimiento ni una optimización del modelo no ideal. Búsqueda numérica: 100001 puntos interiores entre rp = {intervalo_busqueda[0]:.10g} y {intervalo_busqueda[1]:.10g}. Este intervalo de búsqueda y el intervalo representado son distintos del límite físico.</p>
 {tabla_html(unidades, filas_optimo)}
 {imagen_html(imagenes['trabajo_neto_vs_rp.png'], 'Trabajo neto ideal y máximo analítico contrastado con la malla numérica')}</section>
 <section><h2>Ciclo no ideal · caso de referencia</h2>
@@ -198,7 +242,7 @@ footer {{ padding: 24px 0; font-size: .85rem; color: #475969; }}
 {tabla_html(("Magnitud", "Ideal", "No ideal"), comparacion_estados)}
 {tabla_html(("Referencia", "Ideal", "No ideal", "Unidad"), referencias)}
 {tabla_html(("Magnitud", "Ideal", "No ideal", "Unidad"), comparacion)}
-<p>Ambos barridos usan 300 relaciones de presiones entre 2 y 30 y los parámetros de esta ejecución.</p>
+<p>Ambas curvas usan la misma malla adaptada y los parámetros de esta ejecución; sólo se dibuja el interior motor de cada modelo.</p>
 {imagen_html(imagenes['comparacion_ideal_noideal.png'], 'Rendimiento térmico · comparación ideal / no ideal')}
 {imagen_html(imagenes['trabajo_neto_ideal_noideal.png'], 'Trabajo específico neto · comparación ideal / no ideal')}</section>
 <section><h2>Comprobaciones ejecutadas</h2><ul>{lista_comprobaciones}</ul>

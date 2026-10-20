@@ -5,6 +5,8 @@ from pathlib import Path
 from datetime import datetime
 from io import BytesIO
 
+from viabilidad import (calcular_estados, calcular_energias, evaluar_punto, calcular_dominios,
+                        construir_barrido, describir_inviabilidad, validar_parametros, ErrorNumerico)
 from reporting import crear_informe_html, guardar_informe_html, obtener_version_git
 from math import isclose, isfinite, log
 
@@ -24,7 +26,7 @@ PARAMETROS_PREDETERMINADOS = {
 
 
 class ErrorModelo(ValueError):
-    """El caso o alguno de los estudios fijos no es admisible para el modelo."""
+    """El caso de referencia no pertenece al dominio motor."""
 
 
 def calcular_rendimiento(gamma, relacion_presiones):
@@ -52,15 +54,11 @@ def calcular_temperaturas(T1, T3, gamma, relacion_presiones):
     if not all(isfinite(T) and T > 0 for T in (T1, T3)):
         raise ValueError("T1 y T3 deben ser temperaturas absolutas positivas y finitas.")
 
-    # Compresión 1→2 y expansión 3→4 isentrópicas, con gamma constante.
-    factor = relacion_presiones ** ((gamma - 1) / gamma)
-    T2 = T1 * factor
-    T4 = T3 / factor
-    if not all(isfinite(T) for T in (T2, T4)):
-        raise ValueError("Las temperaturas calculadas deben ser finitas.")
-    if T3 <= T2:
+    estados = calcular_estados(T1, T3, gamma, relacion_presiones, 1)
+    temperaturas = estados["temperaturas"]
+    if T3 <= temperaturas[1]:
         raise ValueError("T3 debe superar T2 para aportar calor y producir trabajo neto.")
-    return T1, T2, T3, T4
+    return temperaturas
 
 
 def calcular_balance_energetico(T1, T2, T3, T4, cp):
@@ -73,10 +71,11 @@ def calcular_balance_energetico(T1, T2, T3, T4, cp):
 
     # cp·ΔT da J/kg; dividimos entre 1000 para obtener kJ/kg.
     # El trabajo del compresor se expresa como consumo positivo.
-    trabajo_compresor = cp * (T2 - T1) / 1000
-    trabajo_turbina = cp * (T3 - T4) / 1000
-    trabajo_neto = trabajo_turbina - trabajo_compresor
-    calor_aportado = cp * (T3 - T2) / 1000
+    energias = calcular_energias((T1, T2, T3, T4), cp)
+    trabajo_compresor = energias["trabajo_compresor"]
+    trabajo_turbina = energias["trabajo_turbina"]
+    trabajo_neto = energias["trabajo_neto"]
+    calor_aportado = energias["calor_aportado"]
     if not all(isfinite(valor) and valor > 0 for valor in (
         trabajo_compresor, trabajo_turbina, trabajo_neto, calor_aportado
     )):
@@ -109,41 +108,12 @@ def calcular_ciclo_ideal(T1, T3, gamma, cp, relacion_presiones, p1):
 
 def calcular_ciclo_noideal(T1, T3, gamma, cp, relacion_presiones, p1,
                           eta_c, eta_t, perdida_presion_combustor):
-    for nombre, eficiencia in (("eta_c", eta_c), ("eta_t", eta_t)):
-        if not isfinite(eficiencia) or not 0 < eficiencia <= 1:
-            raise ValueError(f"{nombre} debe ser finita y cumplir 0 < {nombre} <= 1.")
-    if not isfinite(perdida_presion_combustor) or not 0 <= perdida_presion_combustor < 1:
-        raise ValueError("La pérdida relativa de presión debe ser finita y estar entre 0 y 1 (excluido).")
-    if not isfinite(p1) or p1 <= 0:
-        raise ValueError("p1 debe ser positiva y finita, en kPa.")
-
-    # T2s corresponde a la compresión reversible entre p1 y p2.
-    _, T2s, _, _ = calcular_temperaturas(T1, T3, gamma, relacion_presiones)
-    p2 = p1 * relacion_presiones
-    p3 = p2 * (1 - perdida_presion_combustor)
-    p4 = p1
-    presiones_reales = (p1, p2, p3, p4)
-    if not all(isfinite(p) and p > 0 for p in presiones_reales):
-        raise ValueError("Todas las presiones reales deben ser positivas y finitas.")
-    if p3 <= p4:
-        raise ValueError("La presión a la entrada de la turbina debe superar la de salida.")
-
-    T2_real = T1 + (T2s - T1) / eta_c
-    # T4s usa p3 real: con pérdida de presión difiere del T4 del ciclo ideal.
-    T4s = T3 * (p4 / p3) ** ((gamma - 1) / gamma)
-    T4_real = T3 - eta_t * (T3 - T4s)
-    temperaturas_reales = (T1, T2_real, T3, T4_real)
-    # El balance cp·ΔT sirve también para los equipos adiabáticos irreversibles.
-    # Rechaza temperaturas inválidas, calor no positivo y trabajo neto no positivo.
-    balance_real = calcular_balance_energetico(*temperaturas_reales, cp)
-    return {
-        "temperaturas": temperaturas_reales,
-        "presiones": presiones_reales,
-        "T2s": T2s,
-        "T4s": T4s,
-        **balance_real,
-        "back_work_ratio": balance_real["trabajo_compresor"] / balance_real["trabajo_turbina"],
-    }
+    punto = evaluar_punto(T1, T3, gamma, cp, relacion_presiones, p1,
+                          eta_c, eta_t, perdida_presion_combustor)
+    if not punto["viable"]:
+        dominios = calcular_dominios(T1, T3, gamma, cp, p1, eta_c, eta_t, perdida_presion_combustor)
+        raise ErrorModelo(describir_inviabilidad(punto, dominios["noideal"]))
+    return punto
 
 
 def comprobar_comparacion_ciclos(ideal, noideal, eta_c, eta_t, perdida_presion_combustor):
@@ -170,23 +140,27 @@ def comprobar_comparacion_ciclos(ideal, noideal, eta_c, eta_t, perdida_presion_c
                 raise ValueError("El límite reversible no reproduce el balance ideal.")
 
 
-def guardar_comparaciones_ciclos(T1, T3, gamma, cp, p1, eta_c, eta_t,
-                                perdida_presion_combustor, imagenes):
-    relaciones = np.linspace(2, 30, 300)
-    ciclos_ideales = []
-    ciclos_noideales = []
-    try:
-        for relacion in relaciones:
-            ideal = calcular_ciclo_ideal(T1, T3, gamma, cp, relacion, p1)
-            noideal = calcular_ciclo_noideal(T1, T3, gamma, cp, relacion, p1,
-                                           eta_c, eta_t, perdida_presion_combustor)
-            comprobar_comparacion_ciclos(ideal, noideal, eta_c, eta_t, perdida_presion_combustor)
-            ciclos_ideales.append(ideal)
-            ciclos_noideales.append(noideal)
-    except (ValueError, OverflowError, ZeroDivisionError) as error:
-        raise ErrorModelo(f"El barrido comparativo fijo entre rp=2 y 30 no es admisible: {error}") from error
+def marcar_dominio(ejes, dominio, etiqueta, color):
+    # Líneas discontinuas: fronteras físicas; banda tenue: intervalo motor abierto.
+    ejes.set_xscale("log")
+    if dominio["intervalo"]:
+        inferior, superior = dominio["intervalo"]
+        vista = ejes.get_xlim()
+        for frontera in (inferior, superior):
+            if vista[0] <= frontera <= vista[1]:
+                ejes.axvline(frontera, color=color, linestyle="--", alpha=.7)
+        ejes.axvspan(max(inferior, vista[0]), min(superior, vista[1]),
+                    color=color, alpha=.05, label=f"Dominio motor {etiqueta}")
+        ejes.set_xlim(vista)
+    else:
+        ejes.plot([], [], color=color, linestyle="--", label=f"{etiqueta}: dominio vacío")
 
-    # Los dos gráficos comparten el barrido, pero muestran magnitudes distintas.
+
+def guardar_comparaciones_ciclos(T1, T3, gamma, cp, p1, eta_c, eta_t,
+                                perdida_presion_combustor, imagenes, barrido=None):
+    if barrido is None:
+        barrido = construir_barrido(T1, T3, gamma, cp, p1, eta_c, eta_t,
+                                    perdida_presion_combustor)
     for clave, factor, eje_y, titulo, archivo in (
         ("rendimiento", 100, "Rendimiento térmico [%]", "Rendimiento: ciclo ideal y no ideal",
          "comparacion_ideal_noideal.png"),
@@ -194,13 +168,16 @@ def guardar_comparaciones_ciclos(T1, T3, gamma, cp, p1, eta_c, eta_t,
          "trabajo_neto_ideal_noideal.png"),
     ):
         figura, ejes = plt.subplots(figsize=(9, 6))
-        ejes.plot(relaciones, [ciclo[clave] * factor for ciclo in ciclos_ideales], label="Ciclo ideal")
-        ejes.plot(relaciones, [ciclo[clave] * factor for ciclo in ciclos_noideales], label="Ciclo no ideal")
+        for nombre, color in (("ideal", "tab:blue"), ("noideal", "tab:orange")):
+            ejes.plot(barrido["relaciones"], barrido[nombre][clave] * factor,
+                      color=color, label=f"Ciclo {nombre} · interior motor")
+        for nombre, color in (("ideal", "tab:blue"), ("noideal", "tab:orange")):
+            marcar_dominio(ejes, barrido["dominios"][nombre], nombre, color)
         ejes.set_title(titulo)
-        ejes.set_xlabel("Relación de presiones del compresor")
+        ejes.set_xlabel("Relación de presiones del compresor (escala logarítmica)")
         ejes.set_ylabel(eje_y)
         ejes.grid(True)
-        ejes.legend()
+        ejes.legend(fontsize=8)
         figura.tight_layout()
         imagenes[archivo] = BytesIO()
         figura.savefig(imagenes[archivo], format="png", dpi=150)
@@ -226,8 +203,13 @@ def calcular_relacion_optima(T1, T3, gamma):
 
 
 def buscar_optimo_numerico(T1, T3, gamma, cp):
-    # El paso de aproximadamente 0.00049 permite localizar bien el máximo.
-    relaciones = np.linspace(1.01, 50, 100001)
+    # Sólo se busca el máximo IDEAL; malla interior adaptada al dominio.
+    limite = calcular_dominios(T1, T3, gamma, cp, 1)["ideal"]["intervalo"][1]
+    inferior = min(1.01, 1 + .01 * (limite - 1))
+    superior = min(limite - 1e-8 * (limite - 1), max(50, 1.25 * calcular_relacion_optima(T1, T3, gamma)))
+    if not 1 < inferior < superior < limite:
+        raise ErrorNumerico("No se puede resolver una malla interior para el óptimo ideal.")
+    relaciones = np.linspace(inferior, superior, 100001)
     trabajos = np.array([
         calcular_trabajo_neto(T1, T3, gamma, cp, relacion)
         for relacion in relaciones
@@ -236,14 +218,20 @@ def buscar_optimo_numerico(T1, T3, gamma, cp):
     return relaciones, trabajos, indice_maximo
 
 
-def guardar_grafica_trabajo_neto(relaciones, trabajos, rp_optima, trabajo_maximo, ruta):
+def guardar_grafica_trabajo_neto(relaciones, trabajos, rp_optima, trabajo_maximo, ruta, dominio=None):
     figura, ejes = plt.subplots(figsize=(9, 6))
     ejes.plot(relaciones, trabajos, label="Trabajo específico neto")
-    ejes.scatter([rp_optima], [trabajo_maximo], color="red", s=70, zorder=5,
-                 label="Máximo analítico (verificado numéricamente)")
-    ejes.annotate(f"rp = {rp_optima:.4f}\nTrabajo máximo = {trabajo_maximo:.2f} kJ/kg",
-                  xy=(rp_optima, trabajo_maximo), xytext=(15, -55),
-                  textcoords="offset points", arrowprops={"arrowstyle": "->"})
+    if min(relaciones) <= rp_optima <= max(relaciones):
+        ejes.scatter([rp_optima], [trabajo_maximo], color="red", s=70, zorder=5,
+                     label="Máximo analítico (verificado numéricamente)")
+        ejes.annotate(f"rp = {rp_optima:.4f}\nTrabajo máximo = {trabajo_maximo:.2f} kJ/kg",
+                      xy=(rp_optima, trabajo_maximo), xytext=(15, -55),
+                      textcoords="offset points", arrowprops={"arrowstyle": "->"})
+    else:
+        ejes.text(.03, .93, f"Máximo ideal rp={rp_optima:.6g}, fuera de la vista",
+                  transform=ejes.transAxes)
+    if dominio is not None:
+        marcar_dominio(ejes, dominio, "ideal", "tab:blue")
     ejes.set_title("Trabajo neto del ciclo Brayton ideal")
     ejes.set_xlabel("Relación de presiones")
     ejes.set_ylabel("Trabajo específico neto [kJ/kg]")
@@ -395,21 +383,22 @@ def guardar_diagrama_pv(temperaturas, presiones, volumenes, R, gamma, ruta):
     plt.close(figura)
 
 
-def guardar_grafica_rendimiento(gamma, ruta):
-    relaciones_presiones = np.linspace(2, 30, 100)
-    rendimientos_porcentaje = np.array([
-        calcular_rendimiento(gamma, relacion) * 100
-        for relacion in relaciones_presiones
-    ])
-    plt.figure(figsize=(9, 6))
-    plt.plot(relaciones_presiones, rendimientos_porcentaje)
-    plt.title(f"Rendimiento térmico del ciclo Brayton ideal (γ = {gamma})")
-    plt.xlabel("Relación de presiones p₂/p₁ (adimensional)")
-    plt.ylabel("Rendimiento térmico (%)")
-    plt.grid(True)
-    plt.tight_layout()
-    plt.savefig(ruta, format="png", dpi=150)
-    plt.close()
+def guardar_grafica_rendimiento(gamma, ruta, barrido=None):
+    if barrido is None:
+        p = PARAMETROS_PREDETERMINADOS
+        barrido = construir_barrido(p["T1"], p["T3"], gamma, p["cp"], p["p1"])
+    figura, ejes = plt.subplots(figsize=(9, 6))
+    ejes.plot(barrido["relaciones"], barrido["ideal"]["rendimiento"] * 100,
+              label="Rendimiento ideal · interior motor")
+    marcar_dominio(ejes, barrido["dominios"]["ideal"], "ideal", "tab:blue")
+    ejes.set_title(f"Rendimiento térmico del ciclo Brayton ideal (γ = {gamma})")
+    ejes.set_xlabel("Relación de presiones p₂/p₁ (escala logarítmica)")
+    ejes.set_ylabel("Rendimiento térmico (%)")
+    ejes.grid(True)
+    ejes.legend(fontsize=8)
+    figura.tight_layout()
+    figura.savefig(ruta, format="png", dpi=150)
+    plt.close(figura)
 
 
 def main(carpeta_salida=None, parametros=None):
@@ -432,48 +421,68 @@ def main(carpeta_salida=None, parametros=None):
     eta_t = parametros["eta_t"]
     perdida_presion_combustor = parametros["perdida_presion_combustor"]
     comprobaciones = []
+    # Entradas inválidas, inviabilidad física y fallo numérico son situaciones distintas.
     try:
-        rendimiento = calcular_rendimiento(gamma, relacion_presiones)
-        T1, T2, T3, T4 = calcular_temperaturas(T1, T3, gamma, relacion_presiones)
-        balance = calcular_balance_energetico(T1, T2, T3, T4, cp)
-        s1, s2, s3, s4 = calcular_entropias(T1, T2, T3, T4, cp)
-        R, presiones, volumenes = calcular_estados_pv((T1, T2, T3, T4), cp, gamma, relacion_presiones, p1)
-        comprobaciones.append("Entradas y estados ideales positivos y finitos; balance de ciclo motor con calor y trabajo neto positivos y rendimiento entre 0 y 1.")
-        comprobaciones.append("Incrementos de entropía 2→3 y 1→4 coincidentes, con rel_tol=1e-9 y abs_tol=1e-12.")
-        comprobaciones.append("Cuatro estados ideales coherentes con Pv=RT, dos isóbaras y Pv^gamma constante en las isentrópicas; recorrido motor de volúmenes.")
-        if not isclose(balance["rendimiento"], rendimiento, rel_tol=1e-9, abs_tol=1e-12):
-            raise ValueError("El rendimiento del balance no coincide con la fórmula del ciclo ideal.")
-        comprobaciones.append("Rendimiento ideal por fórmula y por balance coincidentes, con rel_tol=1e-9 y abs_tol=1e-12.")
+        validar_parametros(T1, T3, gamma, cp, p1, eta_c, eta_t, perdida_presion_combustor)
+        if not isfinite(relacion_presiones) or relacion_presiones <= 0:
+            raise ValueError("rp debe ser positivo y finito.")
+    except ValueError as error:
+        # Sólo validación de entradas: los errores de cálculo no se silencian.
+        raise ErrorModelo(f"Parámetros no admisibles: {error}") from error
+    dominios = calcular_dominios(T1, T3, gamma, cp, p1, eta_c, eta_t, perdida_presion_combustor)
+    referencia = {
+        "ideal": evaluar_punto(T1, T3, gamma, cp, relacion_presiones, p1),
+        "noideal": evaluar_punto(T1, T3, gamma, cp, relacion_presiones, p1,
+                                eta_c, eta_t, perdida_presion_combustor),
+    }
+    fallos = [f"{nombre}: {describir_inviabilidad(punto, dominios[nombre])}"
+              for nombre, punto in referencia.items() if not punto["viable"]]
+    if fallos:
+        raise ErrorModelo("Inviabilidad física: los ciclos seleccionados no son admisibles como motores. "
+                          + " ".join(fallos))
+    barrido = construir_barrido(T1, T3, gamma, cp, p1, eta_c, eta_t,
+                                perdida_presion_combustor, dominios=dominios)
+    for ideal, real in zip(barrido["ideal"]["puntos"], barrido["noideal"]["puntos"]):
+        if ideal["viable"] and real["viable"]:
+            comprobar_comparacion_ciclos(ideal, real, eta_c, eta_t, perdida_presion_combustor)
+    rendimiento = calcular_rendimiento(gamma, relacion_presiones)
+    T1, T2, T3, T4 = calcular_temperaturas(T1, T3, gamma, relacion_presiones)
+    balance = calcular_balance_energetico(T1, T2, T3, T4, cp)
+    s1, s2, s3, s4 = calcular_entropias(T1, T2, T3, T4, cp)
+    R, presiones, volumenes = calcular_estados_pv((T1, T2, T3, T4), cp, gamma, relacion_presiones, p1)
+    comprobaciones.append("Entradas y estados ideales positivos y finitos; balance de ciclo motor con calor y trabajo neto positivos y rendimiento entre 0 y 1.")
+    comprobaciones.append("Incrementos de entropía 2→3 y 1→4 coincidentes, con rel_tol=1e-9 y abs_tol=1e-12.")
+    comprobaciones.append("Cuatro estados ideales coherentes con Pv=RT, dos isóbaras y Pv^gamma constante en las isentrópicas; recorrido motor de volúmenes.")
+    if not isclose(balance["rendimiento"], rendimiento, rel_tol=1e-9, abs_tol=1e-12):
+        raise ValueError("El rendimiento del balance no coincide con la fórmula del ciclo ideal.")
+    comprobaciones.append("Rendimiento ideal por fórmula y por balance coincidentes, con rel_tol=1e-9 y abs_tol=1e-12.")
 
-        # Estudio independiente del óptimo: conserva el ciclo de referencia con rp = 10.
-        rp_optima_analitica = calcular_relacion_optima(T1, T3, gamma)
-        relaciones_busqueda, trabajos_busqueda, indice_optimo = buscar_optimo_numerico(T1, T3, gamma, cp)
-        rp_optima_numerica = float(relaciones_busqueda[indice_optimo])
-        paso_busqueda = float(relaciones_busqueda[1] - relaciones_busqueda[0])
-        if not relaciones_busqueda[0] <= rp_optima_analitica <= relaciones_busqueda[-1]:
-            raise ValueError("El óptimo analítico queda fuera del intervalo de búsqueda [1.01, 50].")
-        if not isclose(rp_optima_numerica, rp_optima_analitica, rel_tol=0, abs_tol=paso_busqueda):
-            raise ValueError("Los óptimos numérico y analítico difieren en más de un paso de búsqueda.")
-        comprobaciones.append("Óptimo analítico dentro de [1.01, 50] y coincidente con el numérico dentro de un paso de malla.")
-        temperaturas_optimas = calcular_temperaturas(T1, T3, gamma, rp_optima_analitica)
-        balance_optimo = calcular_balance_energetico(*temperaturas_optimas, cp)
-        trabajo_maximo = calcular_trabajo_neto(T1, T3, gamma, cp, rp_optima_analitica)
-        rendimiento_optimo = calcular_rendimiento(gamma, rp_optima_analitica)
-        if not isclose(balance_optimo["rendimiento"], rendimiento_optimo, rel_tol=1e-9, abs_tol=1e-12):
-            raise ValueError("El balance energético no coincide con el rendimiento en el óptimo.")
-        comprobaciones.append("Rendimiento por balance y por fórmula coincidentes también en el óptimo ideal.")
+    # Estudio independiente del óptimo: conserva el ciclo de referencia con rp = 10.
+    rp_optima_analitica = calcular_relacion_optima(T1, T3, gamma)
+    relaciones_busqueda, trabajos_busqueda, indice_optimo = buscar_optimo_numerico(T1, T3, gamma, cp)
+    rp_optima_numerica = float(relaciones_busqueda[indice_optimo])
+    paso_busqueda = float(relaciones_busqueda[1] - relaciones_busqueda[0])
+    if not relaciones_busqueda[0] <= rp_optima_analitica <= relaciones_busqueda[-1]:
+        raise ValueError("El óptimo analítico queda fuera del intervalo de búsqueda adaptado.")
+    if not isclose(rp_optima_numerica, rp_optima_analitica, rel_tol=0, abs_tol=paso_busqueda):
+        raise ValueError("Los óptimos numérico y analítico difieren en más de un paso de búsqueda.")
+    comprobaciones.append("Óptimo analítico dentro de la malla interior adaptada y coincidente con el numérico dentro de un paso de malla.")
+    temperaturas_optimas = calcular_temperaturas(T1, T3, gamma, rp_optima_analitica)
+    balance_optimo = calcular_balance_energetico(*temperaturas_optimas, cp)
+    trabajo_maximo = calcular_trabajo_neto(T1, T3, gamma, cp, rp_optima_analitica)
+    rendimiento_optimo = calcular_rendimiento(gamma, rp_optima_analitica)
+    if not isclose(balance_optimo["rendimiento"], rendimiento_optimo, rel_tol=1e-9, abs_tol=1e-12):
+        raise ValueError("El balance energético no coincide con el rendimiento en el óptimo.")
+    comprobaciones.append("Rendimiento por balance y por fórmula coincidentes también en el óptimo ideal.")
 
-        ciclo_ideal = calcular_ciclo_ideal(T1, T3, gamma, cp, relacion_presiones, p1)
-        ciclo_noideal = calcular_ciclo_noideal(T1, T3, gamma, cp, relacion_presiones, p1,
-                                             eta_c, eta_t, perdida_presion_combustor)
-        comprobar_comparacion_ciclos(ciclo_ideal, ciclo_noideal, eta_c, eta_t, perdida_presion_combustor)
-        comprobaciones.append("Eficiencias, pérdida de presión y estados no ideales admisibles; comparación de temperaturas de referencia, trabajos y rendimiento según las pérdidas introducidas.")
-        ciclo_limite_ideal = calcular_ciclo_noideal(T1, T3, gamma, cp, relacion_presiones, p1, 1, 1, 0)
-        comprobar_comparacion_ciclos(ciclo_ideal, ciclo_limite_ideal, 1, 1, 0)
-        comprobaciones.append("Límite reversible: temperaturas y balances recuperan el ideal con eta_c=eta_t=1 y pérdida=0, dentro de las tolerancias establecidas.")
-    except (ValueError, OverflowError, ZeroDivisionError) as error:
-        raise ErrorModelo(f"El caso o los estudios fijos del modelo no son admisibles: {error}") from error
-
+    ciclo_ideal = calcular_ciclo_ideal(T1, T3, gamma, cp, relacion_presiones, p1)
+    ciclo_noideal = calcular_ciclo_noideal(T1, T3, gamma, cp, relacion_presiones, p1,
+                                         eta_c, eta_t, perdida_presion_combustor)
+    comprobar_comparacion_ciclos(ciclo_ideal, ciclo_noideal, eta_c, eta_t, perdida_presion_combustor)
+    comprobaciones.append("Eficiencias, pérdida de presión y estados no ideales admisibles; comparación de temperaturas de referencia, trabajos y rendimiento según las pérdidas introducidas.")
+    ciclo_limite_ideal = calcular_ciclo_noideal(T1, T3, gamma, cp, relacion_presiones, p1, 1, 1, 0)
+    comprobar_comparacion_ciclos(ciclo_ideal, ciclo_limite_ideal, 1, 1, 0)
+    comprobaciones.append("Límite reversible: temperaturas y balances recuperan el ideal con eta_c=eta_t=1 y pérdida=0, dentro de las tolerancias establecidas.")
     # Cada buffer contiene una gráfica nueva; no se leen los PNG históricos.
     imagenes = {
         nombre: BytesIO() for nombre in (
@@ -482,14 +491,14 @@ def main(carpeta_salida=None, parametros=None):
         )
     }
     try:
-        guardar_grafica_rendimiento(gamma, imagenes["rendimiento_brayton.png"])
+        guardar_grafica_rendimiento(gamma, imagenes["rendimiento_brayton.png"], barrido)
         guardar_diagrama_ts((T1, T2, T3, T4), (s1, s2, s3, s4), cp, imagenes["diagrama_ts_brayton.png"])
         guardar_diagrama_pv((T1, T2, T3, T4), presiones, volumenes, R, gamma, imagenes["diagrama_pv_brayton.png"])
-        guardar_grafica_trabajo_neto(relaciones_busqueda, trabajos_busqueda,
-                                    rp_optima_analitica, trabajo_maximo, imagenes["trabajo_neto_vs_rp.png"])
+        guardar_grafica_trabajo_neto(barrido["relaciones"], barrido["ideal"]["trabajo_neto"],
+                                    rp_optima_analitica, trabajo_maximo, imagenes["trabajo_neto_vs_rp.png"], dominios["ideal"])
         guardar_comparaciones_ciclos(T1, T3, gamma, cp, p1, eta_c, eta_t,
-                                    perdida_presion_combustor, imagenes)
-        comprobaciones.append("Los 300 pares de ciclos del barrido comparativo entre rp=2 y 30 superan las validaciones de ambos modelos y su comparación.")
+                                    perdida_presion_combustor, imagenes, barrido)
+        comprobaciones.append("Barrido clasificado por condiciones simultáneas; curvas sólo en puntos motores y comparación comprobada donde ambos modelos son viables.")
         detalles_ideal = {
             "R": R, "volumenes": volumenes, "entropias": (s1, s2, s3, s4),
             "rendimiento_formula": rendimiento,
@@ -497,14 +506,16 @@ def main(carpeta_salida=None, parametros=None):
         }
         optimo = {
             "rp_analitica": rp_optima_analitica, "rp_numerica": rp_optima_numerica,
+            "intervalo_busqueda": (float(relaciones_busqueda[0]), float(relaciones_busqueda[-1])),
             "paso": paso_busqueda, "trabajo_analitico": trabajo_maximo,
             "trabajo_numerico": float(trabajos_busqueda[indice_optimo]),
             "temperaturas": temperaturas_optimas, "rendimiento": rendimiento_optimo,
         }
         contenido = crear_informe_html(
             parametros, ciclo_ideal, ciclo_noideal, detalles_ideal, optimo,
-            calcular_rendimientos(gamma), comprobaciones,
-            {nombre: buffer.getvalue() for nombre, buffer in imagenes.items()}, fecha, version,
+            [(rp, eta if evaluar_punto(T1, T3, gamma, cp, rp, p1)["viable"] else None)
+             for rp, eta in calcular_rendimientos(gamma)], comprobaciones,
+            {nombre: buffer.getvalue() for nombre, buffer in imagenes.items()}, fecha, version, barrido,
         )
     finally:
         for buffer in imagenes.values():
