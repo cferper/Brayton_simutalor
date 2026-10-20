@@ -143,7 +143,7 @@ class WebTests(unittest.TestCase):
         self.carpeta.mkdir()
         previo = self.carpeta / "notas.html"
         previo.write_text("archivo ajeno", encoding="utf-8")
-        for T3 in ("400", "800"):
+        for T3 in ("400", "500"):
             with self.subTest(T3=T3):
                 respuesta = self.client.post("/", data={**self.datos, "T3": T3})
                 self.assertEqual(respuesta.status_code, 400)

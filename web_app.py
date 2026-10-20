@@ -5,6 +5,7 @@ from pathlib import Path
 
 from flask import Flask, Response, abort, redirect, render_template, request, url_for
 
+from viabilidad import ErrorNumerico
 from main import ErrorModelo, PARAMETROS_PREDETERMINADOS, main
 from reporting import MARCA_FINAL, MARCA_INICIO, PATRON_INFORME
 
@@ -78,6 +79,8 @@ def index():
                 ruta = main(app.config["OUTPUTS_DIR"], parametros=parametros)
             except ErrorModelo as error:
                 errores["modelo"] = str(error)
+            except ErrorNumerico as error:
+                errores["modelo"] = f"Límite numérico del cálculo: {error} No implica por sí mismo inviabilidad física."
             else:
                 return redirect(url_for("ver_informe", nombre=ruta.name), code=303)
     return render_template("index.html", grupos=GRUPOS, campos=CAMPOS,

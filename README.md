@@ -23,6 +23,7 @@ An educational Python simulator for studying gas turbine thermodynamics through 
 - HTML tables comparing ideal and non-ideal temperatures, pressures, energy balances, efficiencies and back work ratios.
 - Efficiency and net-work comparisons over compressor pressure ratios from 2 to 30.
 - Physical input validation and runtime consistency checks, including recovery of the ideal cycle when both component efficiencies are 1 and pressure loss is zero.
+- Ideal/non-ideal motor domains, simultaneous exclusion reasons, numerical work boundaries and adapted pressure-ratio sweeps.
 - Six fresh Matplotlib PNG plots embedded as Base64 in a single offline HTML report, using the Agg backend.
 - Four most recent completed reports retained in `outputs/`; historical PNGs and unrelated files are preserved.
 - Brief terminal summary with the report path and number of embedded plots.
@@ -98,6 +99,38 @@ The suffix **s** denotes an isentropic reference at the corresponding inlet and 
 
 The same energy-balance equations above apply to the non-ideal temperatures. Heat addition remains represented by $c_p(T_3-T_2)$; fuel chemistry and fuel mass addition are not modeled. The code requires $0<\eta_c,\eta_t\leq1$, $0\leq\delta<1$, positive finite states, $p_3>p_4$, positive heat input and positive net work.
 
+## Physically viable domain (Phase 1)
+
+The input family requires finite values with T3 > T1 > 0, gamma > 1, positive cp/p1, efficiencies in (0,1] and loss in [0,1). Mathematical input validity is distinct from motor viability and from numerical representability.
+
+The ideal motor domain is open:
+
+$$1 < r_p < (T_3/T_1)^{\gamma/(\gamma-1)}.$$
+
+For the non-ideal model, require compression, expansion p3 > p4, heat input T3 > T2 and positive net work wt > wc. Expansion requires rp > 1/(1−delta); positive heat requires rp < [1+eta_c*(T3/T1−1)]^(1/a). With x=rp^a, h=(T3/T1)*eta_c*eta_t and k=(1−delta)^(−a), positive work is equivalent to:
+
+```text
+Q(x) = (x−1)*(x−h) + h*(k−1) < 0
+```
+
+Convexity proves that this region, intersected with the other constraints, is an open interval or empty for the current model. Work boundaries are bracketed using this quadratic and located by bisection (relative tolerance 1e-12 in x). This is root finding; non-ideal work optimization remains Phase 2.
+
+Default bounds: ideal **1 < rp < 403.4175203200**; non-ideal **1.0696541023 < rp < 155.4543260392**. The non-ideal expansion bound is 1.0526315789 and the heat upper bound is 254.8459320044; net work supplies the tighter bounds. The ideal work optimum, rp≈20.085256, is a separate interior point.
+
+The self-contained report adds **Dominio físicamente viable**, with conditions, boundaries, reference status and counts of all exclusion reasons (which may overlap). The plot grid combines linear/logarithmic samples and boundary neighbours, with fewer than 1300 points; the default case uses 1212 samples over [1,423.5883963360]. This display window differs from the physical domain and the ideal optimization grid. NaN breaks curves at excluded points; thermal efficiency is not reported there.
+
+To inspect an excluded point without exceptions for expected physical failure:
+
+```python
+from viabilidad import evaluar_punto, calcular_dominios
+punto = evaluar_punto(288.15, 1600, 1.4, 1005, 200, 100, .85, .9, .05)
+print(punto["motivos"])       # ('trabajo_neto',): heat input is still positive
+print(punto["rendimiento"])   # None
+limites = calcular_dominios(288.15, 1600, 1.4, 1005, 100, .85, .9, .05)
+```
+
+Invalid arguments raise `ValueError`; an unrepresentable calculation raises `ErrorNumerico`, not a physical non-motor classification. Near zero, point classification uses a relative band of 1e-10 scaled separately for dimensionless ratios, pressure and energy. These tolerances address rounding, not experimental uncertainty.
+
 ## Example parameters
 
 Current values defined in `main.py`:
@@ -143,7 +176,7 @@ The images below are historical reference previews. New executions embed all six
 
 ![Ideal thermal efficiency](rendimiento_brayton.png)
 
-Ideal thermal efficiency versus pressure ratio from 2 to 30.
+Historical preview of ideal thermal efficiency from 2 to 30. Current reports use the adapted motor-domain grid and exclude non-motor efficiencies.
 
 ![Ideal temperature-entropy diagram](diagrama_ts_brayton.png)
 
@@ -155,25 +188,28 @@ Ideal P-v diagram with curved isentropic compression and expansion, horizontal i
 
 ![Ideal net work and optimum pressure ratio](trabajo_neto_vs_rp.png)
 
-Ideal specific net work from pressure ratio 1.01 to 50, with the analytical maximum marked and checked numerically.
+Historical preview over 1.01 to 50. Current plots show the adapted ideal motor domain; the analytical maximum is checked on a separate interior grid of 100001 points (still 1.01 to 50 for the default case).
 
 ![Ideal and non-ideal thermal efficiency comparison](comparacion_ideal_noideal.png)
 
-Thermal efficiency comparison from pressure ratio 2 to 30 with the specified component efficiencies and combustor pressure loss.
+Historical preview over 2 to 30. Current reports compare each model only inside its motor domain, with physical boundary markers and separate masks.
 
 ![Ideal and non-ideal net work comparison](trabajo_neto_ideal_noideal.png)
 
-Specific net-work comparison over the same pressure-ratio range.
+Historical preview over the same range. Current work curves use the same adapted grid as efficiency, with NaN gaps at excluded samples.
 
 ## Project structure
 
 ```text
 Brayton_Simulator/
 ├── main.py
+├── viabilidad.py
 ├── reporting.py
 ├── web_app.py
+├── Abrir_Brayton_Simulator.cmd
 ├── templates/index.html
 ├── static/style.css
+├── tests/test_viabilidad.py
 ├── tests/test_reporting.py
 ├── tests/test_web_app.py
 ├── AGENTS.md
@@ -237,6 +273,8 @@ To explore other cases, use the local form below or call `main(parametros={"T3":
 
 ### Local web interface from VS Code
 
+**Windows shortcut:** double-click `Abrir_Brayton_Simulator.cmd` in the project folder. It starts the existing local Flask app using `.venv` and opens your default browser once the form responds. Keep the server console open; Ctrl+C stops it. If the form is already running, it opens that instance without launching another server. Install the existing requirements first; the launcher does not install anything. Missing dependencies or startup failures remain visible in the console. A different application occupying port 5000 must be stopped before retrying. No simulation runs until you submit the form.
+
 Open the project folder and a PowerShell terminal in `C:\Proyectos\Brayton_Simulator`. Install the requirements in the existing virtual environment, then start the server:
 
 ```powershell
@@ -248,7 +286,7 @@ With the virtual environment activated, the second command is simply `python web
 
 The completed report opens after a redirect. **Volver al formulario** lets you run another case without restarting the server; **Restablecer valores** loads the defaults. **Descargar informe HTML** downloads the original self-contained file, without server navigation links. Both modes share `outputs/` and its four-report retention. An older report URL returns 404 after that report is removed by retention.
 
-The server validates missing/non-numeric/non-finite values and all individual ranges. Expected rejections from the existing model or fixed sweeps show a clear message and preserve submitted values. These errors do not publish a report or clean the history. Unexpected failures are logged with a traceback in the terminal and return a generic HTTP 500, without exposing internal details in the browser.
+The server validates missing/non-numeric/non-finite values and all individual ranges. A non-motor reference case shows all failed physical conditions and its open pressure-ratio interval when available, preserving submitted values. Numerical representation limits use a distinct message. Sweeps classify excluded points without aborting valid regions. These errors do not publish a report or clean the history. Unexpected failures are logged with a traceback in the terminal and return a generic HTTP 500, without exposing internal details in the browser.
 
 Stop the server with **Ctrl+C**. It binds only to `127.0.0.1:5000`, with debug, reloader and threading disabled. Requests are handled sequentially to keep Matplotlib isolated per simulation. Do not change the bind address for this local workflow. If port 5000 is already occupied, stop the other local instance before restarting. Flask is the only new direct dependency; the initial installation requires downloaded or locally cached packages, but use after installation needs no Internet. This is a local development tool, with no public deployment or accounts.
 
@@ -258,7 +296,16 @@ Run the verification suite from the repository root with the virtual environment
 python -B -m unittest discover -s tests -v
 ```
 
-The tests include five complete runs in temporary directories, numerical reference checks, embedded PNG checks, retention, failure handling and protection of unrelated files. Flask `test_client` additionally checks GET/POST, modified inputs, model rejections, internal errors, download/view restrictions and mixed terminal/web retention without opening sockets. See `CODE_WALKTHROUGH.md` for the educational explanation and `docs/milestones/01_html_reports.md` for this milestone.
+The 40 tests (22 preserved and 18 added for Phase 1) include physical domain limits, empty domains, simultaneous causes, root neighbours, NaN in plotted lines and five complete runs in temporary directories, numerical reference checks, embedded PNG checks, retention, failure handling and protection of unrelated files. Flask `test_client` additionally checks GET/POST, modified inputs, model rejections, internal errors, download/view restrictions and mixed terminal/web retention without opening sockets. See `CODE_WALKTHROUGH.md` for the educational explanation and `docs/milestones/01_html_reports.md` for the reporting milestone; Phase 1 is documented in `docs/milestones/03_dominio_viable.md`.
+
+## Educational documentation
+
+- [CODE_WALKTHROUGH.md](CODE_WALKTHROUGH.md): complete manual of the current code, equations, functions and execution flow.
+- [Phase 1 learning guide](docs/milestones/03_dominio_viable_APRENDIZAJE.md): independent explanation of what changed relative to the base commit, how it was implemented, engineering/Python concepts and practical experiments.
+- [Phase 1 technical milestone](docs/milestones/03_dominio_viable.md): concise technical report of the stage; previous milestone files remain available.
+- Git: exact committed snapshots of code and their matching documentation.
+
+Each new phase gets its own `NN_nombre_fase_APRENDIZAJE.md`. Smaller iterations within the same phase update that document; the walkthrough stays current without an accumulated iteration history. Earlier phase documents preserve their historical scope. This system starts with Phase 1; no retrospective learning documents are created for the HTML-report or Flask stages.
 
 ## Technologies
 
@@ -275,7 +322,7 @@ The tests include five complete runs in temporary directories, numerical referen
 - Gas properties are constant; temperature-dependent heat capacities and combustion-product composition are not represented.
 - Non-ideal behavior is limited to fixed isentropic efficiencies and combustor pressure loss. Mechanical losses, fuel consumption, thrust and component maps are not calculated.
 - T-s and P-v diagrams and analytical net-work optimization currently describe only the ideal cycle.
-- Pressure-ratio ranges are fixed in the code. Invalid or non-motor conditions raise errors rather than being skipped; changing parameters may make a full sweep infeasible.
+- The plotted pressure-ratio window is capped at 10000 for controlled cost; the complete calculated boundaries remain available in tables/messages. A relative zero band of 1e-10 excludes numerically unresolved boundary points. The reference case must be a motor in both models to generate the report; standalone domain evaluation can study empty/non-motor cases.
 - Runtime checks and standalone tests verify implementation and reporting; they do not constitute validation against experimental engine data.
 
 ## Future improvements

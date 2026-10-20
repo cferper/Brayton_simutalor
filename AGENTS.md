@@ -81,16 +81,39 @@ Record only important educational milestones that are actually implemented. Each
 
 Do not record trivial formatting changes, invent historical dates or duplicate full explanations from the main body. Keep historical milestones clearly distinct from the description of current behavior.
 
+### Independent educational documentation for each phase
+
+For every new development phase, maintain an independent Spanish learning document using this convention:
+
+```text
+docs/milestones/NN_nombre_fase_APRENDIZAJE.md
+```
+
+- Begin this system with Phase 1: `docs/milestones/03_dominio_viable_APRENDIZAJE.md`. Its technical milestone remains `03_dominio_viable.md`. Do not retrospectively create learning documents for the earlier HTML-report or Flask milestones.
+- At the start of a phase, inspect Git and identify its verified base commit, active branch and actual starting state, including any local changes. Record the base without creating a commit or changing branches unless the user authorizes those operations.
+- During that phase, update the SAME learning document when code, physics, calculations, plots, interface, reports, dependencies, tests or execution behavior changes. Add a brief dated subsection for relevant iterations within that phase; do not create a separate file for each small change.
+- When a phase is complete, the document must explain its full implementation relative to the verified previous state: what existed before, the problem, actual additions, affected files/functions, implementation procedure, engineering and Python concepts, concrete example flow, practical experiments, preserved results, tests/checks and their actual outcomes, limitations, branch and commit status.
+- Explain relevant new functions with full signatures, arguments, returns, units, physical/supporting purpose, validations/errors, Python syntax and caller/callee relationships. For changed functions, explain before/after behavior and why the solution was chosen. Use short real fragments and small examples suitable for basic Python knowledge.
+- For important programming concepts, explain what they are, why they are used, where they appear, a small example and what the student should learn. Distinguish newly introduced concepts from earlier ones reused or developed further.
+- Keep the learning document focused on that phase's novelties. It must be independently understandable without copying the entire walkthrough or technical milestone; use links for additional detail. Separate thermodynamic equations from programming decisions and verification from experimental validation.
+- At the start of a NEW phase, create a NEW learning document with the corresponding milestone number/name. Never repurpose an earlier phase's document to describe functionality introduced later. Preserve previous phase documents in their historical context; factual corrections must be clearly identified rather than silently adding future capabilities.
+- Use verified documentation/iteration dates. If reconstructing an existing phase at the user's request, identify it as a reconstruction from code/Git evidence using the actual documentation date, not an invented implementation date. Distinguish prior test runs from checks performed during the current task.
+- Verify descriptions against source, tests and Git differences, including untracked files. Do not invent functionality, future commits or test results. Record a phase without its own commit as pending; the base hash is not the commit containing the phase.
+- Keep the existing technical milestones in `docs/milestones/` without deleting or renaming them. Technical milestones summarize important stages; `*_APRENDIZAJE.md` files teach their changes in depth; Git preserves exact historical snapshots.
+- `CODE_WALKTHROUGH.md` remains the complete manual of the CURRENT code. Update its relevant functions, equations, structure, dependencies and examples in the same technical task. Do NOT append an accumulated iteration history to it and do not turn it into a phase-specific learning document.
+- Apply proportionality within the phase document: brief subsections for minor iterations, more detail for major changes. A task with no relevant change does not require an artificial entry. Documentation-only reorganization may be noted briefly in the active phase document; do not create recursive entries just for updating documentation.
+- In the final response, identify the current-manual sections and phase-learning document/subsections updated, plus technical milestones if applicable. This documentation policy does not authorize implementing additional phases, commits, merges, rebases, pushes or branch changes.
+
 ### Workflow for future technical tasks
 
 1. Read `AGENTS.md`.
 2. Consult the relevant sections of `CODE_WALKTHROUGH.md`.
 3. Perform exclusively the requested task.
 4. Verify that the final code works with checks appropriate to the change; avoid unnecessarily overwriting generated outputs during verification.
-5. Update the affected sections of `CODE_WALKTHROUGH.md` within the same task.
+5. Update the affected current-state sections of `CODE_WALKTHROUGH.md` and the active phase learning document within the same task. Record relevant iterations briefly inside that phase document; do not add an iteration history to the walkthrough.
 6. If the task represents a major academic milestone, create or update its document according to the milestone policy below.
 7. Compare the documentation with the actual final code, equations, structure and results. Check references and examples for obsolete or contradictory explanations.
-8. In the final response, identify the walkthrough sections and milestone documents updated; summarize verification performed and any remaining limitations.
+8. In the final response, identify the walkthrough sections, phase learning document/subsections and technical milestones updated; summarize verification performed and any remaining limitations.
 9. Only if the user requests a commit, verify and include the code and its synchronized educational documentation in that same commit, following the Git policy below.
 
 If a task does **not** modify the program or its technical interpretation, do not modify `CODE_WALKTHROUGH.md` unnecessarily.
@@ -115,9 +138,9 @@ Commit N+1 = code version N+1 + walkthrough explaining version N+1
 
 Use three complementary documentation layers:
 
-- `CODE_WALKTHROUGH.md`: the detailed educational explanation of the current project.
+- `CODE_WALKTHROUGH.md`: the detailed educational explanation of the complete current project, without an accumulated iteration history.
 - Git: the complete recorded history of code and its corresponding walkthrough for each committed version.
-- `docs/milestones/`: brief educational summaries of major academic advances, not copies of the walkthrough.
+- `docs/milestones/`: technical milestone summaries and independent phase learning documents with distinct purposes, not copies of the walkthrough.
 
 Keep `docs/milestones/` available; create the directory only if it does not exist. Start milestone documents with the next major academic advance. Do not retrospectively reconstruct earlier stages unless the user requests it and the available evidence supports the account; do not invent historical states or dates.
 
