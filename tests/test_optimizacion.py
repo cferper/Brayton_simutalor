@@ -200,7 +200,7 @@ class OptimizacionTests(unittest.TestCase):
                 self.assertIn(f"{estudio['noideal']['analitico']['rp']:.10f}",texto)
                 self.assertIn(f"{estudio['noideal']['analitico']['ciclo']['trabajo_neto']:.6f}",texto)
                 self.assertIn('Intervalo de optimización numérica',texto)
-                self.assertEqual(texto.count("src='data:image/png;base64,"),6)
+                self.assertEqual(texto.count("src='data:image/png;base64,"),7)
                 self.assertIn(estudio['noideal']['candidato'],barrido['relaciones'])
                 self.assertIn(parametros['relacion_presiones'],barrido['relaciones'])
             self.assertEqual(len(list(Path(carpeta).glob('*.html'))),4)

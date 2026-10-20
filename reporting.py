@@ -113,12 +113,75 @@ def seccion_optimizacion_html(parametros, referencias, optimizaciones, barrido):
             "no incertidumbre experimental.</p>" + "".join(tablas) + "</section>")
 
 
+def seccion_rendimiento_html(estudios, comparacion):
+    """Presenta máximos, supremos y comparación A/B ya calculados; sin física nueva."""
+    partes = ["<section><h2>Optimización del rendimiento térmico</h2>"]
+    for nombre in ("ideal", "noideal"):
+        r = estudios[nombre]
+        partes.append(f"<h3>Rendimiento {nombre}</h3><p>{escape(r['motivo'])}</p>")
+        if r["estado"] == "supremo_no_alcanzado":
+            limite = r["supremo"]
+            partes.append(f"<p>Supremo no alcanzado: {limite['rendimiento']*100:.6f} %. "
+                          f"Se aproxima cuando rp tiende a {limite['rp_frontera']:.10g} por la izquierda. "
+                          "La frontera no es un punto motor; qin y trabajo se anulan. No existe máximo interior ni punto B.</p>")
+        elif r["estado"] == "sin_dominio":
+            partes.append("<p>Máximo de rendimiento: No disponible. Dominio motor vacío.</p>")
+        elif r["estado"] == "maximo_interior":
+            a, n, c = r["analitico"], r["numerico"], r["concordancia"]
+            filas = [("rp de máximo rendimiento · analítica", f"{a['rp']:.10f}", "—"),
+                     ("rp de máximo rendimiento · numérica", f"{n['rp']:.10f}", "—"),
+                     ("Rendimiento máximo", f"{a['ciclo']['rendimiento']*100:.6f}", "%"),
+                     ("Rendimiento máximo · numérico", f"{n['ciclo']['rendimiento']*100:.6f}", "%"),
+                     ("Trabajo en el máximo rendimiento", f"{a['ciclo']['trabajo_neto']:.6f}", "kJ/kg"),
+                     ("Calor en el máximo rendimiento", f"{a['ciclo']['calor_aportado']:.6f}", "kJ/kg"),
+                     ("Intervalo físico abierto", f"{r['dominio']['intervalo'][0]:.10g} < rp < {r['dominio']['intervalo'][1]:.10g}", "—"),
+                     ("Ventana numérica de rendimiento", f"{n['intervalo_busqueda'][0]:.10g} a {n['intervalo_busqueda'][1]:.10g}", "—"),
+                     ("Diferencia rp / tolerancia", f"{c['diferencia_rp']:.6g} / {c['tolerancia_rp']:.6g}", "—"),
+                     ("Diferencia rendimiento / tolerancia", f"{c['diferencia_rendimiento']:.6g} / {c['tolerancia_rendimiento']:.6g}", "fracción"),
+                     ("Evaluaciones / iteraciones", f"{n['evaluaciones']} / {n['iteraciones']}", "—"),
+                     ("Paso inicial / parada en ln(rp)", f"{n['paso_log_inicial']:.6g} / {n['tolerancia_log']:.6g}", "—"),
+                     ("Escala de resolución en rp", f"{n['resolucion_rp']:.6g}", "—")]
+            partes.append(tabla_html(("Magnitud", "Resultado", "Unidad"), filas))
+            partes.append(tabla_html(("Estado en B", "T [K]", "p [kPa]"), [
+                (i,f"{T:.6f}",f"{p:.6f}") for i,(T,p) in enumerate(zip(
+                    a["ciclo"]["temperaturas"],a["ciclo"]["presiones"]),start=1)]))
+    partes.append("<h3>Dos decisiones de diseño: A y B</h3>")
+    filas=[]
+    for clave, etiqueta in (("punto_a","A · Máximo trabajo"),("punto_b","B · Máximo rendimiento")):
+        p=comparacion[clave]
+        if p is not None:
+            c=p["ciclo"]
+            filas.append((etiqueta,f"{p['rp']:.10f}",f"{c['trabajo_neto']:.6f}",
+                          f"{c['rendimiento']*100:.6f}",f"{c['calor_aportado']:.6f}"))
+        else:
+            filas.append((etiqueta,"No disponible","—","—","—"))
+    partes.append(tabla_html(("Criterio","rp","Trabajo [kJ/kg]","Rendimiento [%]","Calor [kJ/kg]"),filas))
+    if comparacion["estado"] == "disponible":
+        partes.append(tabla_html(("Comparación B respecto a A","Valor","Unidad"),[
+            ("Diferencia de relaciones rp (B−A)",f"{comparacion['diferencia_rp']:.10f}","—"),
+            ("Ganancia de rendimiento",f"{comparacion['ganancia_rendimiento_pp']:.6f}","puntos porcentuales"),
+            ("Reducción relativa de trabajo respecto a A",f"{comparacion['reduccion_trabajo_porcentaje']:.6f}","%"),
+            ("Diferencia de calor aportado (B−A)",f"{comparacion['diferencia_calor']:.6f}","kJ/kg")]))
+    else:
+        partes.append(f"<p>{escape(comparacion['motivo'])}</p>")
+    partes.append("<p>El máximo rendimiento puede entregar menos trabajo específico: cada criterio responde a una decisión distinta. "
+                  "Círculo azul: máximo trabajo ideal; rombo naranja: A, máximo trabajo no ideal; estrella verde: B, máximo rendimiento no ideal. "
+                  "El ideal tiene un supremo, sin marcador de máximo rendimiento. Las fronteras discontinuas delimitan dominios abiertos.</p>"
+                  "<p>Modelo educativo con cp/gamma, eficiencias y pérdida fijas. No es un modelo de motor real de alta fidelidad. "
+                  "Malla inicial, parada y precisión efectiva son distintas; un cociente con calor muy pequeño amplifica el redondeo. "
+                  "La clasificación de Fase 1 excluye su banda cero y los fallos numéricos se notifican; la concordancia no constituye validación experimental.</p></section>")
+    return "".join(partes)
+
+
 def crear_informe_html(parametros, ideal, noideal, detalles_ideal, optimo,
                        rendimientos, comprobaciones, imagenes, fecha, version, barrido=None,
-                       optimizaciones=None):
+                       optimizaciones=None, *, estudio_rendimiento=None, comparacion_criterios=None):
     """Presenta resultados y seis PNG suministrados por main, sin recalcular física."""
-    if len(imagenes) != 6:
-        raise ValueError("El informe requiere exactamente seis gráficas de la ejecución.")
+    base = {"rendimiento_brayton.png", "diagrama_ts_brayton.png", "diagrama_pv_brayton.png",
+            "trabajo_neto_vs_rp.png", "comparacion_ideal_noideal.png", "trabajo_neto_ideal_noideal.png"}
+    esperadas = base | ({"compromiso_trabajo_rendimiento.png"} if estudio_rendimiento is not None else set())
+    if set(imagenes) != esperadas:
+        raise ValueError("El informe requiere las seis gráficas originales y, con Fase 3, la gráfica de compromiso.")
     filas_parametros = [
         ("T1 · Entrada del compresor", f"{parametros['T1']:.2f}", "K"),
         ("T3 · Entrada de la turbina", f"{parametros['T3']:.2f}", "K"),
@@ -232,6 +295,11 @@ def crear_informe_html(parametros, ideal, noideal, detalles_ideal, optimo,
     optimizacion_html = (seccion_optimizacion_html(parametros, {"ideal": ideal, "noideal": noideal},
                                                    optimizaciones, barrido)
                          if optimizaciones is not None else "")
+    rendimiento_html = ""
+    if estudio_rendimiento is not None:
+        rendimiento_html = seccion_rendimiento_html(estudio_rendimiento, comparacion_criterios)
+        rendimiento_html += imagen_html(imagenes["compromiso_trabajo_rendimiento.png"],
+            "Compromiso no ideal: trabajo específico neto frente a rendimiento; rp es el parámetro. No toda la curva es frontera de Pareto.")
     return f"""{MARCA_INICIO}
 <!doctype html>
 <html lang="es">
@@ -273,12 +341,13 @@ footer {{ padding: 24px 0; font-size: .85rem; color: #475969; }}
 <header><h1>Brayton Simulator</h1><p>Informe de resultados · {fecha_texto}</p>
 <p>Commit Git: <code>{commit_texto}</code></p>
 <p class="{'version-warning' if version['modificado'] is not False else 'version'}">{estado_version}</p>
-<span class="status">Ejecución completada · 6 gráficas incorporadas</span></header>
+<span class="status">Ejecución completada · {len(imagenes)} gráficas incorporadas</span></header>
 <section><h2>Parámetros de la ejecución</h2>
 <p class="note">Modelo educativo de gas ideal con cp y gamma constantes. Equipos adiabáticos en régimen estacionario; se desprecian cambios de energía cinética y potencial. No es un modelo de motor real de alta fidelidad.</p>
 {tabla_html(unidades, filas_parametros)}</section>
 {dominio_html}
 {optimizacion_html}
+{rendimiento_html}
 <section><h2>Ciclo ideal · caso de referencia</h2>
 <p>Estados: 1 entrada del compresor, 2 salida del compresor, 3 entrada de turbina y 4 salida de turbina. La entropía es relativa, con s1 = 0.</p>
 {tabla_html(("Estado", "T [K]", "p [kPa]", "v [m³/kg]", "s [kJ/(kg·K)]"), estados_ideal)}
@@ -310,7 +379,7 @@ footer {{ padding: 24px 0; font-size: .85rem; color: #475969; }}
 {imagen_html(imagenes['trabajo_neto_ideal_noideal.png'], 'Trabajo específico neto · comparación ideal / no ideal')}</section>
 <section><h2>Comprobaciones ejecutadas</h2><ul>{lista_comprobaciones}</ul>
 <p class="note">Estas comprobaciones verifican coherencia del código y del modelo; no constituyen validación frente a datos experimentales externos.</p></section>
-<footer>Informe autocontenido: HTML, CSS y seis imágenes PNG Base64. No necesita Internet ni archivos de imagen externos. Las energías son específicas (kJ/kg), no potencias.</footer>
+<footer>Informe autocontenido: HTML, CSS y {len(imagenes)} imágenes PNG Base64. No necesita Internet ni archivos de imagen externos. Las energías son específicas (kJ/kg), no potencias.</footer>
 </main></body></html>
 {MARCA_FINAL}"""
 

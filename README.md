@@ -21,10 +21,10 @@ An educational Python simulator for studying gas turbine thermodynamics through 
 - Analytical ideal/non-ideal net-work optimization, checked by independent logarithmic sampling and golden-section refinement in each current motor domain.
 - A separate non-ideal model with compressor and turbine isentropic efficiencies and combustor pressure loss.
 - HTML tables comparing ideal and non-ideal temperatures, pressures, energy balances, efficiencies and back work ratios.
-- Efficiency and net-work comparisons over compressor pressure ratios from 2 to 30.
+- Efficiency and net-work comparisons over dynamic pressure-ratio domains, with work/efficiency design markers and detail panels when needed.
 - Physical input validation and runtime consistency checks, including recovery of the ideal cycle when both component efficiencies are 1 and pressure loss is zero.
 - Ideal/non-ideal motor domains, simultaneous exclusion reasons, numerical work boundaries and adapted pressure-ratio sweeps.
-- Six fresh Matplotlib PNG plots embedded as Base64 in a single offline HTML report, using the Agg backend.
+- Seven fresh Matplotlib PNG plots embedded as Base64 in a single offline HTML report, using the Agg backend.
 - Four most recent completed reports retained in `outputs/`; historical PNGs and unrelated files are preserved.
 - Brief terminal summary with the report path and number of embedded plots.
 - Optional offline local Flask form for all nine inputs, with server-side validation and the same reports/history as the terminal mode.
@@ -117,7 +117,7 @@ Convexity proves that this region, intersected with the other constraints, is an
 
 Default bounds: ideal **1 < rp < 403.4175203200**; non-ideal **1.0696541023 < rp < 155.4543260392**. The non-ideal expansion bound is 1.0526315789 and the heat upper bound is 254.8459320044; net work supplies the tighter bounds. The ideal work optimum, rp≈20.085256, is a separate interior point.
 
-The self-contained report adds **Dominio físicamente viable**, with conditions, boundaries, reference status and counts of all exclusion reasons (which may overlap). The plot grid combines linear/logarithmic samples and boundary neighbours, with fewer than 1300 points; the default case now uses 1265 samples over [1,423.5883963360], including local samples around the reference and both work maxima. This display window differs from each physical domain and numerical search window. NaN breaks curves at excluded points; thermal efficiency is not reported there.
+The self-contained report adds **Dominio físicamente viable**, with conditions, boundaries, reference status and counts of all exclusion reasons (which may overlap). The plot grid combines linear/logarithmic samples and boundary neighbours, with fewer than 1300 points; the default case now uses 1282 samples over [1,423.5883963360], including local samples around the reference and both work maxima and the efficiency maximum. This display window differs from each physical domain and numerical search window. NaN breaks curves at excluded points; thermal efficiency is not reported there.
 
 To inspect an excluded point without exceptions for expected physical failure:
 
@@ -139,7 +139,26 @@ $$r_{p,*}=\left[\frac{\eta_c\eta_t T_3}{T_1(1-\delta)^a}\right]^{1/(2a)}.$$
 
 It is accepted only inside the open motor domain computed by Phase 1 for the current parameters. When the domain is nonempty the candidate is its interior maximum; empty domains produce no fictitious optimum. Numerical optimization does not use the analytical candidate to select its window. Physical, search and plotting intervals are distinct. The nine Flask fields stay unchanged; cp scales work, p1 scales pressure, and the reference rp does not constrain the search.
 
-The HTML includes analytical/numerical agreement, work and efficiency at the work maximum, optimal state temperatures/pressures, ideal versus non-ideal differences and explicit numerical tolerances. See the [technical milestone](docs/milestones/04_optimizacion_noideal.md) and the independent Spanish [Phase 2 learning guide](docs/milestones/04_optimizacion_noideal_APRENDIZAJE.md). Efficiency optimization remains a future phase.
+The HTML includes analytical/numerical agreement, work and efficiency at the work maximum, optimal state temperatures/pressures, ideal versus non-ideal differences and explicit numerical tolerances. See the [technical milestone](docs/milestones/04_optimizacion_noideal.md) and the independent Spanish [Phase 2 learning guide](docs/milestones/04_optimizacion_noideal_APRENDIZAJE.md). Efficiency optimization is described in Phase 3 below.
+
+## Thermal efficiency and design trade-off (Phase 3)
+
+The report now includes **Optimización del rendimiento térmico**. The ideal efficiency $1-r_p^{-a}$ is strictly increasing on its open motor domain. It has no interior maximum: its unattained supremum is $1-T_1/T_3$, approached at an excluded boundary where heat and work vanish. No ideal efficiency optimum or fictitious point B is returned.
+
+With any strictly positive loss and a nonempty non-ideal motor domain, the efficiency has a unique interior maximum. A stable analytical stationary candidate is checked against an independent logarithmic search with golden-section refinement. Empty domains return no motor optimum; unresolved cases raise an explicit numerical error. Neither search nor plot uses the form's reference pressure ratio as a fixed bound.
+
+For the default parameters:
+
+| Design point | rp | Net work [kJ/kg] | Efficiency [%] | Heat input [kJ/kg] |
+|---|---:|---:|---:|---:|
+| A: maximum net work | 12.895052 | 373.210827 | 39.212614 | 951.762164 |
+| B: maximum efficiency | 35.452324 | 313.738915 | 43.893107 | 714.779462 |
+
+B gains **4.680493 percentage points**, reduces work by **15.935205%** relative to A and changes heat input by **−236.982702 kJ/kg**. The numerical efficiency optimum is rp≈35.4523219222, agreeing with the analytical rp≈35.4523235708 within the declared tolerance. The default ideal supremum is **81.990625%**, unattained.
+
+The six earlier plots are preserved. Comparative rp plots show a blue circle for ideal maximum work, an orange diamond for A and a green star for B. A seventh plot shows non-ideal net work horizontally and efficiency vertically, with rp as the curve parameter. Excluded samples remain NaN gaps; the entire curve is not automatically a Pareto frontier. The HTML includes optimal temperatures/pressures, physical/search intervals, numerical agreement, units and limitations.
+
+The nine local Flask fields, Git metadata, self-contained download and four-report retention are unchanged. Each POST recomputes domains and both optimization criteria from its current values. See the [Phase 3 technical milestone](docs/milestones/05_optimizacion_rendimiento.md) and the Spanish [independent learning guide](docs/milestones/05_optimizacion_rendimiento_APRENDIZAJE.md).
 
 ## Example parameters
 
@@ -182,7 +201,7 @@ The ideal net-work optimum is **20.0852562921** analytically and **20.0852560217
 
 ## Generated plots
 
-The images below are historical reference previews. New executions embed all six newly generated plots directly in their HTML report and do not overwrite these PNG files.
+The images below are historical reference previews. New executions embed all seven newly generated plots directly in their HTML report and do not overwrite these PNG files.
 
 ![Ideal thermal efficiency](rendimiento_brayton.png)
 
@@ -206,7 +225,7 @@ Historical preview over 2 to 30. Current reports compare each model only inside 
 
 ![Ideal and non-ideal net work comparison](trabajo_neto_ideal_noideal.png)
 
-Historical preview over the same range. Current work curves mark both work maxima, use NaN gaps at excluded samples, and add a non-ideal detail panel when the scales differ strongly. All six current PNGs are 1350 × 900 and embedded in each HTML report; historical previews are preserved.
+Historical preview over the same range. Current comparative curves mark ideal maximum work, A (non-ideal maximum work) and B (non-ideal maximum efficiency, when attained), use NaN gaps at excluded samples, and add a non-ideal detail panel when the scales differ strongly. All seven current PNGs are 1350 × 900 and embedded in each HTML report; historical previews are preserved.
 
 ## Project structure
 
@@ -214,6 +233,7 @@ Historical preview over the same range. Current work curves mark both work maxim
 Brayton_Simulator/
 ├── main.py
 ├── optimizacion.py
+├── optimizacion_rendimiento.py
 ├── viabilidad.py
 ├── reporting.py
 ├── web_app.py
@@ -221,6 +241,8 @@ Brayton_Simulator/
 ├── templates/index.html
 ├── static/style.css
 ├── tests/test_optimizacion.py
+├── tests/test_optimizacion_rendimiento.py
+├── tests/test_integracion_rendimiento.py
 ├── tests/test_viabilidad.py
 ├── tests/test_reporting.py
 ├── tests/test_web_app.py
@@ -273,15 +295,15 @@ Alternatively, on Windows:
 .\.venv\Scripts\python.exe main.py
 ```
 
-Each report header records the full Git HEAD hash and warns about staged, unstaged or untracked changes. If Git cannot be queried, it explicitly shows an unknown version state. Ignored reports do not count as changes. All six plots use 1350 × 900 pixels.
+Each report header records the full Git HEAD hash and warns about staged, unstaged or untracked changes. If Git cannot be queried, it explicitly shows an unknown version state. Ignored reports do not count as changes. All seven plots use 1350 × 900 pixels.
 
-The program prints only completion status, the absolute report path and the number of embedded plots. Full results, units, checks and all six fresh plots are in `outputs/brayton_DATE_TIME_MICROSECONDS_UUID.html`. The directory is created automatically beside `main.py`, independently of the working directory. Open the report locally in Chrome or Edge; no Internet connection, image files, server or framework is required.
+The program prints only completion status, the absolute report path and the number of embedded plots. Full results, units, checks and all seven fresh plots are in `outputs/brayton_DATE_TIME_MICROSECONDS_UUID.html`. The directory is created automatically beside `main.py`, independently of the working directory. Open the report locally in Chrome or Edge; no Internet connection, image files, server or framework is required.
 
 In VS Code, expand `outputs/`, locate the report named in the terminal, then reveal it in File Explorer and open it in a browser. Opening it in the text editor displays its HTML source; an HTML preview extension is optional.
 
 Only after a complete report has been written and published does the program retain the four newest completed reports it recognizes by exact filename and internal markers. Calculation or publication errors preserve earlier reports and propagate a traceback. A later cleanup error emits a warning and may leave more than four valid reports. Unrelated files and historical PNGs are untouched. Names include microseconds and UUIDs to avoid collisions; concurrent retention is not protected by a process lock. Publication targets the project's Windows environment.
 
-To explore other cases, use the local form below or call `main(parametros={"T3": 1700})` from Python. Inputs not supplied in that dictionary retain `PARAMETROS_PREDETERMINADOS`; internal combustor loss is a fraction. `main(output_folder)` remains compatible. There is no command-line argument parser. Importing `main` or `web_app` does not run simulations or start a server. Terminal messages, form/report content and plot labels are in Spanish.
+To explore other cases, use the local form below or call `main(parametros={"T3": 1700})` from Python. Inputs not supplied in that dictionary retain `PARAMETROS_PREDETERMINADOS`; internal combustor loss is a fraction. `main(output_folder)` remains compatible. There is no command-line argument parser. Importing `main` or `web_app` does not run simulations or start a server. Terminal messages, form/report content and plot labels are in Spanish. The README uses English; the educational manual and phase guides are in Spanish.
 
 ### Local web interface from VS Code
 
@@ -308,13 +330,21 @@ Run the verification suite from the repository root with the virtual environment
 python -B -m unittest discover -s tests -v
 ```
 
-The 40 tests (22 preserved and 18 added for Phase 1) include physical domain limits, empty domains, simultaneous causes, root neighbours, NaN in plotted lines and five complete runs in temporary directories, numerical reference checks, embedded PNG checks, retention, failure handling and protection of unrelated files. Flask `test_client` additionally checks GET/POST, modified inputs, model rejections, internal errors, download/view restrictions and mixed terminal/web retention without opening sockets. See `CODE_WALKTHROUGH.md` for the educational explanation and `docs/milestones/01_html_reports.md` for the reporting milestone; Phase 1 is documented in `docs/milestones/03_dominio_viable.md`.
+Or explicitly on Windows:
+
+```powershell
+.\.venv\Scripts\python.exe -B -m unittest discover -s tests -v
+```
+
+The final Phase 3 suite passes **83 tests**: all 55 Phase 2 methods, 20 efficiency unit tests and eight integration tests. Coverage includes physical domain limits, empty domains, simultaneous causes, root neighbours, NaN in plotted lines and five complete runs in temporary directories, numerical reference checks, embedded PNG checks, retention, failure handling and protection of unrelated files. Flask `test_client` additionally checks GET/POST, modified inputs, model rejections, internal errors, download/view restrictions and mixed terminal/web retention without opening sockets. See `CODE_WALKTHROUGH.md` for the educational explanation and `docs/milestones/01_html_reports.md` for the reporting milestone; Phase 1 is documented in `docs/milestones/03_dominio_viable.md`.
 
 ## Educational documentation
 
 - [CODE_WALKTHROUGH.md](CODE_WALKTHROUGH.md): complete manual of the current code, equations, functions and execution flow.
 - [Phase 1 learning guide](docs/milestones/03_dominio_viable_APRENDIZAJE.md): independent explanation of what changed relative to the base commit, how it was implemented, engineering/Python concepts and practical experiments.
 - [Phase 1 technical milestone](docs/milestones/03_dominio_viable.md): concise technical report of the stage; previous milestone files remain available.
+- [Phase 3 learning guide](docs/milestones/05_optimizacion_rendimiento_APRENDIZAJE.md): derivation, implementation, Python, numerical methods, exercises and verification in sections A–J.
+- [Phase 3 technical milestone](docs/milestones/05_optimizacion_rendimiento.md): efficiency optimization and comparison of design criteria.
 - Git: exact committed snapshots of code and their matching documentation.
 
 Each new phase gets its own `NN_nombre_fase_APRENDIZAJE.md`. Smaller iterations within the same phase update that document; the walkthrough stays current without an accumulated iteration history. Earlier phase documents preserve their historical scope. This system starts with Phase 1; no retrospective learning documents are created for the HTML-report or Flask stages.
@@ -333,7 +363,7 @@ Each new phase gets its own `NN_nombre_fase_APRENDIZAJE.md`. Smaller iterations 
 - This is an educational, simplified cycle model, not a detailed gas turbine engine model.
 - Gas properties are constant; temperature-dependent heat capacities and combustion-product composition are not represented.
 - Non-ideal behavior is limited to fixed isentropic efficiencies and combustor pressure loss. Mechanical losses, fuel consumption, thrust and component maps are not calculated.
-- T-s and P-v diagrams currently describe only the ideal reference cycle. Net-work optimization covers both ideal and non-ideal models.
+- T-s and P-v diagrams currently describe only the ideal reference cycle. Net-work optimization covers both models; efficiency optimization distinguishes the ideal unattained supremum from the attained non-ideal maximum.
 - The plotted pressure-ratio window is recalculated from Phase 1 boundaries each run; bounded sample counts control cost without a fixed physical cap. Extremely narrow domains or floating-point limits can still be unresolved. A relative zero band of 1e-10 excludes unresolved boundary points. The reference case must be a motor in both models to generate a report; standalone optimization returns no motor optimum for empty domains.
 - Runtime checks and standalone tests verify implementation and reporting; they do not constitute validation against experimental engine data.
 
@@ -343,7 +373,7 @@ Potential future work, not currently implemented:
 
 - Extend tests as the physical model grows and further separate numerical studies from plotting when needed.
 - Optionally add configuration files or a command-line argument parser; the current local form already accepts parameters.
-- Add non-ideal thermodynamic diagrams and, in a later phase, efficiency optimization.
+- Add non-ideal thermodynamic diagrams, if requested.
 - Explore temperature-dependent gas properties and regenerative cycles.
 
 ## Author / Context

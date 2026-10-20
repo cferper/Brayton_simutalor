@@ -65,7 +65,7 @@ class InformesTests(unittest.TestCase):
             for nombre, contenido in ajenos.items():
                 (carpeta / nombre).write_bytes(contenido)
             rutas = []
-            # Se comparan los bytes incrustados con los seis buffers suministrados
+            # Se comparan los bytes incrustados con los siete buffers suministrados
             # al generador en cada ejecución, no con archivos PNG del disco.
             creador_real = main.crear_informe_html
             for _ in range(5):
@@ -78,7 +78,7 @@ class InformesTests(unittest.TestCase):
                 documento = ruta.read_text(encoding="utf-8")
                 parser = InformeParser()
                 parser.feed(documento)
-                self.assertEqual(len(parser.imagenes), 6)
+                self.assertEqual(len(parser.imagenes), 7)
                 self.assertEqual(parser.externos, [])
                 originales = creador.call_args.args[7]
                 self.assertCountEqual(parser.imagenes, originales.values())
@@ -207,7 +207,7 @@ class InformesTests(unittest.TestCase):
                 ({"commit": None, "modificado": None}, "Estado Git no disponible"),
             ):
                 argumentos[9] = version
-                documento = crear(*argumentos)
+                documento = crear(*argumentos, **generador.call_args.kwargs)
                 self.assertIn(esperado, documento)
                 self.assertIn(version["commit"] or "No disponible", documento)
                 if version["modificado"] is not False:
