@@ -1,16 +1,18 @@
 # Guía educativa de Brayton Simulator
 
-Guía del estado actual, actualizada el 20 de octubre de 2026. La Fase 2 incorpora el máximo de trabajo específico ideal y no ideal, analítico y numérico, dentro de los dominios de Fase 1 y con intervalos recalculados por ejecución. Se mantienen los nueve parámetros, Flask local, seis gráficas nuevas por informe HTML, metadatos Git y retención de cuatro informes.
+Guía del estado actual, actualizada el 20 de octubre de 2026. El simulador identifica los dominios motores, optimiza trabajo específico y rendimiento térmico y compara ambos criterios con intervalos recalculados por ejecución. Se mantienen los nueve parámetros, Flask local, siete gráficas por informe HTML (las seis anteriores y una de compromiso), metadatos Git y retención de cuatro informes.
 
-**Lectura por fases:** la [guía de aprendizaje de Fase 1](docs/milestones/03_dominio_viable_APRENDIZAJE.md) explica sus novedades respecto al commit de partida. La [guía de aprendizaje de Fase 2](docs/milestones/04_optimizacion_noideal_APRENDIZAJE.md) desarrolla la optimización y los intervalos dinámicos. Este manual describe todo el código actual; `Evolution of the project` resume los grandes hitos, sin historial acumulativo de iteraciones.
+**Lectura por fases:** la [guía de aprendizaje de Fase 1](docs/milestones/03_dominio_viable_APRENDIZAJE.md) explica sus novedades respecto al commit de partida. La [guía de aprendizaje de Fase 2](docs/milestones/04_optimizacion_noideal_APRENDIZAJE.md) desarrolla la optimización y los intervalos dinámicos. La [guía de aprendizaje de Fase 3](docs/milestones/05_optimizacion_rendimiento_APRENDIZAJE.md) explica su física, algoritmos, integración y verificación de cierre. Este manual describe todo el código actual; `Evolution of the project` resume los grandes hitos, sin historial acumulativo de iteraciones.
 
-Verificación del 20 de octubre de 2026: **55 pruebas superadas** con `python -B -m unittest discover -s tests -v` (40.481 s en esta ejecución).
+Verificación previa de Fase 2, del 20 de octubre de 2026: **55 pruebas superadas** con `python -B -m unittest discover -s tests -v` (40.481 s en esta ejecución).
 
-Hay cinco módulos (`main.py`, `viabilidad.py`, `optimizacion.py`, `reporting.py`, `web_app.py`) y cuatro archivos de pruebas. `.venv` contiene dependencias, no código propio. Se distinguen dominio físico, ventana numérica y ventana visual (§14). La suite actual contiene 55 pruebas: las 40 anteriores y 15 de optimización. La verificación interna no constituye validación experimental de un motor.
+Hay seis módulos (`main.py`, `viabilidad.py`, `optimizacion.py`, `optimizacion_rendimiento.py`, `reporting.py`, `web_app.py`) y seis archivos de pruebas. `.venv` contiene dependencias, no código propio. Se distinguen dominio físico, ventana numérica y ventana visual (§14). La suite actual tiene **83 pruebas**: las 55 de Fase 2, 20 unitarias de rendimiento y ocho de integración. Cierre verificado el 20 de octubre de 2026: 83/83 OK en 51.733 s; las comprobaciones previas se identifican como tales en §4.38–4.39. La verificación interna no constituye validación experimental de un motor.
 
 La verificación de esta fase se realiza con informes en carpetas temporales; los seis PNG históricos permanecen intactos. No se crean commits automáticamente. La base verificada de Fase 2 es `f9f9a0495c4231a4d48399fba4bccdcc0f6bcf6f` en `feature/fase-2-optimizacion-noideal`; la implementación de Fase 2 está registrada en el commit `c2f4bff84a173f3b354a5d0f76c2b7bd2ee1fa21` (`Implement non-ideal Brayton work optimization with dynamic intervals`).
 
 La ejecución normal no lee ni sobrescribe los PNG históricos. Los ejemplos que guardan un PNG explícitamente son usos opcionales. Las referencias se dan mediante archivo y nombre de función para no depender de líneas que cambian al editar.
+
+**Alcance actual de Fase 3:** `main` llama al estudio ideal y al optimizador no ideal de rendimiento, compara A/B y añade la curva de compromiso. Flask mantiene nueve campos y recalcula todos los estudios por POST. La revisión final y la guía de aprendizaje están completadas; la fase permanece sin commit en `feature/fase-3-optimizacion-rendimiento`, sobre la base `5629eb076d10ad54852f74a438fda8a970db5f04`.
 
 ## 1. Visión general del programa
 
@@ -23,7 +25,7 @@ El programa estudia un ciclo Brayton ideal y otro no ideal simplificado. Usa gas
 | 3 | Entrada de la turbina |
 | 4 | Salida de la turbina |
 
-**INTERPRETACIÓN FÍSICA.** Los procesos ideales son dos isentrópicas y dos isóbaras. El no ideal incorpora eficiencias de compresor y turbina y pérdida de presión del combustor. Se calculan los máximos de trabajo específico de ambos modelos. El rendimiento evaluado en esos puntos no es un máximo de rendimiento.
+**INTERPRETACIÓN FÍSICA.** Los procesos ideales son dos isentrópicas y dos isóbaras. El no ideal incorpora eficiencias de compresor y turbina y pérdida de presión del combustor. Se calculan los máximos de trabajo de ambos modelos y, por separado, el máximo de rendimiento no ideal cuando hay pérdidas y dominio motor. El ideal/reversible tiene sólo un supremo no alcanzado de rendimiento; no se crea un punto B ficticio.
 
 **PYTHON.** Los nueve parámetros predeterminados están en `PARAMETROS_PREDETERMINADOS`. `main()` copia esa configuración y admite cambios por argumento. Flask convierte el formulario y llama a esa misma función; las funciones numéricas calculan; Matplotlib dibuja en buffers `BytesIO`; `reporting.py` compone HTML con CSS e imágenes Base64 y publica un archivo completo en `outputs/`. No se genera un TXT intermedio. La terminal muestra tres líneas de éxito; los detalles van al informe.
 
@@ -43,7 +45,7 @@ Resultados analíticos y numéricos de ambos máximos de trabajo
 ↓
 Ciclo no ideal y límite reversible
 ↓
-Seis gráficas nuevas en memoria; puntos excluidos interrumpen curvas con NaN
+Siete gráficas nuevas en memoria; puntos excluidos interrumpen curvas con NaN
 ↓
 Tablas + CSS + imágenes Base64 → HTML en memoria
 ↓
@@ -63,9 +65,10 @@ El informe contiene cabecera con commit Git y estado local, parámetros, dominio
 | `diagrama_pv_brayton.png` | P-v exclusivamente ideal | Caso de referencia |
 | `trabajo_neto_vs_rp.png` | Trabajo y máximo exclusivamente ideales | Malla de dibujo adaptada; máximo contrastado con búsqueda logarítmica y sección áurea |
 | `comparacion_ideal_noideal.png` | Rendimiento ideal/no ideal | Malla adaptada compartida ideal/no ideal |
-| `trabajo_neto_ideal_noideal.png` | Trabajo ideal/no ideal | Mismo barrido; máscaras independientes y marcadores de ambos máximos |
+| `trabajo_neto_ideal_noideal.png` | Trabajo ideal/no ideal y criterios A/B | Mismo barrido; NaN y marcadores |
+| `compromiso_trabajo_rendimiento.png` | W frente a eta no ideal; rp como parámetro | Mismo barrido, sin unir muestras excluidas; no toda la curva es frontera de Pareto |
 
-Estos nombres son claves: no implican que se escriban seis PNG. Las imágenes van dentro de un único `brayton_fecha_hora_microsegundos_uuid.html`, sin Internet ni archivos externos.
+Estos nombres son claves: no implican que se escriban siete PNG. Las imágenes van dentro de un único `brayton_fecha_hora_microsegundos_uuid.html`, sin Internet ni archivos externos.
 
 ## 2. Estructura completa del repositorio
 
@@ -76,6 +79,7 @@ Brayton_Simulator/
 ├── main.py                     modelo, gráficas y coordinación
 ├── viabilidad.py               estados comunes, clasificación, fronteras y barridos
 ├── optimizacion.py             candidatos, búsqueda interior y contraste de máximos
+├── optimizacion_rendimiento.py rendimiento y comparación A/B
 ├── reporting.py                HTML y conservación de informes
 ├── web_app.py                  servidor Flask de acceso local
 ├── Abrir_Brayton_Simulator.cmd acceso por doble clic al formulario local
@@ -83,6 +87,8 @@ Brayton_Simulator/
 ├── static/style.css            estilos locales del formulario
 ├── tests/test_viabilidad.py    pruebas de dominio, fronteras, máscaras y regresión HTTP
 ├── tests/test_optimizacion.py  máximos, intervalos dinámicos y regresión Flask
+├── tests/test_optimizacion_rendimiento.py  pruebas unitarias de rendimiento
+├── tests/test_integracion_rendimiento.py  gráficas, informe, recálculo Flask y criterios
 ├── tests/test_reporting.py     pruebas de informes
 ├── tests/test_web_app.py       pruebas HTTP y compatibilidad
 ├── README.md                   instalación y uso
@@ -99,8 +105,9 @@ Brayton_Simulator/
 |---|---|
 | `viabilidad.py` | Validación, ecuaciones de estados/energías compartidas, clasificación sin excepciones físicas, bisección y barridos |
 | `optimizacion.py` | Máximo analítico y numérico de trabajo; reutiliza estados y dominio de Fase 1 |
+| `optimizacion_rendimiento.py` | Supremo ideal, máximo de rendimiento y comparación A/B integrados en main |
 | `main.py`: funciones de ciclo | API estricta de cálculo motor, comprobaciones, entropía/P-v y óptimo ideal |
-| `main.py`: funciones `guardar_*` y `marcar_dominio` | Seis PNG en memoria; bandas/fronteras y NaN en curvas de rp |
+| `main.py`: funciones `guardar_*` y `marcar_dominio` | Siete PNG en memoria; bandas/fronteras, compromiso y NaN en curvas de rp |
 | `main.py`: `main` y punto de entrada | Copia de parámetros, coordinación y ejecución directa protegida |
 | `reporting.py` | Git, tablas/Base64, dominio, documento completo y publicación/retención |
 | `web_app.py` | Formulario, entradas, errores diferenciados, vista/descarga y servidor local |
@@ -145,7 +152,7 @@ El formulario usa un servidor Flask local; los informes siguen siendo documentos
 
 ### E. Entropía, P-v y gráficas
 
-**Qué hace:** obtiene propiedades ideales y representa seis imágenes; las cuatro curvas frente a rp comparten una malla adaptada y máscaras físicas.
+**Qué hace:** obtiene propiedades ideales y representa siete imágenes; las cuatro curvas frente a rp comparten una malla adaptada y máscaras físicas.
 
 **PYTHON:** `zip`, `enumerate`, arrays, objetos gráficos y `BytesIO`. `ruta` puede ser un buffer. `savefig(..., format="png")` indica el formato sin necesitar extensión.
 
@@ -161,7 +168,7 @@ El formulario usa un servidor Flask local; los informes siguen siendo documentos
 
 ### G. HTML y Base64
 
-**Qué hace:** forma tablas, secciones y CSS, incorporando las seis imágenes de la ejecución.
+**Qué hace:** forma tablas, secciones y CSS, incorporando las siete imágenes de la ejecución.
 
 **PYTHON:** `str`, `escape`, `join`, f-strings multilínea, `b64encode(...).decode("ascii")`. CSS usa llaves dobles para obtener llaves literales en una f-string.
 
@@ -322,12 +329,12 @@ def comprobar_comparacion_ciclos(ideal, noideal, eta_c, eta_t, perdida_presion_c
 ```python
 def guardar_comparaciones_ciclos(T1, T3, gamma, cp, p1, eta_c, eta_t,
                                 perdida_presion_combustor, imagenes, barrido=None,
-                                optimizaciones=None):
+                                optimizaciones=None, estudio_rendimiento=None):
 ```
 
 - **Propósito físico:** comparar rendimiento [%] y trabajo [kJ/kg] sólo en el interior motor de cada modelo; los ejes rp son logarítmicos.
 - **Entradas:** ocho escalares con las unidades de §4.6, `imagenes` diccionario mutable de `BytesIO` y `barrido` opcional con el contrato de §4.32. Si es `None`, se calcula con esos parámetros; quien lo suministre debe mantener esa coherencia.
-- **Optimizaciones:** diccionario opcional con entradas `ideal`/`noideal` (§4.35); se representan sus máximos analíticos de trabajo con círculo azul y rombo naranja. Las dos comparaciones añaden un segundo panel con escalas propias si la anchura logarítmica total supera cuatro veces la real o el máximo trabajo ideal supera veinte veces el real. La vista completa conserva fronteras y ambos máximos. No se optimiza rendimiento.
+- **Optimizaciones:** diccionario opcional con entradas `ideal`/`noideal` (§4.35); se representan sus máximos analíticos de trabajo con círculo azul y rombo naranja. Las dos comparaciones añaden un segundo panel con escalas propias si la anchura logarítmica total supera cuatro veces la real o el máximo trabajo ideal supera veinte veces el real. La vista completa conserva fronteras y máximos. Con `estudio_rendimiento` opcional (entradas ideal/noideal, §4.38), ambas comparaciones marcan también la estrella verde B de máximo rendimiento; los marcadores de trabajo se dibujan tanto en eta como en W. Sin máximo interior, un texto indica ausencia de B. No se recalcula física en el dibujador.
 - **Retorno/efecto:** `None`; añade buffers `comparacion_ideal_noideal.png` y `trabajo_neto_ideal_noideal.png`. El llamador debe cerrarlos.
 - **Llama:** `construir_barrido` si falta y `marcar_dominio`; `main` le entrega el barrido ya clasificado y verificado. No llama al ciclo estricto para cada punto.
 - **PYTHON:** arrays multiplicados por 100, bucle de dos magnitudes, NaN que interrumpe cada línea. El muestreo está separado del dibujo.
@@ -501,7 +508,7 @@ def main(carpeta_salida=None, parametros=None):
 - **Propósito:** coordina la ejecución completa; los nueve valores predeterminados están en la constante del módulo y pueden sustituirse desde el formulario.
 - **Argumentos:** `carpeta_salida` es `Path`, cadena o `None`; `None` usa `outputs/` junto al script. `parametros` es un diccionario opcional con cualquiera de las nueve claves conocidas y unidades de §5. Las claves omitidas conservan sus valores predeterminados; la pérdida se recibe como fracción, no porcentaje. No se modifica el diccionario recibido ni la configuración predeterminada.
 - **Salida:** `Path` al HTML completo; efectos: guardar, conservar cuatro y mostrar tres líneas.
-- **Llama directamente:** `validar_parametros`, `calcular_dominios`, `evaluar_punto`, `construir_barrido`, `describir_inviabilidad`, rendimiento, temperaturas, balance, entropías, estados P-v, `optimizar_trabajo_neto` dos veces, ambos ciclos, comprobación comparativa, cinco funciones gráficas `guardar_*`, tabla de rendimientos, `crear_informe_html`, `guardar_informe_html` y `obtener_version_git`.
+- **Llama directamente:** `validar_parametros`, `calcular_dominios`, `evaluar_punto`, `construir_barrido`, `describir_inviabilidad`, rendimiento, temperaturas, balance, entropías, estados P-v, `optimizar_trabajo_neto` dos veces, `estudiar_rendimiento_ideal`, `optimizar_rendimiento`, `comparar_criterios`, ambos ciclos, comprobación comparativa, seis funciones gráficas `guardar_*`, tabla de rendimientos, `crear_informe_html`, `guardar_informe_html` y `obtener_version_git`.
 - **La llaman:** punto de entrada protegido, ruta `index()` de Flask y pruebas de terminal/web.
 - **Validación física:** las existentes de los modelos, igualdad de rendimientos y concordancia de óptimos. Registra mensajes después de superar comprobaciones.
 - **Errores:** claves desconocidas producen `ValueError`. El `ValueError` se captura únicamente alrededor de la validación explícita de entradas. El caso de referencia físicamente inviable genera `ErrorModelo` con motivos y límites antes de crear buffers o publicar. `ErrorNumerico` distingue cálculos no representables. Errores inesperados de cálculo/dibujo/HTML/publicación se propagan sin reclasificarse como físicos. La retención no empieza antes de publicar; sus fallos posteriores se advierten.
@@ -517,7 +524,7 @@ def tabla_html(encabezados, filas):
 - **Propósito/interpretación:** presentar valores ya calculados, sin ecuaciones nuevas.
 - **Argumentos:** iterable de encabezados e iterable de filas con valores ya formateados; unidades en etiquetas/celdas, sin conversiones aquí.
 - **Retorno:** `str` con tabla y contenedor de desplazamiento horizontal.
-- **Llama:** ninguna función propia; usa `str`, `escape` y `join`. La llaman `crear_informe_html`, `seccion_optimizacion_html` y la prueba de escape.
+- **Llama:** ninguna función propia; usa `str`, `escape` y `join`. La llaman `crear_informe_html`, `seccion_optimizacion_html`, `seccion_rendimiento_html` y la prueba de escape.
 - **Validación/errores:** escapa texto HTML; no valida longitudes de filas ni física. Entradas no iterables pueden producir `TypeError`.
 - **PYTHON:** generadores y concatenación.
 - **Ejemplo:** `tabla_html(("T [K]",), [("288.15",)])`.
@@ -531,7 +538,7 @@ def imagen_html(imagen, titulo):
 - **Propósito:** convertir PNG de esta ejecución en figura HTML autocontenida.
 - **Argumentos:** `imagen`, bytes PNG sin unidad; `titulo`, cadena con significado físico y unidades cuando corresponda.
 - **Retorno:** `str` con `figure`, `img`, `figcaption` y URL `data:image/png;base64,...`.
-- **Validación/errores:** comprueba firma binaria PNG; `ValueError` si no coincide. No decodifica exhaustivamente los píxeles; las pruebas sí decodifican las seis imágenes.
+- **Validación/errores:** comprueba firma binaria PNG; `ValueError` si no coincide. No decodifica exhaustivamente los píxeles; las pruebas sí decodifican las siete imágenes actuales.
 - **Llama:** ninguna propia; usa `b64encode`, `.decode` y `escape`. La llaman `crear_informe_html` y la prueba de imagen inválida.
 - **PYTHON:** literal de bytes, `.startswith`, conversión binario→texto. No cambia física ni comprime adicionalmente el PNG.
 - **Ejemplo:** `imagen_html(buffer.getvalue(), "Diagrama T-s ideal")` con una gráfica recién dibujada.
@@ -541,17 +548,17 @@ def imagen_html(imagen, titulo):
 ```python
 def crear_informe_html(parametros, ideal, noideal, detalles_ideal, optimo,
                        rendimientos, comprobaciones, imagenes, fecha, version, barrido=None,
-                       optimizaciones=None):
+                       optimizaciones=None, *, estudio_rendimiento=None, comparacion_criterios=None):
 ```
 
-- **Propósito:** reunir secciones y seis imágenes en un HTML; no escribe ni recalcula el ciclo.
-- **Argumentos:** cinco diccionarios físicos detallados en §5; `rendimientos`, lista de parejas `(rp, porcentaje_o_None)`; `comprobaciones`, lista de textos; `imagenes`, diccionario de seis claves con valores `bytes`; `fecha`, `datetime` con zona local; `version`, diccionario con `commit` (hash o `None`) y `modificado` (`True`, `False` o `None`).
+- **Propósito:** reunir secciones y siete imágenes en un HTML; no escribe ni recalcula el ciclo.
+- **Argumentos:** cinco diccionarios físicos detallados en §5; `rendimientos`, lista de parejas `(rp, porcentaje_o_None)`; `comprobaciones`, lista de textos; `imagenes`, diccionario de siete claves actuales con valores `bytes` (seis en el formato previo sin estudios de rendimiento); `fecha`, `datetime` con zona local; `version`, diccionario con `commit` (hash o `None`) y `modificado` (`True`, `False` o `None`).
 - **Barrido opcional:** diccionario de §4.32 al final de la firma, manteniendo los argumentos anteriores compatibles. `main` siempre lo entrega: añade sección de condiciones, límites, estado viable de referencia y recuentos de motivos simultáneos. Sin barrido, una llamada antigua conserva el formato básico. `None` en la tabla ideal se presenta como fuera del dominio motor.
 - **Unidades:** las de §5; solo convierte fracciones a porcentaje al presentar. No modifica los diccionarios recibidos.
 - **Retorno:** `str` HTML con CSS interno, UTF-8 declarado y marcas inicial/final.
 - **Optimizaciones opcionales:** diccionario de los dos estudios (§4.35). `main` lo entrega siempre; `seccion_optimizacion_html` presenta resultados y ventanas sin recalcularlos. Las llamadas anteriores sin este argumento siguen admitidas.
-- **Llama:** `tabla_html`, `imagen_html`, `seccion_optimizacion_html`. La llama `main()`; la prueba de integración intercepta esta llamada para contrastar bytes.
-- **Validación/errores:** exige seis imágenes y valida sus firmas por delegación. Puede dar `ValueError`, `KeyError` o errores de tipo para datos incompletos. Las comprobaciones mostradas son las registradas por `main`, no verificaciones inventadas aquí.
+- **Llama:** `tabla_html`, `imagen_html`, `seccion_optimizacion_html`, `seccion_rendimiento_html`. La llama `main()`; la prueba de integración intercepta esta llamada para contrastar bytes.
+- **Validación/errores:** exige las seis claves originales y, cuando recibe estudios de rendimiento, la séptima de compromiso; valida las firmas PNG por delegación. Las llamadas antiguas sin esos estudios siguen admitiendo seis imágenes. Puede dar `ValueError`, `KeyError` o errores de tipo para datos incompletos. Las comprobaciones mostradas son las registradas por `main`, no verificaciones inventadas aquí.
 - **PYTHON:** f-string multilínea, llaves dobles de CSS, `join`, generadores y `strftime`.
 - **Ejemplo de contrato:** `crear_informe_html(parametros, ciclo_ideal, ciclo_noideal, detalles_ideal, optimo, calcular_rendimientos(gamma), comprobaciones, pngs, fecha, version)`, con los datos reunidos por `main`; `pngs` representa bytes, no rutas a archivos históricos.
 
@@ -711,7 +718,7 @@ Todos reciben `self`, devuelven `None` y no añaden ecuaciones ni unidades. El e
 | `test_formulario_predeterminados_y_restablecer(self)` | GET del formulario y CSS; comprueba nueve campos y ausencia de simulación |
 | `test_validacion_de_todos_los_campos_sin_informes(self)` | POST con vacíos, no números, no finitos y límites inválidos; exige que `main` no se llame |
 | `test_conversion_porcentaje_y_limites_admitidos(self)` | Llama a `leer_parametros` con pérdidas cero y 5 %, y eficiencias unidad |
-| `test_referencia_y_otro_caso_con_seis_imagenes_actuales(self)` | Envía dos casos reales; compara resultados y bytes de las seis imágenes, vista y descarga |
+| `test_referencia_y_otro_caso_con_seis_imagenes_actuales(self)` | Envía dos casos reales; compara resultados y bytes de las siete imágenes, vista y descarga |
 | `test_cinco_ejecuciones_mezcladas_terminal_web(self)` | Alterna `main` y POST cinco veces; conserva cuatro y devuelve 404 para el eliminado |
 | `test_casos_no_admisibles_conservan_datos_e_historial(self)` | Envía T3=400 y 500 K, con caso de referencia no motor; comprueba errores y archivos intactos |
 | `test_error_inesperado_se_registra_y_no_se_presenta_como_fisico(self)` | Inyecta fallo de dibujo; exige 500, registro de traza y ausencia de detalle privado en respuesta |
@@ -732,7 +739,7 @@ El pequeño helper `guardar_en_prueba(contenido, carpeta, fecha)` del proceso de
 
 - **Propósito físico:** comprobar la familia de modelos antes de analizar su dominio: finitud, T3>T1>0, gamma>1, cp/p1>0, eficiencias en (0,1] y pérdida en [0,1). La relación T3>T1 es una condición de entrada del estudio motor, no prueba suficiente de viabilidad.
 - **Retorno:** `None`; `ValueError` si se incumple. No recibe rp ni decide sobre un punto del barrido.
-- **Llama:** ninguna función propia. La llaman `calcular_estados`, `evaluar_punto`, `calcular_dominios` y `main`.
+- **Llama:** ninguna función propia. La llaman `calcular_estados`, `evaluar_punto`, `calcular_dominios`, `main` y los módulos de optimización de trabajo/rendimiento (§4.35, §4.38).
 - **PYTHON:** argumentos por defecto, `all` sobre un generador y comparaciones encadenadas. No instala dependencias.
 - **Ejemplo:** `validar_parametros(288.15,1600,1.4,1005,100,.85,.9,.05)` termina sin valor visible.
 
@@ -760,7 +767,7 @@ El pequeño helper `guardar_en_prueba(contenido, carpeta, fecha)` del proceso de
 - **Propósito físico:** consultar un punto sin lanzar excepciones por inviabilidad esperada. Exige márgenes positivos para compresión, expansión, calor y trabajo, con las tolerancias de §14.
 - **Retorno:** estados y energías anteriores más `viable` booleano, `motivos` y `fronteras` como tuplas de códigos, diccionarios `margenes`/`tolerancias` con unidades de cada condición, `rendimiento=wn/qin` y `back_work_ratio=wc/wt` sólo si es viable; fuera del motor ambos cocientes son `None`.
 - **Motivos:** `compresion`, `expansion`, `calor_aportado`, `trabajo_neto`; se conservan TODOS. `fronteras` identifica condiciones dentro de la banda de cero, aunque otra condición falle lejos de cero.
-- **Llama:** `validar_parametros`, `calcular_estados`, `calcular_energias`. La llaman `construir_barrido`, `calcular_ciclo_noideal`, `buscar_maximo_numerico`, `optimizar_trabajo_neto`, `main` (referencia y tabla ideal) y pruebas.
+- **Llama:** `validar_parametros`, `calcular_estados`, `calcular_energias`. La llaman `construir_barrido`, `calcular_ciclo_noideal`, `buscar_maximo_numerico`, `optimizar_trabajo_neto`, `buscar_maximo_rendimiento_numerico`, `optimizar_rendimiento`, `main` (referencia y tabla ideal) y pruebas.
 - **Errores:** parámetros inválidos o tolerancia fuera de [0,1) → `ValueError`; estados, energía o escala numéricamente no representables → `ErrorNumerico`. Una lista de motivos no vacía es una devolución normal.
 - **PYTHON:** `tuple(c for ... if ...)` filtra códigos; `not motivos` es `True` para tupla vacía; `**estados` y `**energias` reúnen diccionarios. La expresión condicional evalúa el cociente sólo en la rama viable, evitando divisiones engañosas.
 - **Ejemplo:** `evaluar_punto(288.15,1600,1.4,1005,200,100,.85,.9,.05)` da calor positivo y trabajo negativo: `motivos=('trabajo_neto',)` y `rendimiento=None`.
@@ -780,7 +787,7 @@ El pequeño helper `guardar_en_prueba(contenido, carpeta, fecha)` del proceso de
 - **Retorno:** diccionario con `ideal` y `noideal`; cada uno contiene `intervalo=(inferior,superior)` o `()`, `expansion` (cota inferior), `calor` (cota superior) y `trabajo` (raíces ordenadas o `()`). Todos son rp adimensionales. El no ideal añade `discriminante`; el contenedor añade `tolerancia_puntos=1e-10` y `tolerancia_biseccion=1e-12`.
 - **Método:** cotas de expansión/calor analíticas; discriminante y convexidad establecen dónde puede haber Q<0; bisección en [0,centro] y [centro,1+h] localiza sus dos ceros. Se convierten x a rp y se intersecta con rp>1, expansión y calor. Si h<=1, no hay motor para x>=k>=1, evitando intervalos ficticios por redondeo de la raíz x=1.
 - **Función local `Q(x)`:** cierre dentro de `calcular_dominios` que recibe x adimensional, devuelve `(x−1)*(x−h)+h*(k−1)` y utiliza h/k del ámbito exterior. No llama a funciones propias; la llama `bisectar_raiz`. No es una nueva API pública. Ejemplo conceptual con h=4 y k=1: Q(2)=−2. Un resultado no finito lo rechaza la bisección.
-- **Llama:** `validar_parametros`, `bisectar_raiz`. La llaman `construir_barrido`, `calcular_ciclo_noideal` en rechazos, `buscar_optimo_numerico`, las funciones de `optimizacion.py` cuando no reciben dominio, `main` y pruebas.
+- **Llama:** `validar_parametros`, `bisectar_raiz`. La llaman `construir_barrido`, `calcular_ciclo_noideal` en rechazos, `buscar_optimo_numerico`, las funciones de `optimizacion.py` cuando no reciben dominio, `estudiar_rendimiento_ideal`, `buscar_maximo_rendimiento_numerico`, `optimizar_rendimiento`, `main` y pruebas.
 - **Errores:** entradas inválidas → `ValueError`; fronteras/cuadrática no representables o dominio ideal indistinguible de rp=1 → `ErrorNumerico`. Dominio no ideal vacío → resultado normal `intervalo=()`, no excepción.
 - **PYTHON:** función anidada, tupla vacía y `max`/`min` para intersecar intervalos; `**` es potencia al convertir x a rp.
 - **Ejemplo:** `calcular_dominios(288.15,1600,1.4,1005,100,.85,.9,.05)['noideal']['intervalo']` → aproximadamente `(1.0696541023,155.4543260392)`.
@@ -888,6 +895,94 @@ Las unidades comunes son T [K], cp [J/(kg·K)], p1 [kPa]; gamma, eficiencias, de
 
 `setUp(self)` prepara ocho parámetros comunes; cada método `test_*(self)` devuelve `None` o lanza una aserción, y lo llama `unittest`. Las 15 pruebas cubren fórmula independiente, curvatura, resultados/estados, independencia numérica (parche de la fórmula), pertenencia interior para familias de parámetros, reversibilidad, vacío sin buscar, dominio estrecho/resolución cero, controles, máximos fuera de ventanas antiguas, efecto de cp/p1, muestreo completo y NaN, paneles/marcadores, HTML sin máximos ficticios y cuatro POST sucesivos con descarga. Usan la API física, optimizador, dibujado y cliente Flask; los efectos se aíslan en carpetas temporales. Los callbacks locales `capturar(figura,*args,**kwargs)` guardan las figuras inspeccionadas y delegan a `Figure.savefig`, retornando su valor; no implementan física. La prueba de informe anterior conserva su método, imágenes y referencias; sólo sustituye la expectativa del número discreto heredado por el resultado de la nueva búsqueda.
 
+### 4.38. Rendimiento — `optimizacion_rendimiento.py`
+
+La física de esta API se implementó en parte 1 y se reutiliza desde `main` en parte 2; también admite llamadas directas/pruebas. Sus resultados se pasan a gráficas, HTML y Flask sin copiar ecuaciones. Las funciones anteriores, sus contratos y resultados no cambian. El [documento provisional de Fase 3](docs/milestones/05_optimizacion_rendimiento_APRENDIZAJE.md) demuestra la existencia/unicidad y desarrolla las decisiones ya terminadas; la integración y la revisión documental están completadas, con la fase aún sin commit.
+
+**INTERPRETACIÓN FÍSICA / INGENIERÍA.** Unidades comunes: T1/T3 [K], cp [J/(kg·K)], p1 [kPa], energías [kJ/kg]; rp, gamma, eta_c, eta_t, delta y rendimiento (fracción) adimensionales. Con a=(gamma−1)/gamma>0, x=rp^a, theta=T3/T1, B=1+eta_c*(theta−1), h=eta_c*eta_t*theta, k=(1−delta)^(-a), H=h*k:
+
+```text
+qin = (cp/1000)*(T1/eta_c)*(B−x)
+W   = (cp/1000)*(T1/eta_c)*N(x),  N(x)=1+h−x−H/x
+eta = N(x)/(B−x)
+F(x)=N'(x)*(B−x)+N(x)=A+H*B/x²−2*H/x, A=1+h−B
+eta'(x)=F(x)/(B−x)²
+F'(x)=−2*H*(B−x)/x³ < 0 para x<B
+```
+
+En el ideal `eta=1−rp^(-a)`, `deta/drp=a*rp^(-a−1)>0`: no hay máximo interior, sólo supremo `1−T1/T3` en la frontera `rp=theta^(1/a)`. Allí calor y trabajo son nulos, el cociente físico no se evalúa y la frontera no es motora.
+
+Con cualquier pérdida estricta (eta_c<1, eta_t<1 o delta>0) se cumple `S=H−A*B=(B−1)*(B−h)+h*(k−1)>0`, pues `B−h=(1−eta_c)+eta_c*theta*(1−eta_t)≥0`. Si hay dominio motor, sus dos fronteras de trabajo tienen calor positivo, F es positiva en la inferior y negativa en la superior. Como F decrece estrictamente, existe un único máximo interior. En él `eta''(x)=−2*H/[x³*(B−x)]<0`. El candidato es la raíz racionalizada `x*=B/(1+sqrt(S/H))` de `A*x²−2*H*x+H*B=0`, válida también si A=0 o A<0. En el caso exactamente reversible S=0 esta raíz cae en B: es la frontera excluida, no un máximo. Dominio vacío y límite numérico se tratan por separado.
+
+**PYTHON: contratos y llamadas.** Los parámetros físicos son escalares reales. Se reutilizan `calcular_dominios`, `validar_parametros` y `evaluar_punto`; no se copian ecuaciones de estados/balance ni se añade dependencia. `expm1(z)` calcula exp(z)−1 y `log1p(z)` calcula ln(1+z) con mejor comportamiento para z pequeño; se usan para no perder pérdidas diminutas por restas de números próximos. La reversibilidad exige igualdades exactas de parámetros, no una aproximación arbitraria.
+
+#### `estudiar_rendimiento_ideal(T1, T3, gamma, cp, p1)`
+
+- **Propósito/retorno:** identifica el supremo ideal sin evaluar la frontera. Devuelve diccionario `estado='supremo_no_alcanzado'`, `motivo`, `dominio` ideal de Fase 1, `candidato/analitico/numerico/concordancia=None` y `supremo={'rendimiento':1−T1/T3,'rp_frontera':limite,'alcanzado':False}`. La rp de frontera no es rp óptima.
+- **Llama:** `calcular_dominios`, que valida los cinco escalares y calcula límites. La llaman `main`, ambas funciones de búsqueda/coordinación en el caso reversible y las pruebas/usuarios directos.
+- **Errores/PYTHON:** propaga `ValueError` de entradas y `ErrorNumerico` de fronteras; división escalar y diccionario con `None`/`False` separan ausencia y no alcanzabilidad. No tiene efecto en archivos.
+- **Ejemplo:** `estudiar_rendimiento_ideal(288.15,1600,1.4,1005,100)['supremo']` → rendimiento 0.81990625, frontera rp≈403.41752032, no alcanzado.
+
+#### `calcular_candidato_rendimiento(T1, T3, gamma, eta_c=1, eta_t=1, delta=0)`
+
+- **Propósito/retorno:** raíz estacionaria matemática, sin garantizar dominio. Seis escalares en las unidades comunes → float rp positivo finito; `None` sólo para reversibilidad exacta. Se usa S como suma no negativa para evitar la cancelación de H−A*B; rp se calcula como `exp((log(B)−log1p(sqrt(S/H)))/a)`.
+- **Llama:** `validar_parametros` con cp=p1=1 auxiliares. La llama `optimizar_rendimiento` y pruebas/usuarios directos. No llama a la búsqueda numérica.
+- **Errores/PYTHON:** `ValueError` de entrada; `ErrorNumerico` en coeficientes, desbordamiento o resultado no representable. `try/except` y `raise ... from error` conservan la causa de desbordamiento/división. El resultado debe comprobarse contra el dominio antes de aceptarlo.
+- **Ejemplo:** `calcular_candidato_rendimiento(288.15,1600,1.4,.85,.9,.05)` → 35.4523235708.
+
+#### `buscar_maximo_rendimiento_numerico(T1, T3, gamma, cp, p1, eta_c=1, eta_t=1, delta=0, muestras=257, tolerancia_log=1e-9, max_iteraciones=100)`
+
+- **Argumentos:** ocho parámetros físicos comunes; entero `muestras` de 5 a 4097 (no booleano), tolerancia logarítmica finita 0<t<1 y entero `max_iteraciones` de 1 a 1000 (no booleano).
+- **Retorno:** con vacío, `estado='sin_dominio'`, motivo/dominio y `rp/ciclo/supremo=None`; con reversibilidad, el contrato de `estudiar_rendimiento_ideal`, sin máximo numérico. Con máximo, `estado='maximo_interior'`, motivo, dominio, rp, ciclo íntegro de `evaluar_punto`, supremo=None, `intervalo_busqueda`, `intervalo_final` (parejas rp), `paso_log_inicial`, `tolerancia_log`, `resolucion_rp` (rp), `muestras_iniciales`, `evaluaciones` y `iteraciones` (enteros).
+- **Método:** recalcula siempre `calcular_dominios` con las entradas actuales. En ln(rp), margen interior de `8*eps*max(1,abs(ylo),abs(yhi))`, 257 puntos y sección áurea entre vecinos del mejor. No consulta el candidato analítico. Se exige descenso admisible a ambos lados, mayor que 64*eps en rendimiento, para no aceptar una cima recortada por la banda numérica. Esto es una salvaguarda, no una garantía absoluta de error.
+- **Función local `evaluar(y)`:** recibe ln(rp) escalar, devuelve rendimiento fraccionario sólo si `evaluar_punto` clasifica motor; en otro caso devuelve −infinito como marca de exclusión, nunca como resultado físico. Cierra sobre parámetros, dominio y diccionario `registros` de una sola búsqueda. La llaman la comprensión inicial y el refinamiento. Ejemplo interno: `evaluar(log(10))` consulta rp=10; no divide por qin inválido, porque usa el rendimiento ya protegido por Fase 1. Propaga errores de estados/energías.
+- **Llama:** `validar_parametros`, `calcular_dominios`, `estudiar_rendimiento_ideal` si reversible y `evaluar_punto` mediante el cierre. La llama `optimizar_rendimiento` y pruebas/usuarios directos.
+- **Errores:** `ValueError` de controles/entradas; `ErrorNumerico` de intervalo no representable, ausencia de muestras admisibles, máximo en extremo de malla, agotamiento de iteraciones o falta de testigos de descenso. No etiqueta esos fallos como supremos ni vacíos.
+- **PYTHON:** arrays, `argmax`, cierre/caché local, `for/else`, asignaciones múltiples y `max(key=lambda...)` reutilizan conceptos de Fase 2; `-np.inf` permite excluir sin dividir ni aceptar puntos inviables.
+- **Ejemplo:** `n=buscar_maximo_rendimiento_numerico(288.15,1600,1.4,1005,100,.85,.9,.05)`; `n['rp']≈35.4523219222`, 297 evaluaciones.
+
+#### `optimizar_rendimiento(T1, T3, gamma, cp, p1, eta_c=1, eta_t=1, delta=0)`
+
+- **Propósito:** identifica el tipo de solución antes de proponer un máximo; contrasta dos métodos independientes y entrega estados/balances en el óptimo admisible.
+- **Argumentos/retorno:** ocho escalares comunes → diccionario `estado`, motivo, dominio, candidato, analítico, numérico, concordancia y supremo. Si reversible, contrato del estudio ideal; con vacío, candidato/analítico/numérico/concordancia/supremo=None. Con máximo, `analitico={'rp':...,'ciclo':...}`, `numerico` tiene el contrato anterior y `concordancia` contiene diferencias/tolerancias de rp y rendimiento más `condicion_cociente`.
+- **Llama:** `calcular_dominios`, `estudiar_rendimiento_ideal` si reversible, `calcular_candidato_rendimiento`, `evaluar_punto` y `buscar_maximo_rendimiento_numerico`. La llaman `main` y pruebas/usuarios directos.
+- **Comprobaciones:** candidato dentro del dominio abierto y `viable=True`; `|Δrp|≤2e−6*max(rp_a,rp_n)`. Para eta, `|Δeta|≤max(1e−10,64*eps*condicion)`, con `condicion=(cp/1000*T3)/min(qin_a,qin_n)`: estima amplificación del redondeo en W/qin cerca de calor nulo. Son tolerancias de concordancia, no incertidumbre experimental ni cotas rigurosas.
+- **Errores:** propaga entradas inválidas y errores de cálculo; `ErrorNumerico` si el candidato no es interior/motor resoluble o si discrepan métodos. No se acepta un punto de frontera ni se transforma pérdida pequeña en reversibilidad.
+- **Ejemplo:** `r=optimizar_rendimiento(288.15,1600,1.4,1005,100,.85,.9,.05)`; `r['analitico']['ciclo']['rendimiento']≈0.438931071631`, trabajo≈313.738915263 kJ/kg y calor≈714.779462063 kJ/kg. La rp numérica es≈35.4523219222, frente a analítica≈35.4523235708. En Fase 2 el máximo trabajo estaba en rp≈12.8950516696, con trabajo≈373.210827483 kJ/kg y rendimiento≈0.392126144220.
+
+**Precisión y límites.** Paso inicial, parada en ln(rp) y precisión efectiva de rp son distintos. Se mantiene la escala conservadora `rp*max(tolerancia_log,32*sqrt(eps))` de Fase 2, sin prometer un certificado de error. El máximo devuelto es el mejor registro admisible; puede quedar fuera del intervalo final por empates de redondeo. Un dominio matemático muy estrecho o un máximo dentro de la banda cero produce error numérico, no un supremo ni otra hipótesis física.
+
+**Pruebas:** `tests/test_optimizacion_rendimiento.py` añade `RendimientoTests`; `setUp(self)` prepara parámetros, y los 20 `test_*(self)` no retornan resultado físico: verifican monotonía/supremo ideal, fórmula por balance, estacionariedad/curvatura/unicidad, familias con pérdidas individuales y combinadas, coeficiente A nulo/negativo, vacío, casi reversibilidad, fronteras/bandas, independencia numérica, controles, cp/p1, recálculo y diferencia entre objetivos. `unittest` los invoca; usan módulos físicos/optimizadores, sin dibujar ni publicar. Los callbacks locales `comprobar(*args,**kwargs)` y `recortar(*args,**kwargs)` inspeccionan o restringen evaluaciones para comprobar no aceptación de fronteras; `alterar(*args,**kwargs)` simula discrepancia. Devuelven diccionarios de pruebas, no implementan nuevas ecuaciones. Verificación de esta parte el 20 de octubre de 2026: **75 pruebas superadas** (55 anteriores sin modificar y 20 nuevas), en 67.656 s con `python -B -m unittest discover -s tests -v`. Las pruebas de integración existentes usan carpetas temporales; no constituyen validación experimental.
+
+### 4.39. Integración de rendimiento y comparación de criterios
+
+#### `comparar_criterios(trabajo, rendimiento)` — optimizacion_rendimiento.py
+
+- **Propósito:** comparar resultados existentes, sin recalcular temperaturas, presiones ni balances. Recibe dos diccionarios: optimización de trabajo de Fase 2 y estudio no ideal de rendimiento de §4.38; los datos deben corresponder a los mismos parámetros.
+- **Retorno:** `estado='disponible'`, `motivo`, `punto_a` (máximo trabajo), `punto_b` (máximo eta), `diferencia_rp`=rp_B−rp_A, `ganancia_rendimiento_pp`=100(eta_B−eta_A), `reduccion_trabajo_porcentaje`=100(W_A−W_B)/W_A y `diferencia_calor`=qin_B−qin_A [kJ/kg]. rp es adimensional; ganancia en puntos porcentuales y reducción en porcentaje son distintos. Cada punto conserva `rp/ciclo` sin copiar ni modificar sus campos. Si falta uno de los máximos, `estado='no_disponible'`, B y diferencias=None; A se conserva si está disponible. Un supremo nunca crea B.
+- **PYTHON/llamadas:** diccionarios, retorno temprano y operaciones escalares; no llama a funciones propias. La llaman `main` y pruebas. Supone contrato motor verificado W_A>0; datos mal formados pueden dar KeyError/TypeError y no se ocultan.
+- **Ejemplo:** `comparar_criterios(optimizar_trabajo_neto(288.15,1600,1.4,1005,100,.85,.9,.05),optimizar_rendimiento(288.15,1600,1.4,1005,100,.85,.9,.05))` devuelve Δrp≈22.5572719011, ganancia≈4.6804927411 pp, reducción W≈15.9352054763 % y Δqin≈−236.9827016782 kJ/kg.
+
+#### `guardar_grafica_compromiso(barrido, comparacion, ruta)` — main.py
+
+- **Entradas:** barrido de Fase 1/2 de esta ejecución; comparación anterior; destino Path/cadena/buffer binario. W [kJ/kg] horizontal y eta [%] vertical, convertida desde fracción. rp es parámetro y determina el orden de las muestras, no otro eje.
+- **Salida/propósito:** None, PNG 1350×900 (9×6 pulgadas, 150 dpi). Curva no ideal con NaN en ambas coordenadas para las muestras excluidas, rombo naranja A y estrella verde B si existen. Si B no está disponible lo explica sin inventar un marcador. No afirma que toda la curva sea una frontera de Pareto: hay tramos dominados y las ramas pueden volver hacia trabajos menores.
+- **PYTHON/llamadas:** selecciona arrays ya clasificados, plot/scatter, bucle sobre puntos disponibles, f-string, guardado y cierre. No calcula física ni llama a otras funciones propias. La llaman main y pruebas; propaga errores de estructura/dibujo/escritura.
+- **Ejemplo:** `buffer=BytesIO(); guardar_grafica_compromiso(barrido,comparacion,buffer)`; consultar `buffer.getvalue()` y cerrar el buffer.
+
+#### `seccion_rendimiento_html(estudios, comparacion)` — reporting.py
+
+- **Entradas:** diccionario estudios con claves ideal/noideal de §4.38 y comparación de criterios. Unidades recibidas: rp adimensional, T K, p kPa, W/qin kJ/kg, eta fracción; sólo presenta eta multiplicada por 100.
+- **Retorno/propósito:** str HTML de «Optimización del rendimiento térmico»: supremo ideal no alcanzado, estado no ideal, resultados analítico/numérico y concordancia, estados óptimos, tabla A/B y diferencias, símbolos y limitaciones. Vacío o supremo se muestran sin máximo físico ficticio ni ceros sustitutivos.
+- **Llama:** tabla_html; la llaman crear_informe_html y pruebas. Usa listas, bucles, f-strings, escape, enumerate/zip y join; no contiene ecuaciones nuevas ni modifica diccionarios. Datos ausentes/incompatibles producen KeyError/TypeError.
+- **Ejemplo:** `seccion_rendimiento_html(estudio_rendimiento,comparacion_criterios)` con los datos reunidos por main produce el fragmento; la imagen de compromiso la incorpora crear_informe_html mediante imagen_html.
+
+**Flujo y compatibilidad.** main obtiene ambos estudios de rendimiento después de los máximos de trabajo, añade rp_B al iterable de puntos de interés sólo si existe y reutiliza construir_barrido. No cambia la rp del formulario ni usa ésta como límite. Los cálculos siempre parten de los nueve parámetros actuales y las cachés de los optimizadores son locales. Flask permanece con nueve campos, loopback y descarga/retención existentes. El rechazo de referencia inviable precede a la optimización: una referencia motora con dominio vacío sería contradictoria. Las API/presentadores independientes sí permiten estudiar el vacío.
+
+crear_informe_html mantiene sus doce argumentos posicionales y añade `*, estudio_rendimiento=None, comparacion_criterios=None`: el asterisco obliga a pasar esos dos por nombre, evitando desplazar contratos anteriores. main los entrega siempre. Sin ellos se admite el formato previo de seis claves PNG; con ellos se requieren las siete claves, se incorpora la sección y se obtiene el número de gráficas de len(imagenes) en cabecera/pie/terminal. Deben suministrarse juntos. No cambia publicación, Git ni protección de archivos ajenos.
+
+Las ocho pruebas de `IntegracionRendimientoTests`, en `tests/test_integracion_rendimiento.py`, reutilizan un informe predeterminado generado en `setUpClass(cls)` con carpeta temporal. Verifican datos físicos/HTML, siete PNG sin recursos externos y dimensiones, puntos de interés, marcadores/NaN, curva paramétrica, supremo reversible sin B, vacío sin informe, cinco POST sucesivos con cambios en los nueve parámetros/descarga/retención y compatibilidad del presentador previo. Los callbacks locales capturan figuras sin calcular física. Las pruebas existentes se conservan, actualizando sólo expectativas de seis a siete imágenes y el replay de kwargs del generador. Verificación previa de parte 2: **83 pruebas superadas**, 51.473 s. Verificación final del 20 de octubre de 2026: **83/83 OK**, 51.733 s. No se han cambiado algoritmos en este cierre; README, milestone y guía A–J se han revisado contra fuentes y resultados.
+
 ## 5. Variables principales
 
 Python no añade unidades a sus tipos. El diccionario global `PARAMETROS_PREDETERMINADOS` conserva las entradas; `main()` crea una copia local por ejecución. Un `int` puede producir `float` al operar; Flask convierte todos los campos a `float`, y NumPy utiliza también sus escalares.
@@ -938,6 +1033,9 @@ Python no añade unidades a sus tipos. El diccionario global `PARAMETROS_PREDETE
 | `optimizaciones`, `estudio_ideal` | Resultados de ambos métodos por modelo | diccionarios (§4.35) |
 | `ylo`, `yhi`, `malla`, `paso_inicial` | Ventana y muestras en ln(rp), paso logarítmico | escalares/array adimensionales |
 | `registros`, `aceptados` | Evaluaciones locales y puntos motores aceptables | diccionario y lista |
+| `B`, `h`, `H`, `S` | Coeficientes de la ecuación estacionaria de rendimiento (§4.38) | escalares adimensionales |
+| `estudio_rendimiento` | Estudios ideal/noideal y disponibilidad | dict (§4.38) |
+| `comparacion_criterios` | Puntos A/B y diferencias de diseño | dict (§4.39), rp, pp, %, kJ/kg |
 | `barrido`, `dominios`, `referencia` | Estudios, límites y puntos de referencia | diccionarios, véase §4.32 |
 | `viable`, `motivos`, `fronteras` | Estado y condiciones simultáneas | booleano, tuplas de códigos |
 | `margenes`, `tolerancias` | rp−1; p3−p1; qin; wn y banda de cero | diccionarios: —, kPa, kJ/kg, kJ/kg |
@@ -990,7 +1088,9 @@ Una clave `.png` en `imagenes` no es una ruta de lectura. `getvalue()` obtiene b
 
 Se añade Flask a NumPy y Matplotlib. Flask instala sus dependencias necesarias (Werkzeug, Jinja2, MarkupSafe, Click, ItsDangerous y Blinker); no hay frameworks frontend. Una vez instaladas, el servidor y los informes funcionan sin Internet.
 
-El módulo nuevo importa `exp`, `log`, `isfinite` y `sqrt` de `math` para el candidato, coordenada logarítmica y sección áurea; `numpy` para malla/argmax y `finfo(float).eps` para describir redondeo. `main` importa `optimizar_trabajo_neto`. No se añade dependencia ni SciPy; el cálculo físico sigue en `viabilidad`.
+El módulo `optimizacion.py` importa `exp`, `log`, `isfinite` y `sqrt` de `math` para el candidato, coordenada logarítmica y sección áurea; `numpy` para malla/argmax y `finfo(float).eps` para describir redondeo. `main` importa `optimizar_trabajo_neto`. No se añade dependencia ni SciPy; el cálculo físico sigue en `viabilidad`.
+
+`optimizacion_rendimiento` añade `expm1` y `log1p` de la biblioteca estándar para coeficientes casi reversibles; no introduce SciPy. La optimización numérica usa NumPy ya instalado.
 
 ### Imports de Flask
 
@@ -1067,7 +1167,7 @@ En cambio, una lista Python multiplicada por un entero repite sus elementos. Por
 - `np.full(200, p2)` crea un array constante para una isóbara, `guardar_diagrama_pv`; análogamente se utiliza `p4` en `guardar_diagrama_pv`.
 - `np.allclose` comprueba las cuatro temperaturas del límite reversible, `comprobar_comparacion_ciclos`. Devuelve un único resultado lógico: exige que todos los pares cumplan la tolerancia.
 
-No aparecen matrices multidimensionales, álgebra lineal, integración numérica ni algoritmos de optimización de NumPy. La búsqueda es una evaluación exhaustiva de una malla de una dimensión.
+No aparecen matrices multidimensionales, álgebra lineal, integración numérica ni algoritmos de optimización de NumPy. La búsqueda actual evalúa una malla inicial de una dimensión y refina localmente por sección áurea, implementada con Python; sólo la API ideal heredada conserva su barrido exhaustivo de 100001 puntos.
 
 ## 8. Matplotlib
 
@@ -1100,7 +1200,7 @@ ejes.plot(relaciones, trabajos, label="Trabajo específico neto")
 | `savefig(...)` | Escribe la imagen |
 | `plt.close(...)` | Cierra y libera el registro de la figura |
 
-`label=` nombra una serie; `legend` dibuja su leyenda en las seis figuras. En rp, `set_xscale("log")` permite ver el entorno de rp=1 y límites de cientos; no cambia las magnitudes. `axvline` señala fronteras visibles y `axvspan` sombrea el intervalo motor. La vista completa alcanza todas las fronteras motoras y añade un 5 % sobre el límite ideal; los paneles de detalle conservan esa vista general.
+`label=` nombra una serie; `legend` dibuja su leyenda en las siete figuras. En rp, `set_xscale("log")` permite ver el entorno de rp=1 y límites de cientos; no cambia las magnitudes. `axvline` señala fronteras visibles y `axvspan` sombrea el intervalo motor. La vista completa alcanza todas las fronteras motoras y añade un 5 % sobre el límite ideal; los paneles de detalle conservan esa vista general.
 
 ### Puntos, anotaciones y flechas
 
@@ -1118,7 +1218,7 @@ El resultado de `plot` es una lista con una línea en este caso. La coma en `lin
 
 ### Guardado y cierre
 
-Las seis gráficas usan 9 × 6 pulgadas y `dpi=150`: 1350 × 900 píxeles. Las pulgadas fijan el tamaño de la figura y dpi los píxeles por pulgada; el tamaño mostrado en pantalla lo adapta el CSS sin reducir los píxeles originales. `savefig(..., format="png")` escribe ahora en buffers `BytesIO`: el flujo normal no crea ni sobrescribe PNG. `plt.close()` cierra la figura actual; `plt.close(figura)` cierra la indicada. Si se entrega explícitamente una ruta a una función gráfica que la admite, todavía se puede guardar un PNG; es un uso opcional distinto de `main()`.
+Las siete gráficas usan 9 × 6 pulgadas y `dpi=150`: 1350 × 900 píxeles. Las pulgadas fijan el tamaño de la figura y dpi los píxeles por pulgada; el tamaño mostrado en pantalla lo adapta el CSS sin reducir los píxeles originales. `savefig(..., format="png")` escribe ahora en buffers `BytesIO`: el flujo normal no crea ni sobrescribe PNG. `plt.close()` cierra la figura actual; `plt.close(figura)` cierra la indicada. Si se entrega explícitamente una ruta a una función gráfica que la admite, todavía se puede guardar un PNG; es un uso opcional distinto de `main()`.
 
 ### Qué hace `matplotlib.use("Agg")`
 
@@ -1208,13 +1308,13 @@ contenido = b64encode(png).decode("ascii")
 <img src="data:image/png;base64,..." alt="Diagrama T-s ideal">
 ```
 
-`data:` indica contenido dentro de la propia URL; `image/png`, el formato; `base64`, la codificación. Los puntos suspensivos de este ejemplo se sustituyen por todos los datos en el HTML real. Base64 aumenta el tamaño aproximadamente un tercio. No es cifrado ni compresión; permite trasladar un único archivo sin seis PNG externos.
+`data:` indica contenido dentro de la propia URL; `image/png`, el formato; `base64`, la codificación. Los puntos suspensivos de este ejemplo se sustituyen por todos los datos en el HTML real. Base64 aumenta el tamaño aproximadamente un tercio. No es cifrado ni compresión; permite trasladar un único archivo sin siete PNG externos.
 
 **INTERPRETACIÓN FÍSICA.** Los dibujos proceden de estados y arrays de esa ejecución, nunca de los PNG históricos. El formato no añade fidelidad física.
 
 ### Publicar antes de limpiar
 
-1. Terminan cálculos, comprobaciones y seis gráficas; todo el HTML se construye en memoria.
+1. Terminan cálculos, comprobaciones y siete gráficas; todo el HTML se construye en memoria.
 2. Se verifican marcas de documento completo y se crea la carpeta si hace falta.
 3. El nombre incorpora fecha/hora, seis cifras de microsegundos y `uuid4().hex`. UUID no es una versión física del modelo.
 4. Se abre un temporal oculto `.html.tmp` con `"x"`: falla si existe. El bloque que lo retira comienza solo tras crearlo; nunca debe borrar un temporal ajeno si esa apertura falla.
@@ -1302,7 +1402,7 @@ Un trabajo negativo no es imposible en toda la termodinámica: significa que ese
 
 Las comprobaciones de ejecución no demuestran todos los casos posibles. Existen `tests/test_reporting.py`, `tests/test_web_app.py` y `tests/test_viabilidad.py`, ejecutables mediante `python -B -m unittest discover -s tests -v`.
 
-Verifican referencias numéricas, cinco simulaciones que dejan cuatro informes propios, seis PNG decodificables e idénticos a los bytes de la ejecución, ausencia de recursos externos, archivos ajenos y PNG históricos intactos, fallo de cálculo/publicación, colisiones de HTML/temporal, escape HTML, cambio gráfico con gamma, dimensiones exactas de las seis imágenes y metadatos Git limpios, modificados o desconocidos. Se usan carpetas temporales para no consumir el historial de `outputs/`.
+Verifican referencias numéricas, cinco simulaciones que dejan cuatro informes propios, siete PNG decodificables e idénticos a los bytes de la ejecución, ausencia de recursos externos, archivos ajenos y PNG históricos intactos, fallo de cálculo/publicación, colisiones de HTML/temporal, escape HTML, cambio gráfico con gamma, dimensiones exactas de las siete imágenes y metadatos Git limpios, modificados o desconocidos. Se usan carpetas temporales para no consumir el historial de `outputs/`.
 
 `assertAlmostEqual` contrasta números; `assertEqual` compara contenido; `assertRaises` exige un error esperado; `patch` sustituye una operación temporalmente y la restaura. `TemporaryDirectory` crea y retira los archivos de prueba. Si Windows restringe su carpeta temporal, hay que resolver los permisos del entorno para ejecutar las pruebas; no es un fallo termodinámico.
 
@@ -1360,24 +1460,24 @@ En el código de producción no hay `while`, división entera `//` ni parámetro
 
 ## 12. Flujo completo de una ejecución
 
-1. Ejecutas `python main.py`. Se importan biblioteca estándar, módulos `reporting`/`viabilidad`, NumPy y Matplotlib. Agg se selecciona antes de `pyplot`.
+1. Ejecutas `python main.py`. Se importan biblioteca estándar, `reporting`, `viabilidad`, `optimizacion`, `optimizacion_rendimiento`, NumPy y Matplotlib. Agg se selecciona antes de `pyplot`.
 2. Python crea funciones con `def`, sin ejecutar sus cuerpos. Cargar `reporting` tampoco guarda archivos.
 3. `if __name__ == "__main__":` llama a `main()` al ejecutar el script. Con `import main` no se cumple: no empieza una simulación.
 4. `main` captura fecha y zona del equipo con `datetime.now().astimezone()`. Esa fecha identifica el inicio de ejecución. Consulta también el commit y estado local de Git. Copia `PARAMETROS_PREDETERMINADOS`, valida las claves y aplica el diccionario opcional de entrada; después asigna los nombres físicos locales.
-5. Valida parámetros, calcula los dominios físicos y evalúa la referencia en ambos modelos. Si no es motora, se detiene antes de publicar. Optimiza ambos modelos con los dominios recién calculados; después construye una malla adaptada que incluye referencia y máximos y clasifica todos los puntos y verifica la comparación donde ambos son motores. Después calcula rendimiento, temperaturas, balance, entropías, R, presiones y volúmenes ideales. `T2≈556.33 K`, `T4≈828.72 K`, `wn≈505.619018 kJ/kg`.
+5. Valida parámetros, calcula los dominios físicos y evalúa la referencia en ambos modelos. Si no es motora, se detiene antes de publicar. Optimiza trabajo en ambos modelos, estudia el supremo ideal y el máximo de rendimiento no ideal, y compara A/B; después construye una malla adaptada que incluye referencia y todos los máximos disponibles y clasifica todos los puntos y verifica la comparación donde ambos son motores. Después calcula rendimiento, temperaturas, balance, entropías, R, presiones y volúmenes ideales. `T2≈556.33 K`, `T4≈828.72 K`, `wn≈505.619018 kJ/kg`.
 6. Valida estados y balances; registra mensajes de los grupos de comprobaciones que han terminado. Compara rendimiento de fórmula y balance sin redondear.
 7. Recupera los dos estudios ya calculados antes del barrido: máximo ideal analítico `rp≈20.0852562921`, numérico `20.0852560217`; no ideal analítico `12.8950516696`, numérico `12.8950517350`.
 8. Cada estudio verifica interior motor y concordancia con tolerancias separadas para rp y trabajo (§14). El ideal tiene `T2=T4≈678.999264 K`, `wn≈532.802230 kJ/kg`; el no ideal `wn≈373.210827 kJ/kg` y rendimiento en ese punto `39.212614 %`.
 9. Calcula diccionarios ideal, no ideal y límite reversible. Contrasta tendencias con pérdidas y recuperación del ideal con eficiencias unidad y pérdida cero.
 10. Crea cuatro buffers `BytesIO` y dibuja rendimiento, T-s, P-v y trabajo exclusivamente ideales.
-11. Las dos gráficas comparativas reutilizan el barrido ya clasificado, con NaN en puntos excluidos, bandas, fronteras y marcadores de ambos máximos de trabajo; pueden añadir paneles de detalle dentro de las mismas imágenes. Añaden dos buffers y se registra la comprobación del estudio.
-12. Reúne `detalles_ideal` y `optimo`. Una comprensión sobre `.items()` obtiene bytes de las seis imágenes. Calcula la tabla de cinco rendimientos; un punto no motor se muestra con `None` como «Fuera del dominio motor».
-13. `crear_informe_html` forma tablas, convierte PNG a Base64 y retorna HTML con CSS, secciones de dominio físicamente viable y optimización del trabajo específico neto, commit, aviso de estado Git y marcas completas. No se ha publicado todavía ningún informe.
+11. Las dos gráficas comparativas reutilizan el barrido ya clasificado, con NaN en puntos excluidos, bandas, fronteras y marcadores de trabajo y de máximo rendimiento no ideal B cuando existe; pueden añadir paneles de detalle dentro de las mismas imágenes. Añaden dos buffers; `guardar_grafica_compromiso` escribe el séptimo con W frente a eta no ideal. Se registra la comprobación del estudio.
+12. Reúne `detalles_ideal` y `optimo`. Una comprensión sobre `.items()` obtiene bytes de las siete imágenes. Calcula la tabla de cinco rendimientos; un punto no motor se muestra con `None` como «Fuera del dominio motor».
+13. `crear_informe_html` forma tablas, convierte PNG a Base64 y retorna HTML con CSS, secciones de dominio físicamente viable y optimización del trabajo específico neto y del rendimiento térmico, comparación A/B, commit, aviso de estado Git y marcas completas. No se ha publicado todavía ningún informe.
 14. `finally` cierra buffers y figuras también si falla dibujo/HTML. El texto generado ya contiene los bytes codificados y no necesita mantener abiertos los buffers.
 15. Elige `outputs/` junto al script, o la carpeta alternativa de pruebas. El guardado crea la carpeta si hace falta.
 16. Escribe UTF-8 en un temporal abierto con `"x"`; tras cerrarlo lo renombra a HTML final. Si falla esta etapa, propaga el error sin limpiar el historial.
 17. Filtra informes propios completos, ordena por fecha de finalización de escritura y elimina los que exceden cuatro. Archivos ajenos y PNG quedan fuera. Una limpieza fallida después de publicar produce advertencia.
-18. Muestra tres líneas: ejecución completada, ruta absoluta y seis gráficas incorporadas. Devuelve la ruta y termina; las tablas se consultan en el HTML.
+18. Muestra tres líneas: ejecución completada, ruta absoluta y siete gráficas incorporadas. Devuelve la ruta y termina; las tablas se consultan en el HTML.
 
 **Memoria.** Cada ejecución copia la configuración predeterminada; no conserva parámetros de otra petición en variables físicas globales. Cada llamada tiene nombres locales. Listas y diccionarios conservan referencias, no copias profundas automáticas. Los arrays de búsqueda viven durante `main`; no se exportan como CSV/JSON. El HTML permanente contiene valores formateados y dibujos. Importar el módulo no ejecuta esta secuencia.
 
@@ -1535,9 +1635,9 @@ Con eta_c=eta_t=1 y delta=0, k=1, h=theta y Q=(x−1)(x−theta): se recuperan e
 
 Así, el dominio no ideal es `(1.0696541023,155.4543260392)`. En rp=10 ambos modelos son motores y conservan wn ideal≈505.619018 y no ideal≈369.476301 kJ/kg. En rp=200 el no ideal tiene expansión y calor positivos, pero consume más trabajo de compresión del que produce la turbina: sólo falla `trabajo_neto` y el rendimiento es `None`. En rp=1 fallan simultáneamente compresión, expansión y trabajo; no se escoge una causa arbitraria.
 
-Las cuatro gráficas de rp usan la malla compartida enriquecida alrededor de referencia y máximos; T-s y P-v conservan el caso ideal de referencia. La vista predeterminada va de 1 a 423.5883963360, un 5 % más allá del límite ideal. La búsqueda normal de cada máximo usa 257 puntos logarítmicos interiores más refinamiento (§14 siguiente). Los 100001 puntos pertenecen sólo a la API heredada §4.11. Dominio físico, intervalo numérico y vista son distintos.
+Las cuatro gráficas de rp usan la malla compartida enriquecida alrededor de referencia y máximos; T-s y P-v conservan el caso ideal de referencia. La vista predeterminada va de 1 a 423.5883963360, un 5 % más allá del límite ideal. Las búsquedas normales de máximos alcanzados usan 257 puntos logarítmicos interiores más refinamiento; el ideal/reversible no se busca como máximo de rendimiento (§14 siguiente). Los 100001 puntos pertenecen sólo a la API heredada §4.11. Dominio físico, intervalo numérico y vista son distintos.
 
-**Limitaciones físicas.** Se mantienen gas ideal, cp/gamma constantes, régimen estacionario, equipos adiabáticos y pérdida relativa fija; no hay química, propiedades variables, combustible añadido, potencia, empuje ni mapas. La optimización de trabajo no añade diagramas no ideales ni optimiza rendimiento. Las pruebas de referencia, signos, bisección y límites verifican el código; no validan el modelo frente a datos experimentales.
+**Limitaciones físicas.** Se mantienen gas ideal, cp/gamma constantes, régimen estacionario, equipos adiabáticos y pérdida relativa fija; no hay química, propiedades variables, combustible añadido, potencia, empuje ni mapas. Los dos objetivos se optimizan por separado; T-s/P-v siguen describiendo únicamente el ideal de referencia. Las pruebas de referencia, signos, bisección y límites verifican el código; no validan el modelo frente a datos experimentales.
 
 ### Máximo de trabajo no ideal y garantía de interior motor
 
@@ -1584,6 +1684,12 @@ Se informa `resolucion_rp=rp*max(tolerancia_log,32*sqrt(eps))` (aprox. 4.77·10�
 **Ejemplo actual:** ideal rp analítico 20.0852562921, numérico 20.0852560217, W=532.8022301186 kJ/kg; no ideal rp analítico 12.8950516696, numérico 12.8950517350, W=373.2108274827 kJ/kg. El rendimiento no ideal **en** ese máximo es 39.2126144220 %. Estados no ideales óptimos: T=(288.15,652.9729714016,1600,863.8229714016) K y p=(100,1289.5051669624,1225.0299086143,100) kPa. Las diferencias ideal menos no ideal son Δrp=7.1902046225 y ΔW=159.5914026359 kJ/kg. cp escala energías y p1 escala presiones; no desplazan rp*. El rp introducido es referencia, no límite de optimización.
 
 **Flask y vacío:** un punto de referencia motor no ideal implica dominio no vacío por definición. `main` conserva el rechazo de referencia inviable de Fase 1 antes de optimizar. La API independiente admite vacío y el presentador puede mostrar «No disponible»; el flujo normal no fuerza un informe exitoso con una referencia físicamente contradictoria.
+
+### Rendimiento térmico y compromiso entre objetivos
+
+La derivación vigente completa está en §4.38; la comparación y las unidades de diferencias están en §4.39. Su correspondencia es: `calcular_candidato_rendimiento` evalúa la raíz racionalizada de P(x)=0; `evaluar_punto` suministra eta=W/qin únicamente en motores; `buscar_maximo_rendimiento_numerico` contrasta sin usar la raíz para elegir la solución; `comparar_criterios` calcula diferencias de esos resultados. El ideal tiene sólo supremo 1−T1/T3, no máximo interior. Cualquier pérdida estricta con dominio motor no vacío da una cima única en matemáticas exactas; las bandas cero se comprueban aparte.
+
+Para el caso actual B tiene rp≈35.4523235708 y eta≈43.8931071631 %, frente a A rp≈12.8950516696 y eta≈39.2126144220 %. Se ganan 4.6804927411 pp, se reduce W un 15.9352054763 % y qin cambia −236.9827016782 kJ/kg. La curva de compromiso muestra ambas decisiones, sin declarar toda la curva frontera de Pareto. El barrido actual predeterminado contiene 1282 muestras; su cantidad procede de deduplicar las mallas, no es una constante física ni una promesa de precisión.
 
 ## 15. Partes más difíciles del código
 
@@ -1685,7 +1791,7 @@ La primera derivada es cero para `x=sqrt(T3/T1)` y la segunda es negativa: hay u
 
 En ese punto, `T2=T1*sqrt(T3/T1)=sqrt(T1*T3)` y `T4=T3/sqrt(T3/T1)=sqrt(T1*T3)`. Que ambas temperaturas sean iguales **no** anula el aporte de calor, porque este depende de `T3−T2`, no de `T4−T2`.
 
-El rendimiento ideal `1−1/x` crece con `x`. Su máximo no coincide con el máximo de trabajo. Al acercarse al límite `T2=T3`, desaparecen el calor aportado y el trabajo, y el código rechaza ese punto. Para los parámetros actuales el límite ideal es aproximadamente `rp=403.417520`, incluido en la nueva vista del dominio; no se confunde con el óptimo rp≈20.085256.
+El rendimiento ideal `1−1/x` crece con `x`: no tiene máximo interior; su supremo no alcanzado es distinto del máximo de trabajo. Al acercarse al límite `T2=T3`, desaparecen el calor aportado y el trabajo, y el código rechaza ese punto. Para los parámetros actuales el límite ideal es aproximadamente `rp=403.417520`, incluido en la nueva vista del dominio; no se confunde con el óptimo rp≈20.085256.
 
 **PYTHON.** La API ideal original evalúa la fórmula con `**` y paréntesis. En el flujo actual `calcular_candidato_analitico` evalúa la generalización mediante logaritmos y `exp`; no hay derivación simbólica en ejecución. La búsqueda independiente verifica ambos casos (§14).
 
@@ -1872,3 +1978,5 @@ Estos hitos resumen capacidades ya implementadas en la versión analizada, sin a
 - **Fase 1: dominio físicamente viable.** Ingeniería: fronteras motoras ideales/no ideales, expansión, calor y trabajo positivos; prueba de intervalo o dominio vacío y distinción del óptimo ideal. Python: módulo físico común, clasificación con motivos simultáneos, bisección acotada, máscaras/NaN, muestreo adaptado y errores diferenciados en Flask. Véase `docs/milestones/03_dominio_viable.md`.
 
 - **Fase 2: máximo de trabajo específico no ideal e intervalos dinámicos.** Ingeniería: derivación del punto estacionario, prueba de máximo interior cuando hay dominio motor y rendimiento evaluado en el máximo de trabajo. Python: módulo reutilizable, malla logarítmica, sección áurea, caché local y datos estructurados; gráficas e informes adaptados por ejecución. Véase [milestone técnico](docs/milestones/04_optimizacion_noideal.md) y [aprendizaje independiente](docs/milestones/04_optimizacion_noideal_APRENDIZAJE.md).
+
+- **Fase 3: optimización del rendimiento y comparación de criterios.** Ingeniería: supremo ideal no alcanzado, máximo no ideal único con pérdidas y dominio motor, y distinción de objetivos. Python: raíz racionalizada, funciones estables cerca de cero, búsqueda independiente y contratos de disponibilidad. Integrada en main, gráficas, HTML y Flask con comparación A/B y curva de compromiso; documentación revisada y verificación de cierre. Véase [milestone técnico](docs/milestones/05_optimizacion_rendimiento.md) y [guía educativa](docs/milestones/05_optimizacion_rendimiento_APRENDIZAJE.md).

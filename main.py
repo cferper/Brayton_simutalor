@@ -8,6 +8,7 @@ from io import BytesIO
 from viabilidad import (calcular_estados, calcular_energias, evaluar_punto, calcular_dominios,
                         construir_barrido, describir_inviabilidad, validar_parametros, ErrorNumerico)
 from optimizacion import optimizar_trabajo_neto
+from optimizacion_rendimiento import estudiar_rendimiento_ideal, optimizar_rendimiento, comparar_criterios
 from reporting import crear_informe_html, guardar_informe_html, obtener_version_git
 from math import isclose, isfinite, log
 
@@ -159,7 +160,7 @@ def marcar_dominio(ejes, dominio, etiqueta, color):
 
 def guardar_comparaciones_ciclos(T1, T3, gamma, cp, p1, eta_c, eta_t,
                                 perdida_presion_combustor, imagenes, barrido=None,
-                                optimizaciones=None):
+                                optimizaciones=None, estudio_rendimiento=None):
     if barrido is None:
         barrido = construir_barrido(T1, T3, gamma, cp, p1, eta_c, eta_t,
                                     perdida_presion_combustor)
@@ -195,13 +196,23 @@ def guardar_comparaciones_ciclos(T1, T3, gamma, cp, p1, eta_c, eta_t,
                 ejes.set_xlim(max(1, lo / np.exp(margen)), min(vista[1], hi * np.exp(margen)))
             for nombre, color in nombres:
                 marcar_dominio(ejes, barrido["dominios"][nombre], nombre, color)
-                if clave == "trabajo_neto" and optimizaciones is not None:
+                if optimizaciones is not None:
                     resultado = optimizaciones[nombre]
                     if resultado["estado"] == "disponible":
                         rp = resultado["analitico"]["rp"]
-                        trabajo = resultado["analitico"]["ciclo"]["trabajo_neto"]
-                        ejes.scatter([rp], [trabajo], color=color, marker="o" if nombre == "ideal" else "D",
-                                     zorder=5, label=f"Máximo {nombre}: rp={rp:.6g}, w={trabajo:.6g} kJ/kg")
+                        valor = resultado["analitico"]["ciclo"][clave] * factor
+                        ejes.scatter([rp], [valor], color=color, marker="o" if nombre == "ideal" else "D",
+                                     zorder=5, label=f"Máximo {nombre} de trabajo ({'A' if nombre == 'noideal' else 'ideal'}): rp={rp:.6g}; valor={valor:.5g}")
+            if estudio_rendimiento is not None:
+                r = estudio_rendimiento["noideal"]
+                if r["estado"] == "maximo_interior":
+                    b = r["analitico"]
+                    ejes.scatter([b["rp"]], [b["ciclo"][clave] * factor], color="tab:green",
+                                 marker="*", s=110, zorder=6,
+                                 label=f"B · Máximo rendimiento noideal: rp={b['rp']:.6g}")
+                else:
+                    ejes.text(.02, .94, "Sin punto B: " + r["estado"].replace("_", " "),
+                              transform=ejes.transAxes, fontsize=8)
             ejes.set_title(titulo if indice == 0 else "Detalle del dominio no ideal (escalas propias)", fontsize=10)
             ejes.set_xlabel("Relación de presiones (escala logarítmica)", fontsize=9)
             ejes.set_ylabel(eje_y, fontsize=9)
@@ -211,6 +222,34 @@ def guardar_comparaciones_ciclos(T1, T3, gamma, cp, p1, eta_c, eta_t,
         imagenes[archivo] = BytesIO()
         figura.savefig(imagenes[archivo], format="png", dpi=150)
         plt.close(figura)
+
+
+def guardar_grafica_compromiso(barrido, comparacion, ruta):
+    """Curva paramétrica no ideal W-eta en orden de rp, con NaN y puntos A/B."""
+    figura, ejes = plt.subplots(figsize=(9, 6))
+    real = barrido["noideal"]
+    ejes.plot(real["trabajo_neto"], real["rendimiento"] * 100, color="tab:orange",
+              label="Ciclo no ideal · rp variable, sólo interior motor")
+    for clave, simbolo, color, etiqueta in (("punto_a", "D", "tab:orange", "A · Máximo trabajo"),
+                                           ("punto_b", "*", "tab:green", "B · Máximo rendimiento")):
+        punto = comparacion[clave]
+        if punto is not None:
+            ciclo = punto["ciclo"]
+            ejes.scatter([ciclo["trabajo_neto"]], [ciclo["rendimiento"] * 100],
+                         marker=simbolo, color=color, s=110, zorder=5,
+                         label=f"{etiqueta}: rp={punto['rp']:.6g}")
+    if comparacion["punto_b"] is None:
+        ejes.text(.03, .92, "Punto B no disponible: no hay máximo interior alcanzado.", transform=ejes.transAxes, fontsize=9)
+    ejes.set_title("Compromiso trabajo–rendimiento del ciclo no ideal")
+    ejes.set_xlabel("Trabajo específico neto [kJ/kg]")
+    ejes.set_ylabel("Rendimiento térmico [%]")
+    ejes.grid(True)
+    ejes.legend(fontsize=8)
+    figura.text(.5, .015, "rp es el parámetro de la curva; no toda la curva es una frontera de Pareto.",
+                ha="center", fontsize=9)
+    figura.tight_layout(rect=(0, .035, 1, 1))
+    figura.savefig(ruta, format="png", dpi=150)
+    plt.close(figura)
 
 
 def calcular_trabajo_neto(T1, T3, gamma, cp, relacion_presiones):
@@ -476,8 +515,17 @@ def main(carpeta_salida=None, parametros=None):
         "noideal": optimizar_trabajo_neto(T1, T3, gamma, cp, p1, eta_c, eta_t,
                                          perdida_presion_combustor, dominios["noideal"]),
     }
+    estudio_rendimiento = {
+        "ideal": estudiar_rendimiento_ideal(T1, T3, gamma, cp, p1),
+        "noideal": optimizar_rendimiento(T1, T3, gamma, cp, p1, eta_c, eta_t,
+                                         perdida_presion_combustor),
+    }
+    comparacion_criterios = comparar_criterios(optimizaciones["noideal"], estudio_rendimiento["noideal"])
+    comprobaciones.append("Rendimiento: supremo ideal no alcanzado; clasificación no ideal y concordancia de métodos verificadas cuando existe máximo interior.")
     puntos_interes = [relacion_presiones] + [r["analitico"]["rp"] for r in optimizaciones.values()
                                            if r["estado"] == "disponible"]
+    if estudio_rendimiento["noideal"]["estado"] == "maximo_interior":
+        puntos_interes.append(estudio_rendimiento["noideal"]["analitico"]["rp"])
     barrido = construir_barrido(T1, T3, gamma, cp, p1, eta_c, eta_t,
                                 perdida_presion_combustor, dominios=dominios,
                                 puntos_interes=puntos_interes)
@@ -528,7 +576,9 @@ def main(carpeta_salida=None, parametros=None):
         guardar_grafica_trabajo_neto(barrido["relaciones"], barrido["ideal"]["trabajo_neto"],
                                     rp_optima_analitica, trabajo_maximo, imagenes["trabajo_neto_vs_rp.png"], dominios["ideal"])
         guardar_comparaciones_ciclos(T1, T3, gamma, cp, p1, eta_c, eta_t,
-                                    perdida_presion_combustor, imagenes, barrido, optimizaciones)
+                                    perdida_presion_combustor, imagenes, barrido, optimizaciones, estudio_rendimiento)
+        imagenes["compromiso_trabajo_rendimiento.png"] = BytesIO()
+        guardar_grafica_compromiso(barrido, comparacion_criterios, imagenes["compromiso_trabajo_rendimiento.png"])
         comprobaciones.append("Barrido clasificado por condiciones simultáneas; curvas sólo en puntos motores y comparación comprobada donde ambos modelos son viables.")
         detalles_ideal = {
             "R": R, "volumenes": volumenes, "entropias": (s1, s2, s3, s4),
@@ -547,6 +597,7 @@ def main(carpeta_salida=None, parametros=None):
             [(rp, eta if evaluar_punto(T1, T3, gamma, cp, rp, p1)["viable"] else None)
              for rp, eta in calcular_rendimientos(gamma)], comprobaciones,
             {nombre: buffer.getvalue() for nombre, buffer in imagenes.items()}, fecha, version, barrido, optimizaciones,
+            estudio_rendimiento=estudio_rendimiento, comparacion_criterios=comparacion_criterios,
         )
     finally:
         for buffer in imagenes.values():

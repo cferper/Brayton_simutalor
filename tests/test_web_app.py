@@ -111,7 +111,7 @@ class WebTests(unittest.TestCase):
             self.assertEqual(contenido, (self.carpeta / nombre).read_text(encoding="utf-8"))
             parser = InformeParser()
             parser.feed(contenido)
-            self.assertEqual(len(parser.imagenes), 6)
+            self.assertEqual(len(parser.imagenes), 7)
             self.assertEqual(parser.externos, [])
             self.assertCountEqual(parser.imagenes, argumentos[7].values())
             if imagenes_anteriores is None:
