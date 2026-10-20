@@ -18,7 +18,7 @@ An educational Python simulator for studying gas turbine thermodynamics through 
 - An ordered efficiency table for pressure ratios of 5, 10, 15, 20 and 25.
 - Ideal-cycle relative entropies, pressures and specific volumes.
 - Ideal T-s and P-v diagrams with numbered states, curved thermodynamic processes and direction arrows.
-- Analytical ideal-cycle net-work optimization, checked against a NumPy search over 100,001 pressure ratios from 1.01 to 50.
+- Analytical ideal/non-ideal net-work optimization, checked by independent logarithmic sampling and golden-section refinement in each current motor domain.
 - A separate non-ideal model with compressor and turbine isentropic efficiencies and combustor pressure loss.
 - HTML tables comparing ideal and non-ideal temperatures, pressures, energy balances, efficiencies and back work ratios.
 - Efficiency and net-work comparisons over compressor pressure ratios from 2 to 30.
@@ -113,11 +113,11 @@ For the non-ideal model, require compression, expansion p3 > p4, heat input T3 >
 Q(x) = (x−1)*(x−h) + h*(k−1) < 0
 ```
 
-Convexity proves that this region, intersected with the other constraints, is an open interval or empty for the current model. Work boundaries are bracketed using this quadratic and located by bisection (relative tolerance 1e-12 in x). This is root finding; non-ideal work optimization remains Phase 2.
+Convexity proves that this region, intersected with the other constraints, is an open interval or empty for the current model. Work boundaries are bracketed using this quadratic and located by bisection (relative tolerance 1e-12 in x). This is root finding; Phase 2 reuses these boundaries for the independently implemented work optimization.
 
 Default bounds: ideal **1 < rp < 403.4175203200**; non-ideal **1.0696541023 < rp < 155.4543260392**. The non-ideal expansion bound is 1.0526315789 and the heat upper bound is 254.8459320044; net work supplies the tighter bounds. The ideal work optimum, rp≈20.085256, is a separate interior point.
 
-The self-contained report adds **Dominio físicamente viable**, with conditions, boundaries, reference status and counts of all exclusion reasons (which may overlap). The plot grid combines linear/logarithmic samples and boundary neighbours, with fewer than 1300 points; the default case uses 1212 samples over [1,423.5883963360]. This display window differs from the physical domain and the ideal optimization grid. NaN breaks curves at excluded points; thermal efficiency is not reported there.
+The self-contained report adds **Dominio físicamente viable**, with conditions, boundaries, reference status and counts of all exclusion reasons (which may overlap). The plot grid combines linear/logarithmic samples and boundary neighbours, with fewer than 1300 points; the default case now uses 1265 samples over [1,423.5883963360], including local samples around the reference and both work maxima. This display window differs from each physical domain and numerical search window. NaN breaks curves at excluded points; thermal efficiency is not reported there.
 
 To inspect an excluded point without exceptions for expected physical failure:
 
@@ -130,6 +130,16 @@ limites = calcular_dominios(288.15, 1600, 1.4, 1005, 100, .85, .9, .05)
 ```
 
 Invalid arguments raise `ValueError`; an unrepresentable calculation raises `ErrorNumerico`, not a physical non-motor classification. Near zero, point classification uses a relative band of 1e-10 scaled separately for dimensionless ratios, pressure and energy. These tolerances address rounding, not experimental uncertainty.
+
+## Non-ideal net-work optimization (Phase 2)
+
+With $a=(\gamma-1)/\gamma$, the stationary pressure ratio is
+
+$$r_{p,*}=\left[\frac{\eta_c\eta_t T_3}{T_1(1-\delta)^a}\right]^{1/(2a)}.$$
+
+It is accepted only inside the open motor domain computed by Phase 1 for the current parameters. When the domain is nonempty the candidate is its interior maximum; empty domains produce no fictitious optimum. Numerical optimization does not use the analytical candidate to select its window. Physical, search and plotting intervals are distinct. The nine Flask fields stay unchanged; cp scales work, p1 scales pressure, and the reference rp does not constrain the search.
+
+The HTML includes analytical/numerical agreement, work and efficiency at the work maximum, optimal state temperatures/pressures, ideal versus non-ideal differences and explicit numerical tolerances. See the [technical milestone](docs/milestones/04_optimizacion_noideal.md) and the independent Spanish [Phase 2 learning guide](docs/milestones/04_optimizacion_noideal_APRENDIZAJE.md). Efficiency optimization remains a future phase.
 
 ## Example parameters
 
@@ -168,7 +178,7 @@ Results verified by executing the current code with the parameters above; values
 
 For the ideal cycle, $s_1=s_2=0$ and $s_3=s_4=1.061678$ kJ/(kg·K). The derived gas constant is 287.142857 J/(kg·K).
 
-The ideal net-work optimum is **20.085256** analytically and **20.085236** numerically. At the analytical optimum, net work is **532.802230 kJ/kg**, $T_2=T_4=679.00$ K and thermal efficiency is **57.56%**. The two pressure ratios agree within the numerical grid spacing of approximately 0.000490.
+The ideal net-work optimum is **20.0852562921** analytically and **20.0852560217** numerically. Its maximum work is **532.802230 kJ/kg**. The non-ideal optimum is **12.8950516696** analytically and **12.8950517350** numerically, with **373.210827 kJ/kg** and thermal efficiency **39.212614% at maximum work**. This does not maximize efficiency. Both searches use the current physically viable domains, with an independent logarithmic grid and golden-section refinement.
 
 ## Generated plots
 
@@ -188,7 +198,7 @@ Ideal P-v diagram with curved isentropic compression and expansion, horizontal i
 
 ![Ideal net work and optimum pressure ratio](trabajo_neto_vs_rp.png)
 
-Historical preview over 1.01 to 50. Current plots show the adapted ideal motor domain; the analytical maximum is checked on a separate interior grid of 100001 points (still 1.01 to 50 for the default case).
+Historical preview over 1.01 to 50. Current plots cover the complete adapted ideal motor domain and its boundary, without a fixed pressure-ratio cap. Numerical optimization uses a separate interior window derived from each current physical domain, with 257 logarithmic samples and golden-section refinement.
 
 ![Ideal and non-ideal thermal efficiency comparison](comparacion_ideal_noideal.png)
 
@@ -196,19 +206,21 @@ Historical preview over 2 to 30. Current reports compare each model only inside 
 
 ![Ideal and non-ideal net work comparison](trabajo_neto_ideal_noideal.png)
 
-Historical preview over the same range. Current work curves use the same adapted grid as efficiency, with NaN gaps at excluded samples.
+Historical preview over the same range. Current work curves mark both work maxima, use NaN gaps at excluded samples, and add a non-ideal detail panel when the scales differ strongly. All six current PNGs are 1350 × 900 and embedded in each HTML report; historical previews are preserved.
 
 ## Project structure
 
 ```text
 Brayton_Simulator/
 ├── main.py
+├── optimizacion.py
 ├── viabilidad.py
 ├── reporting.py
 ├── web_app.py
 ├── Abrir_Brayton_Simulator.cmd
 ├── templates/index.html
 ├── static/style.css
+├── tests/test_optimizacion.py
 ├── tests/test_viabilidad.py
 ├── tests/test_reporting.py
 ├── tests/test_web_app.py
@@ -321,8 +333,8 @@ Each new phase gets its own `NN_nombre_fase_APRENDIZAJE.md`. Smaller iterations 
 - This is an educational, simplified cycle model, not a detailed gas turbine engine model.
 - Gas properties are constant; temperature-dependent heat capacities and combustion-product composition are not represented.
 - Non-ideal behavior is limited to fixed isentropic efficiencies and combustor pressure loss. Mechanical losses, fuel consumption, thrust and component maps are not calculated.
-- T-s and P-v diagrams and analytical net-work optimization currently describe only the ideal cycle.
-- The plotted pressure-ratio window is capped at 10000 for controlled cost; the complete calculated boundaries remain available in tables/messages. A relative zero band of 1e-10 excludes numerically unresolved boundary points. The reference case must be a motor in both models to generate the report; standalone domain evaluation can study empty/non-motor cases.
+- T-s and P-v diagrams currently describe only the ideal reference cycle. Net-work optimization covers both ideal and non-ideal models.
+- The plotted pressure-ratio window is recalculated from Phase 1 boundaries each run; bounded sample counts control cost without a fixed physical cap. Extremely narrow domains or floating-point limits can still be unresolved. A relative zero band of 1e-10 excludes unresolved boundary points. The reference case must be a motor in both models to generate a report; standalone optimization returns no motor optimum for empty domains.
 - Runtime checks and standalone tests verify implementation and reporting; they do not constitute validation against experimental engine data.
 
 ## Future improvements
@@ -331,7 +343,7 @@ Potential future work, not currently implemented:
 
 - Extend tests as the physical model grows and further separate numerical studies from plotting when needed.
 - Optionally add configuration files or a command-line argument parser; the current local form already accepts parameters.
-- Add non-ideal thermodynamic diagrams and net-work optimization.
+- Add non-ideal thermodynamic diagrams and, in a later phase, efficiency optimization.
 - Explore temperature-dependent gas properties and regenerative cycles.
 
 ## Author / Context
