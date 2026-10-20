@@ -7,6 +7,7 @@ from io import BytesIO
 
 from viabilidad import (calcular_estados, calcular_energias, evaluar_punto, calcular_dominios,
                         construir_barrido, describir_inviabilidad, validar_parametros, ErrorNumerico)
+from optimizacion import optimizar_trabajo_neto
 from reporting import crear_informe_html, guardar_informe_html, obtener_version_git
 from math import isclose, isfinite, log
 
@@ -157,27 +158,55 @@ def marcar_dominio(ejes, dominio, etiqueta, color):
 
 
 def guardar_comparaciones_ciclos(T1, T3, gamma, cp, p1, eta_c, eta_t,
-                                perdida_presion_combustor, imagenes, barrido=None):
+                                perdida_presion_combustor, imagenes, barrido=None,
+                                optimizaciones=None):
     if barrido is None:
         barrido = construir_barrido(T1, T3, gamma, cp, p1, eta_c, eta_t,
                                     perdida_presion_combustor)
+    dominio_real = barrido["dominios"]["noideal"]["intervalo"]
+    vista = barrido["intervalo_visual"]
+    detalle = False
+    if dominio_real:
+        amplitud_real = log(dominio_real[1] / dominio_real[0])
+        w_ideal = max((p["trabajo_neto"] for p in barrido["ideal"]["puntos"] if p["viable"]), default=0)
+        w_real = max((p["trabajo_neto"] for p in barrido["noideal"]["puntos"] if p["viable"]), default=0)
+        detalle = log(vista[1] / vista[0]) > 4 * amplitud_real or (w_real > 0 and w_ideal > 20 * w_real)
     for clave, factor, eje_y, titulo, archivo in (
         ("rendimiento", 100, "Rendimiento térmico [%]", "Rendimiento: ciclo ideal y no ideal",
          "comparacion_ideal_noideal.png"),
         ("trabajo_neto", 1, "Trabajo específico neto [kJ/kg]", "Trabajo neto: ciclo ideal y no ideal",
          "trabajo_neto_ideal_noideal.png"),
     ):
-        figura, ejes = plt.subplots(figsize=(9, 6))
-        for nombre, color in (("ideal", "tab:blue"), ("noideal", "tab:orange")):
-            ejes.plot(barrido["relaciones"], barrido[nombre][clave] * factor,
-                      color=color, label=f"Ciclo {nombre} · interior motor")
-        for nombre, color in (("ideal", "tab:blue"), ("noideal", "tab:orange")):
-            marcar_dominio(ejes, barrido["dominios"][nombre], nombre, color)
-        ejes.set_title(titulo)
-        ejes.set_xlabel("Relación de presiones del compresor (escala logarítmica)")
-        ejes.set_ylabel(eje_y)
-        ejes.grid(True)
-        ejes.legend(fontsize=8)
+        if detalle:
+            figura, paneles = plt.subplots(2, 1, figsize=(9, 6))
+        else:
+            figura, ejes = plt.subplots(figsize=(9, 6))
+            paneles = [ejes]
+        for indice, ejes in enumerate(paneles):
+            nombres = (("ideal", "tab:blue"), ("noideal", "tab:orange")) if indice == 0 else (("noideal", "tab:orange"),)
+            for nombre, color in nombres:
+                ejes.plot(barrido["relaciones"], barrido[nombre][clave] * factor,
+                          color=color, label=f"Ciclo {nombre} · interior motor")
+            if indice == 0:
+                ejes.set_xlim(vista)
+            else:
+                lo, hi = dominio_real
+                margen = .04 * log(hi / lo)
+                ejes.set_xlim(max(1, lo / np.exp(margen)), min(vista[1], hi * np.exp(margen)))
+            for nombre, color in nombres:
+                marcar_dominio(ejes, barrido["dominios"][nombre], nombre, color)
+                if clave == "trabajo_neto" and optimizaciones is not None:
+                    resultado = optimizaciones[nombre]
+                    if resultado["estado"] == "disponible":
+                        rp = resultado["analitico"]["rp"]
+                        trabajo = resultado["analitico"]["ciclo"]["trabajo_neto"]
+                        ejes.scatter([rp], [trabajo], color=color, marker="o" if nombre == "ideal" else "D",
+                                     zorder=5, label=f"Máximo {nombre}: rp={rp:.6g}, w={trabajo:.6g} kJ/kg")
+            ejes.set_title(titulo if indice == 0 else "Detalle del dominio no ideal (escalas propias)", fontsize=10)
+            ejes.set_xlabel("Relación de presiones (escala logarítmica)", fontsize=9)
+            ejes.set_ylabel(eje_y, fontsize=9)
+            ejes.grid(True)
+            ejes.legend(fontsize=6 if detalle else 7)
         figura.tight_layout()
         imagenes[archivo] = BytesIO()
         figura.savefig(imagenes[archivo], format="png", dpi=150)
@@ -231,6 +260,7 @@ def guardar_grafica_trabajo_neto(relaciones, trabajos, rp_optima, trabajo_maximo
         ejes.text(.03, .93, f"Máximo ideal rp={rp_optima:.6g}, fuera de la vista",
                   transform=ejes.transAxes)
     if dominio is not None:
+        ejes.set_xlim(float(min(relaciones)), float(max(relaciones)))
         marcar_dominio(ejes, dominio, "ideal", "tab:blue")
     ejes.set_title("Trabajo neto del ciclo Brayton ideal")
     ejes.set_xlabel("Relación de presiones")
@@ -390,6 +420,7 @@ def guardar_grafica_rendimiento(gamma, ruta, barrido=None):
     figura, ejes = plt.subplots(figsize=(9, 6))
     ejes.plot(barrido["relaciones"], barrido["ideal"]["rendimiento"] * 100,
               label="Rendimiento ideal · interior motor")
+    ejes.set_xlim(barrido["intervalo_visual"])
     marcar_dominio(ejes, barrido["dominios"]["ideal"], "ideal", "tab:blue")
     ejes.set_title(f"Rendimiento térmico del ciclo Brayton ideal (γ = {gamma})")
     ejes.set_xlabel("Relación de presiones p₂/p₁ (escala logarítmica)")
@@ -440,8 +471,16 @@ def main(carpeta_salida=None, parametros=None):
     if fallos:
         raise ErrorModelo("Inviabilidad física: los ciclos seleccionados no son admisibles como motores. "
                           + " ".join(fallos))
+    optimizaciones = {
+        "ideal": optimizar_trabajo_neto(T1, T3, gamma, cp, p1, dominio=dominios["ideal"]),
+        "noideal": optimizar_trabajo_neto(T1, T3, gamma, cp, p1, eta_c, eta_t,
+                                         perdida_presion_combustor, dominios["noideal"]),
+    }
+    puntos_interes = [relacion_presiones] + [r["analitico"]["rp"] for r in optimizaciones.values()
+                                           if r["estado"] == "disponible"]
     barrido = construir_barrido(T1, T3, gamma, cp, p1, eta_c, eta_t,
-                                perdida_presion_combustor, dominios=dominios)
+                                perdida_presion_combustor, dominios=dominios,
+                                puntos_interes=puntos_interes)
     for ideal, real in zip(barrido["ideal"]["puntos"], barrido["noideal"]["puntos"]):
         if ideal["viable"] and real["viable"]:
             comprobar_comparacion_ciclos(ideal, real, eta_c, eta_t, perdida_presion_combustor)
@@ -457,23 +496,15 @@ def main(carpeta_salida=None, parametros=None):
         raise ValueError("El rendimiento del balance no coincide con la fórmula del ciclo ideal.")
     comprobaciones.append("Rendimiento ideal por fórmula y por balance coincidentes, con rel_tol=1e-9 y abs_tol=1e-12.")
 
-    # Estudio independiente del óptimo: conserva el ciclo de referencia con rp = 10.
-    rp_optima_analitica = calcular_relacion_optima(T1, T3, gamma)
-    relaciones_busqueda, trabajos_busqueda, indice_optimo = buscar_optimo_numerico(T1, T3, gamma, cp)
-    rp_optima_numerica = float(relaciones_busqueda[indice_optimo])
-    paso_busqueda = float(relaciones_busqueda[1] - relaciones_busqueda[0])
-    if not relaciones_busqueda[0] <= rp_optima_analitica <= relaciones_busqueda[-1]:
-        raise ValueError("El óptimo analítico queda fuera del intervalo de búsqueda adaptado.")
-    if not isclose(rp_optima_numerica, rp_optima_analitica, rel_tol=0, abs_tol=paso_busqueda):
-        raise ValueError("Los óptimos numérico y analítico difieren en más de un paso de búsqueda.")
-    comprobaciones.append("Óptimo analítico dentro de la malla interior adaptada y coincidente con el numérico dentro de un paso de malla.")
-    temperaturas_optimas = calcular_temperaturas(T1, T3, gamma, rp_optima_analitica)
-    balance_optimo = calcular_balance_energetico(*temperaturas_optimas, cp)
-    trabajo_maximo = calcular_trabajo_neto(T1, T3, gamma, cp, rp_optima_analitica)
-    rendimiento_optimo = calcular_rendimiento(gamma, rp_optima_analitica)
-    if not isclose(balance_optimo["rendimiento"], rendimiento_optimo, rel_tol=1e-9, abs_tol=1e-12):
-        raise ValueError("El balance energético no coincide con el rendimiento en el óptimo.")
-    comprobaciones.append("Rendimiento por balance y por fórmula coincidentes también en el óptimo ideal.")
+    # Ambos óptimos se recalculan con los dominios de esta ejecución.
+    estudio_ideal = optimizaciones["ideal"]
+    rp_optima_analitica = estudio_ideal["analitico"]["rp"]
+    rp_optima_numerica = estudio_ideal["numerico"]["rp"]
+    paso_busqueda = estudio_ideal["numerico"]["resolucion_rp"]
+    temperaturas_optimas = estudio_ideal["analitico"]["ciclo"]["temperaturas"]
+    trabajo_maximo = estudio_ideal["analitico"]["ciclo"]["trabajo_neto"]
+    rendimiento_optimo = estudio_ideal["analitico"]["ciclo"]["rendimiento"]
+    comprobaciones.append("Máximos ideal y no ideal: candidatos interiores motores, concordancia analítica-numérica verificada con tolerancias explícitas; intervalos recalculados con los parámetros actuales.")
 
     ciclo_ideal = calcular_ciclo_ideal(T1, T3, gamma, cp, relacion_presiones, p1)
     ciclo_noideal = calcular_ciclo_noideal(T1, T3, gamma, cp, relacion_presiones, p1,
@@ -497,7 +528,7 @@ def main(carpeta_salida=None, parametros=None):
         guardar_grafica_trabajo_neto(barrido["relaciones"], barrido["ideal"]["trabajo_neto"],
                                     rp_optima_analitica, trabajo_maximo, imagenes["trabajo_neto_vs_rp.png"], dominios["ideal"])
         guardar_comparaciones_ciclos(T1, T3, gamma, cp, p1, eta_c, eta_t,
-                                    perdida_presion_combustor, imagenes, barrido)
+                                    perdida_presion_combustor, imagenes, barrido, optimizaciones)
         comprobaciones.append("Barrido clasificado por condiciones simultáneas; curvas sólo en puntos motores y comparación comprobada donde ambos modelos son viables.")
         detalles_ideal = {
             "R": R, "volumenes": volumenes, "entropias": (s1, s2, s3, s4),
@@ -506,16 +537,16 @@ def main(carpeta_salida=None, parametros=None):
         }
         optimo = {
             "rp_analitica": rp_optima_analitica, "rp_numerica": rp_optima_numerica,
-            "intervalo_busqueda": (float(relaciones_busqueda[0]), float(relaciones_busqueda[-1])),
+            "intervalo_busqueda": estudio_ideal["numerico"]["intervalo_busqueda"],
             "paso": paso_busqueda, "trabajo_analitico": trabajo_maximo,
-            "trabajo_numerico": float(trabajos_busqueda[indice_optimo]),
+            "trabajo_numerico": estudio_ideal["numerico"]["ciclo"]["trabajo_neto"],
             "temperaturas": temperaturas_optimas, "rendimiento": rendimiento_optimo,
         }
         contenido = crear_informe_html(
             parametros, ciclo_ideal, ciclo_noideal, detalles_ideal, optimo,
             [(rp, eta if evaluar_punto(T1, T3, gamma, cp, rp, p1)["viable"] else None)
              for rp, eta in calcular_rendimientos(gamma)], comprobaciones,
-            {nombre: buffer.getvalue() for nombre, buffer in imagenes.items()}, fecha, version, barrido,
+            {nombre: buffer.getvalue() for nombre, buffer in imagenes.items()}, fecha, version, barrido, optimizaciones,
         )
     finally:
         for buffer in imagenes.values():

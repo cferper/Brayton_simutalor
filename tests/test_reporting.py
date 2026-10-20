@@ -87,10 +87,12 @@ class InformesTests(unittest.TestCase):
                     self.assertEqual(pixels.shape[:2], (900, 1350))
                     self.assertGreater(float(pixels.std()), .05)
                 for texto in ("505.619018", "369.476301", "48.205253", "36.898732",
-                              "287.142857", "1.061678", "20.085256", "20.085236",
+                              "287.142857", "1.061678", "20.085256",
                               "532.802230", "kJ/kg", "m³/kg", "kJ/(kg·K)",
                               "Comprobaciones ejecutadas", "1600.00"):
                     self.assertIn(texto, documento)
+                numerico = creador.call_args.args[-1]["ideal"]["numerico"]
+                self.assertIn(f"{numerico['rp']:.6f}", documento)
                 self.assertTrue(documento.endswith(reporting.MARCA_FINAL))
                 self.assertIn("Commit Git:", documento)
                 self.assertIn(creador.call_args.args[9]["commit"] or "No disponible", documento)

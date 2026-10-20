@@ -1,10 +1,10 @@
 """Estados, clasificación motor y fronteras del modelo de propiedades constantes.
 
 Las temperaturas se expresan en K, presiones en kPa, cp en J/(kg K)
-y energías específicas en kJ/kg. No se optimiza el ciclo no ideal.
+y energías específicas en kJ/kg. La optimización se separa en optimizacion.py.
 """
 
-from math import isfinite
+from math import isfinite, log
 import numpy as np
 
 TOL_REL = 1e-10
@@ -188,12 +188,14 @@ def describir_inviabilidad(punto, dominio):
 
 
 def construir_barrido(T1, T3, gamma, cp, p1, eta_c=1, eta_t=1, delta=0,
-                      relaciones=None, dominios=None):
+                      relaciones=None, dominios=None, puntos_interes=()):
     """Malla acotada y curvas con NaN en TODOS los puntos excluidos."""
     if dominios is None:
         dominios = calcular_dominios(T1, T3, gamma, cp, p1, eta_c, eta_t, delta)
     if relaciones is None:
-        superior = min(dominios["ideal"]["intervalo"][1] * 1.05, 10000)
+        limite = dominios["ideal"]["intervalo"][1]
+        # Ventana completa: no se recorta una frontera física por una cota fija.
+        superior = limite * 1.05 if limite < np.finfo(float).max / 1.05 else limite
         muestras = list(np.geomspace(1, superior, 500)) + list(np.linspace(1, superior, 500))
         for nombre in ("ideal", "noideal"):
             dominio = dominios[nombre]
@@ -204,13 +206,21 @@ def construir_barrido(T1, T3, gamma, cp, p1, eta_c=1, eta_t=1, delta=0,
                 lo, hi = dominio["intervalo"]
                 muestras.extend(np.linspace(lo, min(hi, superior), 101)
                                 if lo < superior else [])
+        for rp in puntos_interes:
+            if not isfinite(rp) or not 1 <= rp <= superior:
+                raise ValueError("Un punto de interés debe ser finito y estar dentro de la vista.")
+            radio_log = log(superior) * .015
+            muestras.extend(np.geomspace(max(1, rp / np.exp(radio_log)),
+                                         min(superior, rp * np.exp(radio_log)), 17))
+            muestras.append(rp)
         relaciones = np.unique(muestras)
     relaciones = np.asarray(relaciones, dtype=float)
     if relaciones.ndim != 1 or len(relaciones) < 2 or not np.all(np.isfinite(relaciones)):
         raise ValueError("Se requiere una malla unidimensional finita con al menos dos puntos.")
     if np.any(relaciones <= 0) or np.any(np.diff(relaciones) <= 0):
         raise ValueError("Las relaciones deben ser positivas y estrictamente crecientes.")
-    resultado = {"relaciones": relaciones, "dominios": dominios}
+    resultado = {"relaciones": relaciones, "dominios": dominios,
+                 "intervalo_visual": (float(relaciones[0]), float(relaciones[-1]))}
     for nombre, eficiencias in (("ideal", (1, 1, 0)), ("noideal", (eta_c, eta_t, delta))):
         puntos = [evaluar_punto(T1, T3, gamma, cp, float(rp), p1, *eficiencias)
                   for rp in relaciones]

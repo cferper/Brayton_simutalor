@@ -55,8 +55,67 @@ def imagen_html(imagen, titulo):
     )
 
 
+def seccion_optimizacion_html(parametros, referencias, optimizaciones, barrido):
+    """Presenta resultados ya calculados; None se muestra como no disponible."""
+    tablas = []
+    for nombre in ("ideal", "noideal"):
+        r = optimizaciones[nombre]
+        tablas.append(f"<h3>Modelo {nombre}</h3><p>{escape(r['motivo'])}</p>")
+        if r["estado"] != "disponible":
+            tablas.append("<p>Óptimo motor: No disponible. No se ejecuta una búsqueda en un dominio vacío.</p>")
+            continue
+        a, n, c = r["analitico"], r["numerico"], r["concordancia"]
+        lo, hi = r["dominio"]["intervalo"]
+        filas = [
+            ("Relación de presiones de referencia", f"{parametros['relacion_presiones']:.10g}", "—"),
+            ("Trabajo neto de referencia", f"{referencias[nombre]['trabajo_neto']:.6f}", "kJ/kg"),
+            ("rp de máximo trabajo · analítica", f"{a['rp']:.10f}", "—"),
+            ("rp de máximo trabajo · numérica", f"{n['rp']:.10f}", "—"),
+            ("Trabajo máximo · analítico", f"{a['ciclo']['trabajo_neto']:.6f}", "kJ/kg"),
+            ("Trabajo máximo · numérico", f"{n['ciclo']['trabajo_neto']:.6f}", "kJ/kg"),
+            ("Rendimiento EN el máximo de trabajo", f"{a['ciclo']['rendimiento'] * 100:.6f}", "%"),
+            ("Dominio físico abierto", f"{lo:.10g} < rp < {hi:.10g}", "—"),
+            ("Intervalo de optimización numérica", f"{n['intervalo_busqueda'][0]:.10g} a {n['intervalo_busqueda'][1]:.10g}", "—"),
+            ("Intervalo final del refinamiento", f"{n['intervalo_final'][0]:.10g} a {n['intervalo_final'][1]:.10g}", "—"),
+            ("Muestras iniciales / evaluaciones totales", f"{n['muestras_iniciales']} / {n['evaluaciones']}", "—"),
+            ("Paso logarítmico inicial", f"{n['paso_log_inicial']:.6g}", "—"),
+            ("Tolerancia de parada en log(rp)", f"{n['tolerancia_log']:.3g}", "—"),
+            ("Escala de resolución numérica en rp", f"{n['resolucion_rp']:.6g}", "—"),
+            ("Diferencia absoluta en rp / tolerancia", f"{c['diferencia_rp']:.6g} / {c['tolerancia_rp']:.6g}", "—"),
+            ("Diferencia absoluta en trabajo / tolerancia", f"{c['diferencia_trabajo']:.6g} / {c['tolerancia_trabajo']:.6g}", "kJ/kg"),
+        ]
+        tablas.append(tabla_html(("Magnitud", "Resultado", "Unidad"), filas))
+        if nombre == "noideal":
+            tablas.append("<h3>Estados del ciclo no ideal en el máximo de trabajo</h3>")
+            tablas.append(tabla_html(("Estado", "T [K]", "p [kPa]"), [
+                (i, f"{T:.6f}", f"{p:.6f}") for i, (T, p) in enumerate(zip(
+                    a["ciclo"]["temperaturas"], a["ciclo"]["presiones"]), start=1)]))
+    ideal, real = optimizaciones["ideal"], optimizaciones["noideal"]
+    if ideal["estado"] == real["estado"] == "disponible":
+        ai, ar = ideal["analitico"], real["analitico"]
+        tablas.append(tabla_html(("Comparación (ideal menos no ideal)", "Diferencia", "Unidad"), [
+            ("Relaciones de máximo trabajo", f"{ai['rp'] - ar['rp']:.10f}", "—"),
+            ("Trabajos máximos", f"{ai['ciclo']['trabajo_neto'] - ar['ciclo']['trabajo_neto']:.6f}", "kJ/kg")]))
+    if barrido is not None:
+        lo, hi = barrido["intervalo_visual"]
+        tablas.append(f"<p>Ventana gráfica completa: {lo:.10g} a {hi:.10g}; {len(barrido['relaciones'])} muestras compartidas. "
+                      "Incluye fronteras y óptimos; las comparaciones añaden un panel de detalle no ideal "
+                      "cuando la amplitud logarítmica o el trabajo máximo difieren mucho.</p>")
+    return ("<section><h2>Optimización del trabajo específico neto</h2>"
+            "<p>Se maximiza trabajo específico a parámetros fijos, NO rendimiento térmico. "
+            "Se distingue candidato estacionario matemático de máximo motor interior. "
+            "La segunda derivada en x=rp^a es negativa; si existe dominio motor, "
+            "el candidato pertenece a su interior. La búsqueda independiente usa malla logarítmica "
+            "y sección áurea dentro de ese dominio, sin usar el candidato analítico para acotarla.</p>"
+            "<p>La resolución inicial, el criterio de parada y la precisión en rp son distintos: "
+            "cerca del máximo el trabajo es plano y el redondeo impide atribuir al resultado "
+            "tantos dígitos fiables como su estrecho intervalo final. Las tolerancias son numéricas, "
+            "no incertidumbre experimental.</p>" + "".join(tablas) + "</section>")
+
+
 def crear_informe_html(parametros, ideal, noideal, detalles_ideal, optimo,
-                       rendimientos, comprobaciones, imagenes, fecha, version, barrido=None):
+                       rendimientos, comprobaciones, imagenes, fecha, version, barrido=None,
+                       optimizaciones=None):
     """Presenta resultados y seis PNG suministrados por main, sin recalcular física."""
     if len(imagenes) != 6:
         raise ValueError("El informe requiere exactamente seis gráficas de la ejecución.")
@@ -110,7 +169,7 @@ def crear_informe_html(parametros, ideal, noideal, detalles_ideal, optimo,
     filas_optimo = [
         ("Relación de presiones óptima analítica", f"{optimo['rp_analitica']:.6f}", "—"),
         ("Relación de presiones óptima numérica", f"{optimo['rp_numerica']:.6f}", "—"),
-        ("Paso de búsqueda", f"{optimo['paso']:.7f}", "—"),
+        ("Escala de resolución numérica en rp", f"{optimo['paso']:.7f}", "—"),
         ("Trabajo neto máximo analítico", f"{optimo['trabajo_analitico']:.6f}", "kJ/kg"),
         ("Trabajo neto máximo numérico", f"{optimo['trabajo_numerico']:.6f}", "kJ/kg"),
         ("T2 en el óptimo analítico", f"{optimo['temperaturas'][1]:.2f}", "K"),
@@ -163,13 +222,16 @@ def crear_informe_html(parametros, ideal, noideal, detalles_ideal, optimo,
             f"<p>Malla representada: {len(barrido['relaciones'])} puntos entre rp = "
             f"{barrido['relaciones'][0]:.10g} y {barrido['relaciones'][-1]:.10g}. "
             "Combina muestreo lineal y logarítmico, fronteras y sus vecindades; "
-            "el extremo de visualización se limita a 10000 y no es una frontera física. "
+            "la ventana se adapta al dominio completo sin un recorte fijo de rp. "
             "Las fronteras de la tabla se calculan independientemente del dibujo. "
             "Los motivos pueden solaparse: sus recuentos no deben sumarse. "
             "NaN corta las curvas en puntos excluidos; nunca se publica rendimiento motor allí. "
             "Las bandas tenues y líneas discontinuas indican los dominios y sus fronteras.</p></section>"
         )
     intervalo_busqueda = optimo.get("intervalo_busqueda", (1.01, 50))
+    optimizacion_html = (seccion_optimizacion_html(parametros, {"ideal": ideal, "noideal": noideal},
+                                                   optimizaciones, barrido)
+                         if optimizaciones is not None else "")
     return f"""{MARCA_INICIO}
 <!doctype html>
 <html lang="es">
@@ -216,6 +278,7 @@ footer {{ padding: 24px 0; font-size: .85rem; color: #475969; }}
 <p class="note">Modelo educativo de gas ideal con cp y gamma constantes. Equipos adiabáticos en régimen estacionario; se desprecian cambios de energía cinética y potencial. No es un modelo de motor real de alta fidelidad.</p>
 {tabla_html(unidades, filas_parametros)}</section>
 {dominio_html}
+{optimizacion_html}
 <section><h2>Ciclo ideal · caso de referencia</h2>
 <p>Estados: 1 entrada del compresor, 2 salida del compresor, 3 entrada de turbina y 4 salida de turbina. La entropía es relativa, con s1 = 0.</p>
 {tabla_html(("Estado", "T [K]", "p [kPa]", "v [m³/kg]", "s [kJ/(kg·K)]"), estados_ideal)}
@@ -229,8 +292,8 @@ footer {{ padding: 24px 0; font-size: .85rem; color: #475969; }}
 <section><h2>Diagramas termodinámicos exclusivamente ideales</h2>
 {imagen_html(imagenes['diagrama_ts_brayton.png'], 'Diagrama T-s del ciclo ideal de referencia')}
 {imagen_html(imagenes['diagrama_pv_brayton.png'], 'Diagrama P-v del ciclo ideal de referencia')}</section>
-<section><h2>Optimización exclusivamente ideal</h2>
-<p>Máximo de trabajo específico neto a temperaturas extremas fijas. No es una maximización del rendimiento ni una optimización del modelo no ideal. Búsqueda numérica: 100001 puntos interiores entre rp = {intervalo_busqueda[0]:.10g} y {intervalo_busqueda[1]:.10g}. Este intervalo de búsqueda y el intervalo representado son distintos del límite físico.</p>
+<section><h2>Trabajo ideal y comprobación de su máximo</h2>
+<p>Máximo de trabajo específico neto a temperaturas extremas fijas. No es una maximización del rendimiento. Búsqueda numérica adaptada entre rp = {intervalo_busqueda[0]:.10g} y {intervalo_busqueda[1]:.10g}. Este intervalo de búsqueda y el intervalo representado son distintos del límite físico.</p>
 {tabla_html(unidades, filas_optimo)}
 {imagen_html(imagenes['trabajo_neto_vs_rp.png'], 'Trabajo neto ideal y máximo analítico contrastado con la malla numérica')}</section>
 <section><h2>Ciclo no ideal · caso de referencia</h2>
