@@ -32,7 +32,7 @@ class WebTests(unittest.TestCase):
         texto = respuesta.get_data(as_text=True)
         self.assertEqual(respuesta.status_code, 200)
         self.assertIn("Configuración del ciclo", texto)
-        self.assertEqual(texto.count('type="number"'), 12)  # Nueve físicos + tres controles OFAT.
+        self.assertEqual(texto.count('type="number"'), 18)  # Nueve físicos + tres OFAT + seis mapa.
         self.assertIn('value="5.0"', texto)
         self.assertIn("Ejecutar simulación", texto)
         self.assertIn("Restablecer valores", texto)
