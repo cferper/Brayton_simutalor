@@ -14,6 +14,8 @@ La ejecución normal no lee ni sobrescribe los PNG históricos. Los ejemplos que
 
 **Alcance actual de Fase 3:** `main` llama al estudio ideal y al optimizador no ideal de rendimiento, compara A/B y añade la curva de compromiso. La simulación normal mantiene nueve entradas físicas y recalcula los estudios de ese caso por POST; el botón OFAT usa el flujo independiente de §4.40. La revisión final y la guía de aprendizaje están completadas; la implementación de la fase está registrada en `44145f3553ee502ed7d547762651d12ca1c41d40` (`Implement Brayton thermal efficiency optimization and work trade-off`), desarrollada en `feature/fase-3-optimizacion-rendimiento` sobre la base `5629eb076d10ad54852f74a438fda8a970db5f04`.
 
+**Fase 4 registrada:** implementación `88c026395a9aba9cf72819305cfe2540f200e54a` (`Implement Brayton parametric sensitivity analysis with Flask integration`), desarrollada sobre `899024c518348fa48944041059aa885cc127af7e`. La asociación documental se incorpora durante el cierre Git autorizado, una vez conocido el hash. Su guía y milestone conservan el detalle de esta fase. Verificación previa al commit de este cierre, el 21 de octubre de 2026: 108/108 pruebas OK en 80.205 s.
+
 ## 1. Visión general del programa
 
 El programa estudia un ciclo Brayton ideal y otro no ideal simplificado. Usa gas ideal con `cp` y `gamma` constantes, equipos adiabáticos en régimen estacionario y cambios despreciables de energía cinética y potencial. No calcula caudal másico, potencia, combustible, empuje ni mapas de máquinas.
@@ -746,7 +748,7 @@ El pequeño helper `guardar_en_prueba(contenido, carpeta, fecha)` del proceso de
 
 - **Propósito físico:** comprobar la familia de modelos antes de analizar su dominio: finitud, T3>T1>0, gamma>1, cp/p1>0, eficiencias en (0,1] y pérdida en [0,1). La relación T3>T1 es una condición de entrada del estudio motor, no prueba suficiente de viabilidad.
 - **Retorno:** `None`; `ValueError` si se incumple. No recibe rp ni decide sobre un punto del barrido.
-- **Llama:** ninguna función propia. La llaman `calcular_estados`, `evaluar_punto`, `calcular_dominios`, `main` los módulos de optimización de trabajo/rendimiento (§4.35, §4.38) y `analizar_sensibilidad`.
+- **Llama:** ninguna función propia. La llaman `calcular_estados`, `evaluar_punto`, `calcular_dominios`, `main`, los módulos de optimización de trabajo/rendimiento (§4.35, §4.38) y `analizar_sensibilidad`.
 - **PYTHON:** argumentos por defecto, `all` sobre un generador y comparaciones encadenadas. No instala dependencias.
 - **Ejemplo:** `validar_parametros(288.15,1600,1.4,1005,100,.85,.9,.05)` termina sin valor visible.
 
