@@ -11,7 +11,7 @@ legend { font-size: 1.15rem; font-weight: 650; padding: 0 10px; color: #153c55; 
 .fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 22px 30px; }
 label { display: block; font-weight: 600; margin-bottom: 7px; }
 .unit { color: #526575; font-weight: 400; font-size: .9rem; }
-input { width: 100%; padding: 11px 12px; border: 1px solid #9badbb; border-radius: 5px; font: inherit; background: #fcfdff; }
+input, select { width: 100%; padding: 11px 12px; border: 1px solid #9badbb; border-radius: 5px; font: inherit; background: #fcfdff; }
 input:focus { outline: 3px solid #c2e2f4; border-color: #21668e; }
 input[aria-invalid="true"] { border: 2px solid #a52525; }
 small { display: block; color: #526575; margin-top: 5px; }

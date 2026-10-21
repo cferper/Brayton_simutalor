@@ -234,6 +234,7 @@ Brayton_Simulator/
 ├── main.py
 ├── optimizacion.py
 ├── optimizacion_rendimiento.py
+├── sensibilidad.py
 ├── viabilidad.py
 ├── reporting.py
 ├── web_app.py
@@ -243,6 +244,7 @@ Brayton_Simulator/
 ├── tests/test_optimizacion.py
 ├── tests/test_optimizacion_rendimiento.py
 ├── tests/test_integracion_rendimiento.py
+├── tests/test_sensibilidad.py
 ├── tests/test_viabilidad.py
 ├── tests/test_reporting.py
 ├── tests/test_web_app.py
@@ -336,7 +338,26 @@ Or explicitly on Windows:
 .\.venv\Scripts\python.exe -B -m unittest discover -s tests -v
 ```
 
-The final Phase 3 suite passes **83 tests**: all 55 Phase 2 methods, 20 efficiency unit tests and eight integration tests. Coverage includes physical domain limits, empty domains, simultaneous causes, root neighbours, NaN in plotted lines and five complete runs in temporary directories, numerical reference checks, embedded PNG checks, retention, failure handling and protection of unrelated files. Flask `test_client` additionally checks GET/POST, modified inputs, model rejections, internal errors, download/view restrictions and mixed terminal/web retention without opening sockets. See `CODE_WALKTHROUGH.md` for the educational explanation and `docs/milestones/01_html_reports.md` for the reporting milestone; Phase 1 is documented in `docs/milestones/03_dominio_viable.md`.
+The previous Phase 3 closure passed **83 tests** (all retained; Phase 4 adds 25 tests): all 55 Phase 2 methods, 20 efficiency unit tests and eight integration tests. Coverage includes physical domain limits, empty domains, simultaneous causes, root neighbours, NaN in plotted lines and five complete runs in temporary directories, numerical reference checks, embedded PNG checks, retention, failure handling and protection of unrelated files. Flask `test_client` additionally checks GET/POST, modified inputs, model rejections, internal errors, download/view restrictions and mixed terminal/web retention without opening sockets. See `CODE_WALKTHROUGH.md` for the educational explanation and `docs/milestones/01_html_reports.md` for the reporting milestone; Phase 1 is documented in `docs/milestones/03_dominio_viable.md`.
+
+### OFAT sensitivity analysis (Phase 4)
+
+Start the same local Flask server. Keep the nine physical inputs and open **Análisis de sensibilidad**. Select T1 or T3 [K], eta_c or eta_t [fraction], or delta [fraction]; changing the selector fills an educational suggested range. Edit the minimum, maximum and integer sample count (3–201, default 41), then click **Ejecutar análisis de sensibilidad**. These suggested ranges are not universal physical limits. The main combustor-loss field still uses percent; the separate delta study uses fractions (0.05 = 5%). Submitted study settings and physical inputs are retained on errors.
+
+R keeps the form's rp fixed; A re-optimizes specific net work; B re-optimizes thermal efficiency. Each sample recalculates ideal/non-ideal domains and checks the Phase 2/3 analytical candidates against physical viability. Independent numerical searches verify selected samples (endpoints, centre and nearest to the reference), explicitly identified per result. Empty domains, invalid temperature combinations and numerical limits remain visible in the tables; an unattained supremum never becomes point B.
+
+The separate self-contained sensitivity report contains three 1350×900 plots (W, efficiency, rp), signed diagnostics for excluded R points, domains, methods, reasons, Git metadata, trends and local derivatives/elasticities at the form reference. NaN gaps prevent connecting unavailable samples in every operational curve, including R pressure ratio. A separate grey dash-dot line labelled as the reference setpoint spans the rp plot without implying viability; R operating samples use circle markers and remain masked. Both report types share the same safe publication and four-report history. The normal button and `python main.py` still produce seven plots without running OFAT.
+
+Example without writing files:
+
+```python
+from main import PARAMETROS_PREDETERMINADOS
+from sensibilidad import analizar_sensibilidad
+study = analizar_sensibilidad(PARAMETROS_PREDETERMINADOS, "T3", 800, 2000, muestras=41)
+print(study["sensibilidades"]["A"]["rp"]["normalizada"])  # approximately 1.75
+```
+
+OFAT does not measure parameter interactions or a universal importance ranking. Relative efficiency changes differ from percentage-point changes. Local coefficients use h/h2 checks, reject unavailable/ill-conditioned results, and do not replace experimental validation. See the [Phase 4 learning guide](docs/milestones/06_sensibilidad_parametrica_APRENDIZAJE.md) and [technical milestone](docs/milestones/06_sensibilidad_parametrica.md).
 
 ## Educational documentation
 
@@ -364,7 +385,7 @@ Each new phase gets its own `NN_nombre_fase_APRENDIZAJE.md`. Smaller iterations 
 - Gas properties are constant; temperature-dependent heat capacities and combustion-product composition are not represented.
 - Non-ideal behavior is limited to fixed isentropic efficiencies and combustor pressure loss. Mechanical losses, fuel consumption, thrust and component maps are not calculated.
 - T-s and P-v diagrams currently describe only the ideal reference cycle. Net-work optimization covers both models; efficiency optimization distinguishes the ideal unattained supremum from the attained non-ideal maximum.
-- The plotted pressure-ratio window is recalculated from Phase 1 boundaries each run; bounded sample counts control cost without a fixed physical cap. Extremely narrow domains or floating-point limits can still be unresolved. A relative zero band of 1e-10 excludes unresolved boundary points. The reference case must be a motor in both models to generate a report; standalone optimization returns no motor optimum for empty domains.
+- The plotted pressure-ratio window is recalculated from Phase 1 boundaries each run; bounded sample counts control cost without a fixed physical cap. Extremely narrow domains or floating-point limits can still be unresolved. A relative zero band of 1e-10 excludes unresolved boundary points. For a normal report the reference case must be a motor in both models; OFAT reports retain non-motor samples and require only valid reference inputs (including T3>T1); standalone optimization returns no motor optimum for empty domains.
 - Runtime checks and standalone tests verify implementation and reporting; they do not constitute validation against experimental engine data.
 
 ## Future improvements

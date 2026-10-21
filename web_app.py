@@ -8,6 +8,7 @@ from flask import Flask, Response, abort, redirect, render_template, request, ur
 from viabilidad import ErrorNumerico
 from main import ErrorModelo, PARAMETROS_PREDETERMINADOS, main
 from reporting import MARCA_FINAL, MARCA_INICIO, PATRON_INFORME
+from sensibilidad import PARAMETROS_ESTUDIO, ejecutar_sensibilidad, validar_configuracion
 
 
 app = Flask(__name__)
@@ -74,9 +75,25 @@ def index():
     errores = {}
     if request.method == "POST":
         parametros, errores = leer_parametros(request.form)
+        configuracion = None
+        if request.form.get("accion") == "sensibilidad":
+            try:
+                configuracion = validar_configuracion(
+                    request.form.get("sens_parametro", "T3"),
+                    float(request.form.get("sens_minimo", "800")),
+                    float(request.form.get("sens_maximo", "2000")),
+                    int(request.form.get("sens_muestras", "41")))
+            except ValueError as error:
+                errores["sensibilidad"] = f"Configuración de sensibilidad inválida: {error}"
         if not errores:
             try:
-                ruta = main(app.config["OUTPUTS_DIR"], parametros=parametros)
+                if configuracion is None:
+                    ruta = main(app.config["OUTPUTS_DIR"], parametros=parametros)
+                else:
+                    if parametros["T3"] <= parametros["T1"]:
+                        raise ErrorModelo("La referencia debe cumplir T3 > T1; el barrido sí admite muestras no motoras.")
+                    ruta = ejecutar_sensibilidad(app.config["OUTPUTS_DIR"], parametros,
+                        **{k: configuracion[k] for k in ("parametro", "minimo", "maximo", "muestras")})
             except ErrorModelo as error:
                 errores["modelo"] = str(error)
             except ErrorNumerico as error:
@@ -84,7 +101,7 @@ def index():
             else:
                 return redirect(url_for("ver_informe", nombre=ruta.name), code=303)
     return render_template("index.html", grupos=GRUPOS, campos=CAMPOS,
-                           valores=valores, errores=errores), 400 if errores else 200
+                           valores=valores, errores=errores, estudios=PARAMETROS_ESTUDIO), 400 if errores else 200
 
 
 @app.route("/informes/<nombre>")
@@ -121,6 +138,7 @@ def error_interno(error):
     """Flask registra la traza en terminal; el navegador recibe un mensaje genérico."""
     return render_template(
         "index.html", grupos=GRUPOS, campos=CAMPOS,
+        estudios=PARAMETROS_ESTUDIO,
         valores=request.form.to_dict() if request.method == "POST" else valores_formulario(),
         errores={"servidor": "Se ha producido un error interno. Consulta la terminal de VS Code para ver el detalle; no es un rechazo físico de los parámetros."},
     ), 500

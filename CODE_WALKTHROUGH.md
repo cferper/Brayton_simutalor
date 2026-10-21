@@ -1,18 +1,18 @@
 # Guía educativa de Brayton Simulator
 
-Guía del estado actual, actualizada el 20 de octubre de 2026. El simulador identifica los dominios motores, optimiza trabajo específico y rendimiento térmico y compara ambos criterios con intervalos recalculados por ejecución. Se mantienen los nueve parámetros, Flask local, siete gráficas por informe HTML (las seis anteriores y una de compromiso), metadatos Git y retención de cuatro informes.
+Guía del estado actual, actualizada el 21 de octubre de 2026. El simulador identifica los dominios motores, optimiza trabajo específico y rendimiento térmico y compara ambos criterios con intervalos recalculados por ejecución. Se mantienen los nueve parámetros, Flask local, siete gráficas por simulación normal o tres por estudio OFAT, metadatos Git y retención compartida de cuatro informes. La Fase 4 permite variar T1, T3, eta_c, eta_t o delta y comparar R/A/B.
 
 **Lectura por fases:** la [guía de aprendizaje de Fase 1](docs/milestones/03_dominio_viable_APRENDIZAJE.md) explica sus novedades respecto al commit de partida. La [guía de aprendizaje de Fase 2](docs/milestones/04_optimizacion_noideal_APRENDIZAJE.md) desarrolla la optimización y los intervalos dinámicos. La [guía de aprendizaje de Fase 3](docs/milestones/05_optimizacion_rendimiento_APRENDIZAJE.md) explica su física, algoritmos, integración y verificación de cierre. Este manual describe todo el código actual; `Evolution of the project` resume los grandes hitos, sin historial acumulativo de iteraciones.
 
 Verificación previa de Fase 2, del 20 de octubre de 2026: **55 pruebas superadas** con `python -B -m unittest discover -s tests -v` (40.481 s en esta ejecución).
 
-Hay seis módulos (`main.py`, `viabilidad.py`, `optimizacion.py`, `optimizacion_rendimiento.py`, `reporting.py`, `web_app.py`) y seis archivos de pruebas. `.venv` contiene dependencias, no código propio. Se distinguen dominio físico, ventana numérica y ventana visual (§14). La suite actual tiene **83 pruebas**: las 55 de Fase 2, 20 unitarias de rendimiento y ocho de integración. Cierre verificado el 20 de octubre de 2026: 83/83 OK en 51.733 s; las comprobaciones previas se identifican como tales en §4.38–4.39. La verificación interna no constituye validación experimental de un motor.
+Hay siete módulos (`main.py`, `viabilidad.py`, `optimizacion.py`, `optimizacion_rendimiento.py`, `sensibilidad.py`, `reporting.py`, `web_app.py`) y siete archivos de pruebas. `.venv` contiene dependencias, no código propio. Se distinguen dominio físico, ventana numérica y ventana visual (§14). La suite conserva las 83 pruebas de Fase 3 y añade 25 de sensibilidad; resultados de la verificación actual en §4.40. El cierre anterior de Fase 3 superó 83/83 en 51.733 s; es una comprobación previa, no la ejecución de esta tarea. La verificación interna no constituye validación experimental de un motor.
 
 La verificación de esta fase se realiza con informes en carpetas temporales; los seis PNG históricos permanecen intactos. No se crean commits automáticamente. La base verificada de Fase 2 es `f9f9a0495c4231a4d48399fba4bccdcc0f6bcf6f` en `feature/fase-2-optimizacion-noideal`; la implementación de Fase 2 está registrada en el commit `c2f4bff84a173f3b354a5d0f76c2b7bd2ee1fa21` (`Implement non-ideal Brayton work optimization with dynamic intervals`).
 
 La ejecución normal no lee ni sobrescribe los PNG históricos. Los ejemplos que guardan un PNG explícitamente son usos opcionales. Las referencias se dan mediante archivo y nombre de función para no depender de líneas que cambian al editar.
 
-**Alcance actual de Fase 3:** `main` llama al estudio ideal y al optimizador no ideal de rendimiento, compara A/B y añade la curva de compromiso. Flask mantiene nueve campos y recalcula todos los estudios por POST. La revisión final y la guía de aprendizaje están completadas; la implementación de la fase está registrada en `44145f3553ee502ed7d547762651d12ca1c41d40` (`Implement Brayton thermal efficiency optimization and work trade-off`), desarrollada en `feature/fase-3-optimizacion-rendimiento` sobre la base `5629eb076d10ad54852f74a438fda8a970db5f04`.
+**Alcance actual de Fase 3:** `main` llama al estudio ideal y al optimizador no ideal de rendimiento, compara A/B y añade la curva de compromiso. La simulación normal mantiene nueve entradas físicas y recalcula los estudios de ese caso por POST; el botón OFAT usa el flujo independiente de §4.40. La revisión final y la guía de aprendizaje están completadas; la implementación de la fase está registrada en `44145f3553ee502ed7d547762651d12ca1c41d40` (`Implement Brayton thermal efficiency optimization and work trade-off`), desarrollada en `feature/fase-3-optimizacion-rendimiento` sobre la base `5629eb076d10ad54852f74a438fda8a970db5f04`.
 
 ## 1. Visión general del programa
 
@@ -27,13 +27,14 @@ El programa estudia un ciclo Brayton ideal y otro no ideal simplificado. Usa gas
 
 **INTERPRETACIÓN FÍSICA.** Los procesos ideales son dos isentrópicas y dos isóbaras. El no ideal incorpora eficiencias de compresor y turbina y pérdida de presión del combustor. Se calculan los máximos de trabajo de ambos modelos y, por separado, el máximo de rendimiento no ideal cuando hay pérdidas y dominio motor. El ideal/reversible tiene sólo un supremo no alcanzado de rendimiento; no se crea un punto B ficticio.
 
-**PYTHON.** Los nueve parámetros predeterminados están en `PARAMETROS_PREDETERMINADOS`. `main()` copia esa configuración y admite cambios por argumento. Flask convierte el formulario y llama a esa misma función; las funciones numéricas calculan; Matplotlib dibuja en buffers `BytesIO`; `reporting.py` compone HTML con CSS e imágenes Base64 y publica un archivo completo en `outputs/`. No se genera un TXT intermedio. La terminal muestra tres líneas de éxito; los detalles van al informe.
+**PYTHON.** Los nueve parámetros predeterminados están en `PARAMETROS_PREDETERMINADOS`. `main()` copia esa configuración y admite cambios por argumento. Flask convierte el formulario y llama a esa misma función para la simulación normal, o a `ejecutar_sensibilidad` para OFAT; las funciones numéricas calculan; Matplotlib dibuja en buffers `BytesIO`; `reporting.py` compone HTML con CSS e imágenes Base64 y publica un archivo completo en `outputs/`. No se genera un TXT intermedio. La terminal muestra tres líneas de éxito; los detalles van al informe.
 
 ```text
 Imports y definiciones
 ↓
 Terminal: main() con valores predeterminados
-O navegador: GET formulario → POST → validación → main(parametros=...)
+O navegador: GET formulario → POST normal → validación → main(parametros=...)
+POST sensibilidad → analizar_sensibilidad → R/A/B → tres PNG → HTML → publicación compartida
 ↓
 Fecha, versión Git y copia de configuración
 ↓
@@ -80,6 +81,7 @@ Brayton_Simulator/
 ├── viabilidad.py               estados comunes, clasificación, fronteras y barridos
 ├── optimizacion.py             candidatos, búsqueda interior y contraste de máximos
 ├── optimizacion_rendimiento.py rendimiento y comparación A/B
+├── sensibilidad.py             OFAT, derivadas locales y tres gráficas independientes
 ├── reporting.py                HTML y conservación de informes
 ├── web_app.py                  servidor Flask de acceso local
 ├── Abrir_Brayton_Simulator.cmd acceso por doble clic al formulario local
@@ -91,6 +93,7 @@ Brayton_Simulator/
 ├── tests/test_integracion_rendimiento.py  gráficas, informe, recálculo Flask y criterios
 ├── tests/test_reporting.py     pruebas de informes
 ├── tests/test_web_app.py       pruebas HTTP y compatibilidad
+├── tests/test_sensibilidad.py  19 pruebas de cálculo y seis de integración OFAT
 ├── README.md                   instalación y uso
 ├── requirements.txt            numpy, matplotlib y Flask
 ├── .gitignore
@@ -168,7 +171,7 @@ El formulario usa un servidor Flask local; los informes siguen siendo documentos
 
 ### G. HTML y Base64
 
-**Qué hace:** forma tablas, secciones y CSS, incorporando las siete imágenes de la ejecución.
+**Qué hace:** forma tablas, secciones y CSS, incorporando siete imágenes normales o tres del estudio OFAT.
 
 **PYTHON:** `str`, `escape`, `join`, f-strings multilínea, `b64encode(...).decode("ascii")`. CSS usa llaves dobles para obtener llaves literales en una f-string.
 
@@ -184,7 +187,7 @@ El formulario usa un servidor Flask local; los informes siguen siendo documentos
 
 ### I. Servidor y formulario
 
-**Qué hace:** muestra nueve campos agrupados, valida el POST, invoca el simulador y redirige a su informe. Los parámetros enviados se conservan cuando hay errores.
+**Qué hace:** muestra nueve campos físicos agrupados y una sección OFAT con selector y tres controles numéricos; valida la acción elegida, invoca el flujo correspondiente y redirige a su informe. Los parámetros enviados se conservan cuando hay errores.
 
 **PYTHON:** objeto `Flask`, decoradores `@app.route`, `request`, `float`, diccionarios de errores y `render_template`. La pérdida se divide por 100 una sola vez antes de llamar al simulador.
 
@@ -197,6 +200,10 @@ El formulario usa un servidor Flask local; los informes siguen siendo documentos
 **PYTHON:** clases de `unittest`, `self`, `assert*`, `patch`, directorios temporales y parser HTML. Las excepciones propias heredan de tipos estándar; los resultados físicos siguen siendo diccionarios.
 
 **INTERPRETACIÓN FÍSICA:** verifica el cálculo conocido; no compara con datos externos de un motor.
+
+### K. Análisis OFAT independiente
+
+**Qué hace:** compara R/A/B al variar una entrada, calcula derivadas locales y publica tres figuras. **PYTHON:** copias, callbacks y caché local, arrays NaN, estados explícitos y comprobación de pasos. **INTERPRETACIÓN FÍSICA:** escenarios a rp fija u optimizada, elasticidades condicionadas a una referencia, sin ecuaciones termodinámicas nuevas. Detalle y contratos en §4.40.
 
 ## 4. Explicación función por función
 
@@ -650,9 +657,9 @@ def index():
 
 - **Propósito:** atender GET/POST de `/`. No recibe argumentos posicionales; obtiene método y formulario del contexto HTTP.
 - **Retorno:** para GET, pareja `(HTML, 200)`; ante entradas inválidas/modelo rechazado, `(HTML, 400)`; con éxito, respuesta de redirección HTTP 303 al informe recién creado.
-- **Llama:** `valores_formulario`, `leer_parametros`, `main`. Flask la llama por el decorador de ruta; las pruebas lo hacen mediante `test_client`.
+- **Llama:** `valores_formulario`, `leer_parametros`, `validar_configuracion` y, según el botón, `main` o `ejecutar_sensibilidad`. Flask la llama por el decorador de ruta; las pruebas lo hacen mediante `test_client`.
 - **Unidades:** respeta el contrato de `leer_parametros`; no calcula ecuaciones.
-- **Validación/errores:** no invoca `main` si hay errores de campos. Captura `ErrorModelo` y `ErrorNumerico` con mensajes distintos durante la ejecución; conserva `request.form.to_dict()` para volver a mostrar valores. Otros errores llegan al tratamiento de HTTP 500 de Flask.
+- **Validación/errores:** no ejecuta cálculos si hay errores de campos. Sólo para OFAT convierte mínimo/máximo a float y muestras a int, valida rangos y exige referencia T3>T1. Las muestras del barrido sí pueden tener T3<=T1 y se registran sin abortar. Los controles OFAT no se validan en simulaciones normales. Captura `ErrorModelo` y `ErrorNumerico` con mensajes distintos durante la ejecución; conserva `request.form.to_dict()` para volver a mostrar valores. Otros errores llegan al tratamiento de HTTP 500 de Flask.
 - **PYTHON:** decorador `@app.route("/", methods=["GET", "POST"])`, condicionales y `try/except/else`. Ese `else` se ejecuta solo si la llamada no lanzó una excepción.
 - **Ejemplo:** `client.get("/")` muestra el formulario; `client.post("/", data=datos)` simula un envío en una prueba. Fuera de una petición no se llama manualmente a `index()`.
 
@@ -739,7 +746,7 @@ El pequeño helper `guardar_en_prueba(contenido, carpeta, fecha)` del proceso de
 
 - **Propósito físico:** comprobar la familia de modelos antes de analizar su dominio: finitud, T3>T1>0, gamma>1, cp/p1>0, eficiencias en (0,1] y pérdida en [0,1). La relación T3>T1 es una condición de entrada del estudio motor, no prueba suficiente de viabilidad.
 - **Retorno:** `None`; `ValueError` si se incumple. No recibe rp ni decide sobre un punto del barrido.
-- **Llama:** ninguna función propia. La llaman `calcular_estados`, `evaluar_punto`, `calcular_dominios`, `main` y los módulos de optimización de trabajo/rendimiento (§4.35, §4.38).
+- **Llama:** ninguna función propia. La llaman `calcular_estados`, `evaluar_punto`, `calcular_dominios`, `main` los módulos de optimización de trabajo/rendimiento (§4.35, §4.38) y `analizar_sensibilidad`.
 - **PYTHON:** argumentos por defecto, `all` sobre un generador y comparaciones encadenadas. No instala dependencias.
 - **Ejemplo:** `validar_parametros(288.15,1600,1.4,1005,100,.85,.9,.05)` termina sin valor visible.
 
@@ -767,7 +774,7 @@ El pequeño helper `guardar_en_prueba(contenido, carpeta, fecha)` del proceso de
 - **Propósito físico:** consultar un punto sin lanzar excepciones por inviabilidad esperada. Exige márgenes positivos para compresión, expansión, calor y trabajo, con las tolerancias de §14.
 - **Retorno:** estados y energías anteriores más `viable` booleano, `motivos` y `fronteras` como tuplas de códigos, diccionarios `margenes`/`tolerancias` con unidades de cada condición, `rendimiento=wn/qin` y `back_work_ratio=wc/wt` sólo si es viable; fuera del motor ambos cocientes son `None`.
 - **Motivos:** `compresion`, `expansion`, `calor_aportado`, `trabajo_neto`; se conservan TODOS. `fronteras` identifica condiciones dentro de la banda de cero, aunque otra condición falle lejos de cero.
-- **Llama:** `validar_parametros`, `calcular_estados`, `calcular_energias`. La llaman `construir_barrido`, `calcular_ciclo_noideal`, `buscar_maximo_numerico`, `optimizar_trabajo_neto`, `buscar_maximo_rendimiento_numerico`, `optimizar_rendimiento`, `main` (referencia y tabla ideal) y pruebas.
+- **Llama:** `validar_parametros`, `calcular_estados`, `calcular_energias`. La llaman `construir_barrido`, `calcular_ciclo_noideal`, `buscar_maximo_numerico`, `optimizar_trabajo_neto`, `buscar_maximo_rendimiento_numerico`, `optimizar_rendimiento`, `main` (referencia y tabla ideal), `evaluar_muestra` de sensibilidad y pruebas.
 - **Errores:** parámetros inválidos o tolerancia fuera de [0,1) → `ValueError`; estados, energía o escala numéricamente no representables → `ErrorNumerico`. Una lista de motivos no vacía es una devolución normal.
 - **PYTHON:** `tuple(c for ... if ...)` filtra códigos; `not motivos` es `True` para tupla vacía; `**estados` y `**energias` reúnen diccionarios. La expresión condicional evalúa el cociente sólo en la rama viable, evitando divisiones engañosas.
 - **Ejemplo:** `evaluar_punto(288.15,1600,1.4,1005,200,100,.85,.9,.05)` da calor positivo y trabajo negativo: `motivos=('trabajo_neto',)` y `rendimiento=None`.
@@ -787,7 +794,7 @@ El pequeño helper `guardar_en_prueba(contenido, carpeta, fecha)` del proceso de
 - **Retorno:** diccionario con `ideal` y `noideal`; cada uno contiene `intervalo=(inferior,superior)` o `()`, `expansion` (cota inferior), `calor` (cota superior) y `trabajo` (raíces ordenadas o `()`). Todos son rp adimensionales. El no ideal añade `discriminante`; el contenedor añade `tolerancia_puntos=1e-10` y `tolerancia_biseccion=1e-12`.
 - **Método:** cotas de expansión/calor analíticas; discriminante y convexidad establecen dónde puede haber Q<0; bisección en [0,centro] y [centro,1+h] localiza sus dos ceros. Se convierten x a rp y se intersecta con rp>1, expansión y calor. Si h<=1, no hay motor para x>=k>=1, evitando intervalos ficticios por redondeo de la raíz x=1.
 - **Función local `Q(x)`:** cierre dentro de `calcular_dominios` que recibe x adimensional, devuelve `(x−1)*(x−h)+h*(k−1)` y utiliza h/k del ámbito exterior. No llama a funciones propias; la llama `bisectar_raiz`. No es una nueva API pública. Ejemplo conceptual con h=4 y k=1: Q(2)=−2. Un resultado no finito lo rechaza la bisección.
-- **Llama:** `validar_parametros`, `bisectar_raiz`. La llaman `construir_barrido`, `calcular_ciclo_noideal` en rechazos, `buscar_optimo_numerico`, las funciones de `optimizacion.py` cuando no reciben dominio, `estudiar_rendimiento_ideal`, `buscar_maximo_rendimiento_numerico`, `optimizar_rendimiento`, `main` y pruebas.
+- **Llama:** `validar_parametros`, `bisectar_raiz`. La llaman `construir_barrido`, `calcular_ciclo_noideal` en rechazos, `buscar_optimo_numerico`, las funciones de `optimizacion.py` cuando no reciben dominio, `estudiar_rendimiento_ideal`, `buscar_maximo_rendimiento_numerico`, `optimizar_rendimiento`, `evaluar_muestra` de sensibilidad, `main` y pruebas.
 - **Errores:** entradas inválidas → `ValueError`; fronteras/cuadrática no representables o dominio ideal indistinguible de rp=1 → `ErrorNumerico`. Dominio no ideal vacío → resultado normal `intervalo=()`, no excepción.
 - **PYTHON:** función anidada, tupla vacía y `max`/`min` para intersecar intervalos; `**` es potencia al convertir x a rp.
 - **Ejemplo:** `calcular_dominios(288.15,1600,1.4,1005,100,.85,.9,.05)['noideal']['intervalo']` → aproximadamente `(1.0696541023,155.4543260392)`.
@@ -882,6 +889,9 @@ Las unidades comunes son T [K], cp [J/(kg·K)], p1 [kPa]; gamma, eficiencias, de
 - **PYTHON:** retornos tempranos para dominio vacío, diccionarios anidados, comparaciones de tolerancias y nombres locales. No modifica los parámetros ni mantiene estado global.
 - **Ejemplo:** `r=optimizar_trabajo_neto(288.15,1600,1.4,1005,100,.85,.9,.05)`; `r['analitico']['ciclo']['temperaturas'][1]≈652.972971` K.
 
+
+**Relaciones con OFAT:** `evaluar_muestra` llama también a `calcular_candidato_analitico` en cada muestra con dominio y a `optimizar_trabajo_neto` para los contrastes seleccionados (§4.40); las firmas y ecuaciones de este módulo no cambian.
+
 ### 4.36. `seccion_optimizacion_html(parametros, referencias, optimizaciones, barrido)` — reporting.py
 
 - **Propósito:** presentar resultados ya calculados, sin ecuaciones físicas nuevas.
@@ -926,7 +936,7 @@ Con cualquier pérdida estricta (eta_c<1, eta_t<1 o delta>0) se cumple `S=H−A*
 #### `calcular_candidato_rendimiento(T1, T3, gamma, eta_c=1, eta_t=1, delta=0)`
 
 - **Propósito/retorno:** raíz estacionaria matemática, sin garantizar dominio. Seis escalares en las unidades comunes → float rp positivo finito; `None` sólo para reversibilidad exacta. Se usa S como suma no negativa para evitar la cancelación de H−A*B; rp se calcula como `exp((log(B)−log1p(sqrt(S/H)))/a)`.
-- **Llama:** `validar_parametros` con cp=p1=1 auxiliares. La llama `optimizar_rendimiento` y pruebas/usuarios directos. No llama a la búsqueda numérica.
+- **Llama:** `validar_parametros` con cp=p1=1 auxiliares. La llaman `optimizar_rendimiento`, `evaluar_muestra` de sensibilidad y pruebas/usuarios directos. No llama a la búsqueda numérica.
 - **Errores/PYTHON:** `ValueError` de entrada; `ErrorNumerico` en coeficientes, desbordamiento o resultado no representable. `try/except` y `raise ... from error` conservan la causa de desbordamiento/división. El resultado debe comprobarse contra el dominio antes de aceptarlo.
 - **Ejemplo:** `calcular_candidato_rendimiento(288.15,1600,1.4,.85,.9,.05)` → 35.4523235708.
 
@@ -945,7 +955,7 @@ Con cualquier pérdida estricta (eta_c<1, eta_t<1 o delta>0) se cumple `S=H−A*
 
 - **Propósito:** identifica el tipo de solución antes de proponer un máximo; contrasta dos métodos independientes y entrega estados/balances en el óptimo admisible.
 - **Argumentos/retorno:** ocho escalares comunes → diccionario `estado`, motivo, dominio, candidato, analítico, numérico, concordancia y supremo. Si reversible, contrato del estudio ideal; con vacío, candidato/analítico/numérico/concordancia/supremo=None. Con máximo, `analitico={'rp':...,'ciclo':...}`, `numerico` tiene el contrato anterior y `concordancia` contiene diferencias/tolerancias de rp y rendimiento más `condicion_cociente`.
-- **Llama:** `calcular_dominios`, `estudiar_rendimiento_ideal` si reversible, `calcular_candidato_rendimiento`, `evaluar_punto` y `buscar_maximo_rendimiento_numerico`. La llaman `main` y pruebas/usuarios directos.
+- **Llama:** `calcular_dominios`, `estudiar_rendimiento_ideal` si reversible, `calcular_candidato_rendimiento`, `evaluar_punto` y `buscar_maximo_rendimiento_numerico`. La llaman `main`, `evaluar_muestra` de sensibilidad en contrastes/reversibilidad y pruebas/usuarios directos.
 - **Comprobaciones:** candidato dentro del dominio abierto y `viable=True`; `|Δrp|≤2e−6*max(rp_a,rp_n)`. Para eta, `|Δeta|≤max(1e−10,64*eps*condicion)`, con `condicion=(cp/1000*T3)/min(qin_a,qin_n)`: estima amplificación del redondeo en W/qin cerca de calor nulo. Son tolerancias de concordancia, no incertidumbre experimental ni cotas rigurosas.
 - **Errores:** propaga entradas inválidas y errores de cálculo; `ErrorNumerico` si el candidato no es interior/motor resoluble o si discrepan métodos. No se acepta un punto de frontera ni se transforma pérdida pequeña en reversibilidad.
 - **Ejemplo:** `r=optimizar_rendimiento(288.15,1600,1.4,1005,100,.85,.9,.05)`; `r['analitico']['ciclo']['rendimiento']≈0.438931071631`, trabajo≈313.738915263 kJ/kg y calor≈714.779462063 kJ/kg. La rp numérica es≈35.4523219222, frente a analítica≈35.4523235708. En Fase 2 el máximo trabajo estaba en rp≈12.8950516696, con trabajo≈373.210827483 kJ/kg y rendimiento≈0.392126144220.
@@ -982,6 +992,62 @@ Con cualquier pérdida estricta (eta_c<1, eta_t<1 o delta>0) se cumple `S=H−A*
 crear_informe_html mantiene sus doce argumentos posicionales y añade `*, estudio_rendimiento=None, comparacion_criterios=None`: el asterisco obliga a pasar esos dos por nombre, evitando desplazar contratos anteriores. main los entrega siempre. Sin ellos se admite el formato previo de seis claves PNG; con ellos se requieren las siete claves, se incorpora la sección y se obtiene el número de gráficas de len(imagenes) en cabecera/pie/terminal. Deben suministrarse juntos. No cambia publicación, Git ni protección de archivos ajenos.
 
 Las ocho pruebas de `IntegracionRendimientoTests`, en `tests/test_integracion_rendimiento.py`, reutilizan un informe predeterminado generado en `setUpClass(cls)` con carpeta temporal. Verifican datos físicos/HTML, siete PNG sin recursos externos y dimensiones, puntos de interés, marcadores/NaN, curva paramétrica, supremo reversible sin B, vacío sin informe, cinco POST sucesivos con cambios en los nueve parámetros/descarga/retención y compatibilidad del presentador previo. Los callbacks locales capturan figuras sin calcular física. Las pruebas existentes se conservan, actualizando sólo expectativas de seis a siete imágenes y el replay de kwargs del generador. Verificación previa de parte 2: **83 pruebas superadas**, 51.473 s. Verificación final del 20 de octubre de 2026: **83/83 OK**, 51.733 s. No se han cambiado algoritmos en este cierre; README, milestone y guía A–J se han revisado contra fuentes y resultados.
+
+### 4.40. Sensibilidad OFAT — `sensibilidad.py`, HTML y Flask
+
+**INTERPRETACIÓN FÍSICA / INGENIERÍA.** OFAT cambia una entrada x conservando las otras ocho. R mantiene rp; A reajusta rp para máximo W; B la reajusta para máximo eta. Se reutilizan §4.32, §4.35 y §4.38 sin copiar ecuaciones. Cada muestra calcula dominios ideal/no ideal nuevos. El dominio abierto de rp no es el rango de x del formulario; sólo las muestras seleccionadas realizan una búsqueda interior numérica. No hay ventanas fijas 2–30 ni 1.01–50.
+
+`PARAMETROS_ESTUDIO` relaciona `delta` con `perdida_presion_combustor`, unidades y sugerencias: T1 250–350 K, T3 800–2000 K, eficiencias 0.6–1 y delta 0–0.2. No son límites físicos universales. `MAGNITUDES` enumera W, eta, Qin y rp; las energías son kJ/kg, eta fracción. El campo físico de pérdida conserva %, pero los extremos de delta usan fracción.
+
+**PYTHON: estructura.** El estudio es un diccionario con `referencia`, `configuracion`, `valores` (array), `registros` (lista de muestras), `curvas` (escenario→magnitud→array), `sensibilidades`, `referencia_local`, `indices_verificacion`, `tendencias` y `segundos_calculo`. Una muestra contiene copia de parámetros, dominios o None, motivo del dominio y registros R/A/B. No se guarda estado físico entre llamadas; las constantes sólo describen opciones.
+
+#### Contratos completos de las funciones nuevas
+
+Las entradas numéricas son escalares reales salvo `muestras` int y `verificar` bool. `referencia/parametros` son diccionarios de las nueve claves de §5. Los tipos indicados son contratos esperados, no anotaciones automáticas. Errores de estructura/tipos incorrectos propagan sus excepciones Python; no se presentan como inviabilidad física.
+
+1. **`validar_configuracion(parametro, minimo, maximo, muestras)`** → dict con las cuatro entradas normalizadas y `unidad`. `parametro` str entre cinco nombres; extremos reales finitos ordenados; temperaturas positivas, eficiencias (0,1], delta [0,1); muestras int 3–201, excluido bool. Lanza ValueError para estas restricciones. No calcula física; consultada por Flask, `analizar_sensibilidad` y `generar_malla`; no llama funciones propias. Comparaciones encadenadas e `isinstance` distinguen un entero de `True` (Python considera bool subclase de int). Ejemplo: `validar_configuracion('T3',800,2000,41)`.
+
+2. **`generar_malla(configuracion)`** → ndarray float de n valores de x con extremos incluidos. Llama validación y `np.linspace`; `np.diff` debe ser estrictamente positivo para detectar extremos indistinguibles en coma flotante. ValueError por configuración/malla; la llama `analizar_sensibilidad`. Ejemplo: `generar_malla(validar_configuracion('delta',0,.2,3))` da `[0,.1,.2]`. No busca óptimos sobre esta malla: muestrea el parámetro OFAT.
+
+3. **`construir_parametros(referencia, parametro, valor)`** → dict independiente con sólo una entrada sustituida. No valida física ni llama funciones propias; la llama el estudio tanto para muestras como perturbaciones. `.copy()` basta porque los valores son escalares inmutables. Ejemplo: `construir_parametros(PARAMETROS_PREDETERMINADOS,'delta',.1)` deja los otros ocho intactos. Nombre inexistente produce KeyError de contrato.
+
+4. **`argumentos_fisicos(parametros)`** → tupla `(T1,T3,gamma,cp,p1,eta_c,eta_t,delta)` en las unidades de §5, sin rp. La llaman `evaluar_muestra` y `analizar_sensibilidad`; no llama funciones propias. Un generador con `tuple(...)` adapta nombres del formulario a las firmas heredadas; clave ausente produce KeyError. Ejemplo: `argumentos_fisicos(PARAMETROS_PREDETERMINADOS)` permite llamar `calcular_dominios(*args)`.
+
+5. **`registro_escenario(estado, motivos=(), rp=None, ciclo=None, metodo='no aplicable', supremo=None, verificacion=None)`** → dict uniforme. Estado/método str; motivos secuencia str; rp real adimensional; ciclo dict de `evaluar_punto` o None; supremo y verificación dict o None. Sólo `estado='disponible'` publica magnitudes operativas; los otros dejan rp/W/eta/Qin None. `ciclo` puede conservar evaluación firmada de R excluido; HTML la identifica como diagnóstico, sin eta motora. `verificacion` guarda intervalos numéricos de búsqueda/final y concordancia, nunca se inventa para fórmulas no contrastadas. Función de apoyo sin física, llamada por `evaluar_muestra`; errores de contrato propagan. Ejemplo: `registro_escenario('sin_dominio',('Dominio motor vacío.',))`.
+
+6. **`evaluar_muestra(parametros, verificar=False)`** → muestra estructurada descrita arriba. Llama adaptador, `evaluar_punto`, `calcular_dominios`, los candidatos de Fases 2/3 y, si se pide contraste, sus coordinadores completos. La llaman estudio y callback local; ejemplo `evaluar_muestra(PARAMETROS_PREDETERMINADOS, verificar=True)`. Si T3<=T1 registra `parametros_inviables` sin evaluar ecuaciones inválidas; R no motor conserva **todos** los códigos traducidos de `MOTIVOS`. Dominio vacío da `sin_dominio` sin optimizar; reversible B da `supremo_no_alcanzado` con valor/frontera y sin ciclo operativo. Los candidatos deben estar estrictamente dentro del dominio y superar las bandas de `evaluar_punto`. Sólo se captura `ErrorNumerico`, produciendo `limite_numerico` por escenario; un fallo en dominios conserva R si pudo evaluarse. ValueError inesperado y otros bugs propagan, no se maquillan como motor vacío. No cambia hipótesis ni duplica balances.
+
+7. **`calcular_sensibilidad_local(funcion, x, limites, escala=1.)`** → dict `derivada`, `normalizada`, `metodo`, `paso`, `error_estimado`, `motivo`. Callback recibe x real y devuelve Y real o None; x/limites tienen unidades del parámetro y escala unidades de Y. Llamada por el estudio; sólo llama el callback recibido. Ejemplo: `calcular_sensibilidad_local(lambda x:x*x,2.,(0.,10.))` da dY/dx≈4 y S≈2. `lambda` crea una función pequeña anónima; no modifica x global. None indica indisponibilidad, no cero. Excepciones del callback propagan; los fallos de fiabilidad esperados son registros con motivo. Algoritmo y tolerancias debajo.
+
+8. **`analizar_sensibilidad(referencia, parametro, minimo, maximo, muestras=41)`** → estudio completo, sin archivos. Valida referencia mediante `validar_parametros` y rp finita >1; la referencia debe cumplir T3>T1, aunque su R no tiene que ser motor. Llama validación, malla, copias, evaluador y derivadas. La llaman API/tests y `ejecutar_sensibilidad`. Ejemplo: `analizar_sensibilidad(PARAMETROS_PREDETERMINADOS,'T3',800,2000,41)`. Índices independientes: extremos, centro entero y vecino más próximo a x de referencia; conjunto evita duplicados (máximo cuatro). Los demás usan candidatos ya demostrados con control físico individual. `curvas` sustituye sólo resultados no disponibles por NaN. Las tendencias dan disponibilidad, número de tramos y mínimos/máximos muestreados; no atribuyen monotonicidad universal. `segundos_calculo` usa `perf_counter` e incluye derivadas, no gráficos/publicación. Error global de entrada ValueError; programación propaga. Caché exclusivamente local.
+
+   Los cierres **`evaluar_local(x)`** y **`magnitud(x)`** viven dentro de esta función: el primero recibe x y devuelve la muestra desde un dict local indexado por x, llamando copias/evaluador; lo llama el segundo y la construcción de `referencia_local`. `magnitud` recibe x y retorna la magnitud k del escenario s o None cuando no hay motor o Qin<1e−7·cp·T3/1000; lo llama `calcular_sensibilidad_local` inmediatamente dentro del bucle, antes de cambiar s/k. Ejemplo interno: `magnitud(1600)` para A/W obtiene 373.210827 kJ/kg. Así se comparte cada perturbación entre 12 coeficientes sin variables globales ni errores de captura diferida.
+
+9. **`crear_graficas_sensibilidad(estudio)`** → dict de tres claves W/eta/rp y bytes PNG 1350×900. Entradas con contrato del estudio; no recalcula física ni llama funciones propias. La llama ejecutor o tests/API. Ejemplo: `imagenes=crear_graficas_sensibilidad(estudio)`. NaN corta todas las curvas operativas, incluida rp de R. En la gráfica de rp, R muestra círculos sólo en muestras motoras y conserva NaN en las excluidas. Una cuarta línea gris de trazo punto-raya, etiquetada «Consigna rp de referencia (no indica viabilidad)», representa la entrada constante mediante `np.full`, aunque no exista motor. Es configuración, no resultado. El array operativo nunca se sustituye por esa constante; `datos_operativos` conserva los tres arrays para identificar ausencia de resultados incluso si se dibuja la consigna. La escala considera también la consigna para mantenerla visible. Se diferencian así visualmente la orden de diseño y su disponibilidad física; no cambian ecuaciones ni optimización. Eje x conserva **todo** el rango solicitado aunque sus extremos no tengan datos motores; y automático. Si cociente entre valores absolutos no nulos supera 100, usa escala `symlog` con umbral igual al menor valor y título explícito. Si faltan todos los datos, lo indica. `try/finally` cierra cada figura; `with BytesIO()` cierra el buffer. Un fallo inesperado de dibujo propaga.
+
+10. **`ejecutar_sensibilidad(carpeta_salida, parametros, parametro, minimo, maximo, muestras=41)`** → Path del informe. Carpeta str/Path, resto según estudio. Llama `analizar_sensibilidad`, graficador, consulta Git, presentador nuevo y `guardar_informe_html`; Flask `index` y API/tests la llaman. Sin ecuaciones adicionales. Ejemplo: `ejecutar_sensibilidad('carpeta_de_prueba',PARAMETROS_PREDETERMINADOS,'T3',800,2000,41)`. Fecha con zona, errores de cálculo/dibujo/publicación propagan; no limpia anteriores antes de publicar.
+
+11. **`crear_informe_sensibilidad_html(estudio, imagenes, fecha, version_git)`** — reporting.py → str HTML autocontenido. Estudio dict anterior; imágenes dict de exactamente tres claves y PNG válidos; fecha datetime; Git dict `commit` str/None, `modificado` bool/None. Llama `tabla_html` e `imagen_html`, lo llama el ejecutor. ValueError por claves o firma PNG; errores de contrato propagan. Ejemplo interno: `crear_informe_sensibilidad_html(estudio,imagenes,datetime.now(),{'commit':None,'modificado':None})`. Presenta parámetros, métodos/contraste, resultados, causas simultáneas, diagnóstico firmado, supremos excluidos, dominios, tendencias, coeficientes y límites. `escape` protege textos. Reutiliza marcas/nombres/publicación: el historial de cuatro mezcla ambos tipos, descarga/vista usan la misma ruta. No calcula física.
+
+#### Diferencias finitas y fiabilidad
+
+**INTERPRETACIÓN FÍSICA / INGENIERÍA.** Para Y(x), dY/dx tiene unidades de Y por unidad x; `S=(x/Y)*dY/dx` es adimensional. En eta se deriva la fracción; `100*deta/dx` representa pp por unidad x. Un S=0.67 implica aproximadamente +0.67 % relativo de eta ante +1 % relativo de x, conservando demás condiciones, no +0.67 pp. A/B incluyen el reajuste del óptimo: no son derivadas a rp fija. No es una clasificación universal.
+
+**PYTHON / NUMÉRICO.** Paso inicial `h=cbrt(eps)*max(abs(x),1)` equilibra error de truncamiento de orden 2 y redondeo, con escala mínima de una unidad; el paso efectivo informado es h/2. Si x±h son admisibles usa `(Y(x+h)-Y(x-h))/(2*h)`. Cerca de extremos físicos usa `(-3Y0+4Y1-Y2)/(2h)` o su versión hacia atrás. Límites físicos: T1 en (0,T3), T3>T1, eficiencias (0,1], delta [0,1); `np.nextafter` aproxima extremos estrictos desde dentro. No limita derivadas al rango dibujado: se calculan en la referencia del formulario y HTML advierte si conceptualmente está fuera de él.
+
+Se compara derivada a h y h/2; diferencia debe ser ≤`1e-3*abs(d_fina)+1e-7*abs(escala)/max(abs(x),1)`. Es un control heurístico de estabilidad, **no** una cota rigurosa de incertidumbre. Un cambio a indisponibilidad cancela el coeficiente; discontinuidades que causan inestabilidad también. Magnitud con |Y|≤1e−9·escala no ofrece coeficientes; escala energética cp·T3/1000, eta=1 y rp=rp de referencia. Si x=0, sólo derivada absoluta: elasticidad porcentual de una entrada nula no es interpretable. Un régimen muy estrecho puede no resolverse con el paso elegido; se informa, no se fuerza una cifra. Supremos sin punto B no tienen coeficientes operativos.
+
+Ejemplo real T3=1600 K: dW_R/dT3=0.4291002274 kJ/(kg·K), S_W_R=1.858198650; dW_A/dT3=0.4624111961 y S_W_A=1.982412779. S_rpA=1.7499999997, que coincide con gamma/[2(gamma−1)]. S_etaB≈0.6743426771. Paso fino 0.00484436356 K. No redondear entradas antes de derivar.
+
+#### Integración y controles de Fase 4
+
+`index()` mantiene firma/contratos de §4.28 y ahora selecciona `accion` del botón. Normal no llama OFAT ni valida sus controles. Sensibilidad parsea sus campos, captura sólo ValueError de la conversión/configuración antes de llamar al ejecutor; un ValueError de código dentro del cálculo llega a HTTP 500, no a un aviso físico. `error_interno` pasa también opciones OFAT a la plantilla y conserva entradas. `valores_formulario` sigue devolviendo exactamente nueve valores, sin contaminar la configuración física con controles de presentación.
+
+La plantilla usa un selector y tres inputs adicionales (12 numéricos en total), unidad visible y sugerencias. `tojson` entrega opciones a JavaScript local; el evento `change` rellena los extremos educativos con `this.value`. No se descarga una librería, no ejecuta simulaciones y no cambia el control físico de pérdida. Sin JavaScript se pueden escribir manualmente extremos; servidor valida siempre. Los errores conservan datos; tipos numéricos del navegador pueden no representar texto no numérico, igual que en los campos previos.
+
+`tests/test_sensibilidad.py` contiene 19 métodos de cálculo y seis de integración, además de todos los 83 anteriores. Las clases `SensibilidadTests` e `IntegracionSensibilidadTests` heredan `unittest.TestCase`; sus `setUp(self)` inicializan copia física y cliente/carpeta temporal respectivamente; sin retornos físicos. Los métodos `test_*(self)` reciben sólo self y devuelven None: los llama unittest, verifican con asserts e inyección patch y no constituyen API del simulador. El nuevo `test_consigna_rp_separada_de_resultados_motores_con_t3_inviable(self)` estudia T3=200–1600 K con 15 muestras; intercepta `savefig` mediante el callback local `capturar(figura, *args, **kwargs)` para inspeccionar líneas reales antes de guardar el PNG. El callback devuelve el resultado del guardado original, sin física nueva. Comprueba igualdad de los nueve trazados operativos con los arrays/NaN, exclusión de muestras no disponibles, consigna constante gris y círculos R sólo en la figura de rp. Cubren validación/malla, OFAT, equivalencia independiente R/A/B, dominios dinámicos, motivos simultáneos, vacío, reversible, estrechos/bandas, errores diferenciados, derivadas con identidades y extremos, NaN/ejes/resolución, aislamiento/coste, Flask, HTML, retención mixta y publicación fallida. `test_web_app.py` sólo adapta su recuento de inputs; no se elimina ningún test previo.
+
+Verificaciones previas del 20 de octubre de 2026: 107/107 OK en 93.103 s y 107/107 OK en 131.473 s tras fijar los límites visuales. Verificación actual del 21 de octubre de 2026: 108/108 pruebas correctas en 147.931 s con la suite completa, incluyendo la nueva prueba de consigna y máscaras. El primer intento aislado bajo sandbox encontró permisos denegados en temporales Windows; la suite con permisos adecuados utiliza carpetas temporales y no consume outputs. Revisión visual de figuras T3, puntos inviables y escalas grandes; informes completos y simulación normal generados fuera del proyecto. Tiempos de 41 muestras: cálculo 0.045–0.10 s y estudio completo aproximadamente 1.8–2.2 s en este equipo, sin garantías para otros equipos. Modelo sin validación externa.
 
 ## 5. Variables principales
 
@@ -1092,11 +1158,13 @@ El módulo `optimizacion.py` importa `exp`, `log`, `isfinite` y `sqrt` de `math`
 
 `optimizacion_rendimiento` añade `expm1` y `log1p` de la biblioteca estándar para coeficientes casi reversibles; no introduce SciPy. La optimización numérica usa NumPy ya instalado.
 
+`sensibilidad.py` reutiliza NumPy/Matplotlib y añade `perf_counter` (biblioteca estándar) para medir cálculo, sin dibujo. Importa dominios, evaluador y candidatos de las fases previas. Los imports de `reporting` dentro de `ejecutar_sensibilidad` se resuelven al llamar, sin ejecutar informes al importar. No se añade ninguna dependencia.
+
 ### Imports de Flask
 
 `from flask import Flask, Response, abort, redirect, render_template, request, url_for` incorpora la aplicación, respuesta HTTP, errores de ruta, redirecciones, renderizado Jinja, petición actual y construcción de URLs. `request` representa la petición activa: se consulta dentro de las rutas, no al importar el módulo.
 
-`web_app.py` importa `main`, sus parámetros predeterminados, `ErrorModelo` y `ErrorNumerico`; también las marcas y patrón de informes de `reporting`. No copia las ecuaciones. En las nuevas pruebas `sys.executable` identifica el intérprete actual y `runpy.run_path` ejecuta el punto de entrada en un proceso aislado de prueba.
+`web_app.py` importa `main`, sus parámetros predeterminados, `ErrorModelo`, `ErrorNumerico` y la API `PARAMETROS_ESTUDIO`, `validar_configuracion`, `ejecutar_sensibilidad` de sensibilidad; también las marcas y patrón de informes de `reporting`. No copia las ecuaciones. En las nuevas pruebas `sys.executable` identifica el intérprete actual y `runpy.run_path` ejecuta el punto de entrada en un proceso aislado de prueba.
 
 ### Imports de las pruebas
 
@@ -1264,7 +1332,8 @@ Abre `http://127.0.0.1:5000` en Chrome o Edge. Con el entorno activado bastan `p
 GET / → valores_formulario → render_template → formulario
 POST / → request.form → leer_parametros
                          ├─ errores de campos → formulario + 400
-                         └─ números válidos → main(parametros=...)
+                         └─ números válidos → botón normal: main(parametros=...)
+                                               o botón sensibilidad: validar_configuracion → ejecutar_sensibilidad
                                                ├─ ErrorModelo → causas/intervalo y formulario + 400
                                                ├─ ErrorNumerico → límite numérico y formulario + 400
                                                ├─ error inesperado → registro + 500
@@ -1285,7 +1354,7 @@ El servidor se enlaza exclusivamente a `127.0.0.1`. Con `debug=False` no se ofre
 
 `<form method="post" action="...">` define destino y método; el atributo `name` de cada `<input>` será la clave de `request.form`. `label for` y `id` enlazan etiqueta y campo. `type="number"`, `step="any"`, `required`, `min` y `max` ayudan en el navegador, pero no sustituyen el servidor; límites estrictos como mayor que cero o pérdida menor que 100 se comprueban en Python. Los mensajes muestran además el valor recibido para conservar información incluso si un control numérico no puede representar texto inválido.
 
-`fieldset` y `legend` agrupan los tres bloques. `aria-describedby`, `aria-invalid` y `role="alert"` relacionan ayudas y errores para accesibilidad. El CSS local usa una cuadrícula de dos columnas, que pasa a una en pantallas estrechas. `url_for('static', filename='style.css')` construye la URL del CSS; este recurso sirve solo al formulario. El informe no depende de él.
+`fieldset` y `legend` agrupan los tres bloques físicos y un cuarto de sensibilidad. `aria-describedby`, `aria-invalid` y `role="alert"` relacionan ayudas y errores para accesibilidad. El CSS local usa una cuadrícula de dos columnas, que pasa a una en pantallas estrechas. `url_for('static', filename='style.css')` construye la URL del CSS; este recurso sirve solo al formulario. El informe no depende de él.
 
 ### Qué es HTML y cómo lo genera Python
 
@@ -1486,8 +1555,8 @@ En el código de producción no hay `while`, división entera `//` ni parámetro
 1. Importa Flask, `main` y `reporting`. Se construye `app` y se registran rutas mediante decoradores; todavía no hay simulación.
 2. El punto de entrada llama a `iniciar_servidor`, que escucha solo en loopback y permanece activo.
 3. Un GET a `/` carga los valores predeterminados en porcentaje para el formulario y renderiza la plantilla.
-4. Un POST llama a `leer_parametros`; si no hay errores, llama a `main` con el diccionario convertido y la carpeta compartida.
-5. `main` sigue el flujo numérico y gráfico anterior. Cada llamada copia la configuración; no modifica los valores de otra petición.
+4. Un POST llama a `leer_parametros`; el botón normal llama a `main` y el botón de sensibilidad valida sus cuatro controles y llama a `ejecutar_sensibilidad`. Ambas acciones usan la misma carpeta de informes.
+5. `main` sigue el flujo normal anterior. OFAT sigue §4.40 y no genera las siete figuras normales. Cada llamada copia la configuración; no modifica los valores de otra petición.
 6. La ruta redirige al informe nuevo con 303. Un GET devuelve la copia de visualización con enlaces locales; la descarga devuelve el original autocontenido.
 7. El servidor sigue esperando peticiones. Puedes volver al formulario y generar otro caso sin reiniciarlo. Los errores esperados devuelven 400 y los internos 500; el proceso continúa.
 
@@ -1980,3 +2049,5 @@ Estos hitos resumen capacidades ya implementadas en la versión analizada, sin a
 - **Fase 2: máximo de trabajo específico no ideal e intervalos dinámicos.** Ingeniería: derivación del punto estacionario, prueba de máximo interior cuando hay dominio motor y rendimiento evaluado en el máximo de trabajo. Python: módulo reutilizable, malla logarítmica, sección áurea, caché local y datos estructurados; gráficas e informes adaptados por ejecución. Véase [milestone técnico](docs/milestones/04_optimizacion_noideal.md) y [aprendizaje independiente](docs/milestones/04_optimizacion_noideal_APRENDIZAJE.md).
 
 - **Fase 3: optimización del rendimiento y comparación de criterios.** Ingeniería: supremo ideal no alcanzado, máximo no ideal único con pérdidas y dominio motor, y distinción de objetivos. Python: raíz racionalizada, funciones estables cerca de cero, búsqueda independiente y contratos de disponibilidad. Integrada en main, gráficas, HTML y Flask con comparación A/B y curva de compromiso; documentación revisada y verificación de cierre. Véase [milestone técnico](docs/milestones/05_optimizacion_rendimiento.md) y [guía educativa](docs/milestones/05_optimizacion_rendimiento_APRENDIZAJE.md).
+
+- **Fase 4: sensibilidad paramétrica OFAT.** Ingeniería: comparación de rp fija y objetivos reajustados, derivadas absolutas/elasticidades y límites de disponibilidad. Python: copias por muestra, arrays con NaN, callback con caché local, contraste de pasos y rutas de acción independientes; informes comparten publicación/retención. Véase [milestone](docs/milestones/06_sensibilidad_parametrica.md) y [aprendizaje](docs/milestones/06_sensibilidad_parametrica_APRENDIZAJE.md).

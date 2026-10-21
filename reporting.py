@@ -16,6 +16,94 @@ PATRON_INFORME = re.compile(
 )
 
 
+def crear_informe_sensibilidad_html(estudio, imagenes, fecha, version_git):
+    """Presenta datos OFAT ya calculados; tres PNG, sin ecuaciones ni archivos externos."""
+    if set(imagenes) != {"trabajo_neto", "rendimiento", "rp"}:
+        raise ValueError("El informe de sensibilidad exige exactamente tres gráficas.")
+    c = estudio["configuracion"]
+    referencia = tabla_html(("Parámetro", "Valor (K, kPa, J/(kg·K) o fracción)"),
+                            estudio["referencia"].items())
+    filas = []
+    dominios = []
+    for x, registro in zip(estudio["valores"], estudio["registros"]):
+        dominio = registro["dominios"]
+        dominios.append((f"{x:.9g}",
+            str(dominio["ideal"]["intervalo"]) if dominio else "No disponible",
+            str(dominio["noideal"]["intervalo"]) if dominio else "No disponible",
+            registro["motivo_dominio"] or "Intervalos físicos abiertos; () = vacío"))
+        for s in "RAB":
+            r = registro[s]
+            valores = ["—" if r[k] is None else f"{r[k] * (100 if k == 'rendimiento' else 1):.9g}"
+                       for k in ("rp", "trabajo_neto", "rendimiento", "calor_aportado")]
+            motivo = "; ".join(r["motivos"])
+            if r["supremo"]:
+                motivo += (f" Supremo {100*r['supremo']['rendimiento']:.9g} %, "
+                           f"frontera excluida rp={r['supremo']['rp_frontera']:.9g}; no alcanzado.")
+            diagnostico = "—"
+            if r["ciclo"] and r["estado"] != "disponible":
+                diagnostico = (f"Evaluación firmada, no punto motor: W={r['ciclo']['trabajo_neto']:.9g} kJ/kg; "
+                               f"Qin={r['ciclo']['calor_aportado']:.9g} kJ/kg")
+            filas.append((f"{x:.9g}", s, r["estado"], *valores, r["metodo"], motivo,
+                          diagnostico, str(r["verificacion"]) if r["verificacion"] else "No realizada / no aplicable"))
+    resultados = tabla_html((c["parametro"], "Escenario", "Estado", "rp [−]", "W [kJ/kg]",
+                            "η [%]", "Qin [kJ/kg]", "Método", "Motivos / límites",
+                            "Diagnóstico físico", "Contraste numérico: intervalos y concordancia"), filas)
+    tabla_dominios = tabla_html((c["parametro"], "Ideal: rp", "No ideal: rp", "Observación"), dominios)
+    locales = []
+    for s in "RAB":
+        for k, r in estudio["sensibilidades"][s].items():
+            locales.append((s, k, *["—" if r[n] is None else f"{r[n]:.9g}" for n in
+                ("derivada", "normalizada", "paso", "error_estimado")], r["metodo"] or "—", r["motivo"]))
+    tabla_local = tabla_html(("Caso", "Y", "dY/dx", "S=(x/Y)dY/dx", "Paso efectivo", "Diferencia h/h2",
+                              "Esquema", "Motivo de indisponibilidad"), locales)
+    graficas = "".join(imagen_html(imagenes[k], titulo) for k, titulo in (
+        ("trabajo_neto", "Trabajo específico neto · R/A/B"),
+        ("rendimiento", "Rendimiento térmico · R/A/B"), ("rp", "Relaciones de presiones · R/A/B")))
+    tendencias = "".join(f"<li>{escape(t)}</li>" for t in estudio["tendencias"])
+    estado_git = {True: "AVISO: cambios locales sin confirmar; el hash no identifica por sí solo este código.",
+                  False: "Árbol de trabajo limpio.", None: "Estado local Git no disponible."}[version_git["modificado"]]
+    return (MARCA_INICIO + f'''<!doctype html><html lang="es"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Brayton Simulator — Análisis de sensibilidad</title><style>
+body{{font:16px/1.6 'Segoe UI',Arial,sans-serif;color:#192b3a;background:#edf1f5;margin:0}}
+main{{max-width:1200px;margin:30px auto;padding:0 24px}}header{{background:#153c55;color:white;padding:28px;border-radius:10px}}
+section{{background:white;padding:24px;margin:24px 0;border-radius:10px}}h1{{line-height:1.2}}
+table{{border-collapse:collapse;width:100%;font-size:13px}}th,td{{border:1px solid #d4dce3;padding:8px;text-align:left}}
+th{{background:#e8eff5}}.table-wrap,.table-container{{overflow-x:auto}}figure{{margin:20px 0}}img{{width:100%;height:auto}}
+.warning{{background:#fff3d2;color:#483900;padding:12px}}@media print{{body{{background:white}}main{{margin:0}}section{{padding:8px}}}}
+</style></head><body><main><header><h1>Análisis de sensibilidad paramétrica</h1>
+<p>Brayton Simulator · OFAT · {escape(str(fecha))}</p>
+<p>Commit Git: {escape(version_git['commit'] or 'No disponible')}</p><p class="warning">{estado_git}</p></header>
+<section><h2>Configuración y referencia</h2><p>{escape(c['parametro'])} [{escape(c['unidad'])}],
+{c['minimo']:.9g} a {c['maximo']:.9g}; {c['muestras']} muestras. Cálculo: {estudio['segundos_calculo']:.3f} s (sin dibujo/publicación).</p>
+{referencia}<p>R: rp fija del formulario. A: máximo trabajo específico reajustando rp.
+B: máximo interior de rendimiento reajustando rp. Los supremos no alcanzados no son puntos operativos.
+Sólo cambia un parámetro físico; cp y gamma permanecen constantes. delta se expresa como fracción.</p>
+<p>Candidatos analíticos de Fases 2/3, con dominio y viabilidad comprobados en cada muestra.
+Búsqueda independiente en extremos, centro y muestra más próxima a la referencia: índices {escape(str(estudio['indices_verificacion']))} (desde cero).
+El método figura por resultado; un fallo numérico no demuestra inviabilidad física.</p></section>
+<section><h2>Tres gráficas de sensibilidad</h2>{graficas}<p>NaN interrumpe curvas no disponibles.
+La línea gris de consigna rp de referencia no indica viabilidad. Los puntos motores R,
+marcados con círculos, y las curvas operativas A/B conservan huecos donde no están disponibles.
+Escala simétrica logarítmica indicada cuando difieren mucho las escalas.</p></section>
+<section><h2>Resultados y motivos por muestra</h2>{resultados}</section>
+<section><h2>Dominios recalculados por muestra</h2>{tabla_dominios}
+<p>Intervalo físico abierto: no es la ventana interior de búsqueda ni el rango visual del parámetro.</p></section>
+<section><h2>Tendencias muestreadas</h2><ul>{tendencias}</ul></section>
+<section><h2>Sensibilidades locales en la referencia</h2><p>Se evalúan en el valor del parámetro del formulario,
+incluso si queda fuera del rango dibujado. dY/dx conserva unidades de Y por unidad de x;
+η usa fracción y rp es adimensional. Multiplicar dη/dx por 100 da puntos porcentuales por unidad de x.
+S interpreta cambios relativos porcentuales pequeños, no puntos porcentuales.
+Paso inicial cbrt(epsilon)·max(|x|,1); diferencias centrales o unilaterales de orden 2;
+contraste h/h2. Calor próximo a cero, falta de motor y transiciones no dan coeficientes ficticios.</p>{tabla_local}</section>
+<section><h2>Limitaciones</h2><p>OFAT es local respecto a los otros parámetros: no mide interacciones ni establece una clasificación
+universal. Una malla finita puede omitir regiones estrechas y fronteras entre muestras; no interpolar huecos.
+Gas ideal, cp/gamma constantes, equipos adiabáticos y pérdida relativa fija por muestra.
+Sin química, caudal, potencia, empuje ni mapa bidimensional. Tolerancias y redondeo limitan máximos degenerados.
+Verificación de código y consistencia interna; no validación con datos experimentales externos.</p></section>
+</main></body></html>''' + MARCA_FINAL)
+
+
 def obtener_version_git(carpeta):
     """Consulta HEAD y cambios locales sin modificar el repositorio."""
     try:
