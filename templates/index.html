@@ -11,13 +11,14 @@
   <header>
     <p class="eyebrow">Simulación termodinámica · Interfaz local</p>
     <h1>Brayton Simulator — Configuración del ciclo</h1>
-    <p>Modelo educativo de gas ideal con cp y gamma constantes. Introduce los parámetros y genera un informe con los ciclos ideal y no ideal y sus seis gráficas.</p>
+    <p>Modelo educativo de gas ideal con cp y gamma constantes. Simulación normal con siete gráficas o análisis OFAT independiente con tres gráficas.</p>
   </header>
   {% if errores %}
   <aside class="error-summary" role="alert">
     <h2>{{ 'Error interno' if errores.get('servidor') else 'No se ha completado la simulación' }}</h2>
     {% if errores.get('modelo') %}<p>{{ errores['modelo'] }}</p>
     {% elif errores.get('servidor') %}<p>{{ errores['servidor'] }}</p>
+    {% elif errores.get('sensibilidad') %}<p>{{ errores['sensibilidad'] }}</p>
     {% else %}<p>Revisa los campos señalados. No se ha generado ningún informe.</p>{% endif %}
   </aside>
   {% endif %}
@@ -45,14 +46,45 @@
     </fieldset>
     {% endfor %}
     <div class="actions">
-      <button type="submit">Ejecutar simulación</button>
+      <button type="submit" name="accion" value="normal">Ejecutar simulación</button>
       <a class="reset" href="{{ url_for('index') }}">Restablecer valores</a>
     </div>
+    <fieldset>
+      <legend>Análisis de sensibilidad</legend>
+      <p>OFAT: varía un parámetro y conserva los demás. Compara R (rp fija), A (máximo trabajo) y B (máximo rendimiento alcanzado).</p>
+      <div class="fields">
+        <div class="field"><label for="sens_parametro">Parámetro y unidad</label>
+          <select id="sens_parametro" name="sens_parametro">
+          {% for nombre, estudio in estudios.items() %}
+            <option value="{{ nombre }}" {% if valores.get('sens_parametro', 'T3') == nombre %}selected{% endif %}>{{ nombre }} [{{ estudio.unidad }}]</option>
+          {% endfor %}
+          </select>
+        </div>
+        {% for nombre, etiqueta, defecto in [('sens_minimo', 'Mínimo', 800), ('sens_maximo', 'Máximo', 2000), ('sens_muestras', 'Número de muestras (3–201)', 41)] %}
+        <div class="field"><label for="{{ nombre }}">{{ etiqueta }}</label>
+          <input type="number" step="{{ '1' if nombre == 'sens_muestras' else 'any' }}" id="{{ nombre }}" name="{{ nombre }}" value="{{ valores.get(nombre, defecto) }}">
+        </div>
+        {% endfor %}
+      </div>
+      <p>Temperaturas en K; eficiencias y delta en fracción (delta=0.05 equivale a 5 %).
+      Rangos educativos sugeridos, no límites universales:
+      {% for nombre, estudio in estudios.items() %}{{ nombre }}: {{ estudio.rango[0] }}–{{ estudio.rango[1] }} {{ estudio.unidad }}; {% endfor %}
+      se aplican los extremos escritos. Puedes cambiarlos para cada estudio.</p>
+      <button type="submit" name="accion" value="sensibilidad">Ejecutar análisis de sensibilidad</button>
+    </fieldset>
   </form>
   <footer>
-    <p>Los barridos se adaptan al dominio motor y clasifican los puntos excluidos sin interrumpir el estudio. El caso de referencia debe ser motor en ambos modelos; si no lo es, se indican las condiciones que fallan y los límites físicos disponibles.</p>
+    <p>La simulación normal exige referencia motora en ambos modelos. El análisis OFAT admite muestras inviables y conserva sus motivos; requiere entradas de referencia válidas y T3 &gt; T1. Los dominios se recalculan por muestra.</p>
     <p>Los informes de terminal y navegador comparten el historial de cuatro ejecuciones completas. Esta herramienta no es un modelo de motor real de alta fidelidad.</p>
   </footer>
 </main>
+<script>
+  const rangos = {{ estudios | tojson }};
+  document.getElementById('sens_parametro').addEventListener('change', function () {
+    const rango = rangos[this.value].rango;
+    document.getElementById('sens_minimo').value = rango[0];
+    document.getElementById('sens_maximo').value = rango[1];
+  });
+</script>
 </body>
 </html>
