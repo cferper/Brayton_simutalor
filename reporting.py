@@ -8,6 +8,8 @@ import subprocess
 from uuid import uuid4
 from warnings import warn
 
+from dashboard import terminar_informe
+
 
 MARCA_INICIO = "<!-- Brayton Simulator report v1 -->"
 MARCA_FINAL = "<!-- Brayton Simulator report complete -->"
@@ -62,7 +64,7 @@ def crear_informe_sensibilidad_html(estudio, imagenes, fecha, version_git):
     tendencias = "".join(f"<li>{escape(t)}</li>" for t in estudio["tendencias"])
     estado_git = {True: "AVISO: cambios locales sin confirmar; el hash no identifica por sí solo este código.",
                   False: "Árbol de trabajo limpio.", None: "Estado local Git no disponible."}[version_git["modificado"]]
-    return (MARCA_INICIO + f'''<!doctype html><html lang="es"><head><meta charset="utf-8">
+    legado = (MARCA_INICIO + f'''<!doctype html><html lang="es"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Brayton Simulator — Análisis de sensibilidad</title><style>
 body{{font:16px/1.6 'Segoe UI',Arial,sans-serif;color:#192b3a;background:#edf1f5;margin:0}}
@@ -102,6 +104,7 @@ Gas ideal, cp/gamma constantes, equipos adiabáticos y pérdida relativa fija po
 Sin química, caudal, potencia, empuje ni mapa bidimensional. Tolerancias y redondeo limitan máximos degenerados.
 Verificación de código y consistencia interna; no validación con datos experimentales externos.</p></section>
 </main></body></html>''' + MARCA_FINAL)
+    return terminar_informe(legado, estudio["referencia"], imagenes, fecha, version_git, sensibilidad=estudio)
 
 
 def obtener_version_git(carpeta):
@@ -388,7 +391,7 @@ def crear_informe_html(parametros, ideal, noideal, detalles_ideal, optimo,
         rendimiento_html = seccion_rendimiento_html(estudio_rendimiento, comparacion_criterios)
         rendimiento_html += imagen_html(imagenes["compromiso_trabajo_rendimiento.png"],
             "Compromiso no ideal: trabajo específico neto frente a rendimiento; rp es el parámetro. No toda la curva es frontera de Pareto.")
-    return f"""{MARCA_INICIO}
+    legado = f"""{MARCA_INICIO}
 <!doctype html>
 <html lang="es">
 <head>
@@ -470,6 +473,9 @@ footer {{ padding: 24px 0; font-size: .85rem; color: #475969; }}
 <footer>Informe autocontenido: HTML, CSS y {len(imagenes)} imágenes PNG Base64. No necesita Internet ni archivos de imagen externos. Las energías son específicas (kJ/kg), no potencias.</footer>
 </main></body></html>
 {MARCA_FINAL}"""
+    return terminar_informe(legado, parametros, imagenes, fecha, version, noideal=noideal,
+        barrido=barrido, optimizaciones=optimizaciones, estudio_rendimiento=estudio_rendimiento,
+        comparacion=comparacion_criterios)
 
 
 def guardar_informe_html(contenido, carpeta, fecha):

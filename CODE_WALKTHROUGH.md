@@ -6,7 +6,7 @@ Guía del estado actual, actualizada el 21 de octubre de 2026. El simulador iden
 
 Verificación previa de Fase 2, del 20 de octubre de 2026: **55 pruebas superadas** con `python -B -m unittest discover -s tests -v` (40.481 s en esta ejecución).
 
-Hay siete módulos (`main.py`, `viabilidad.py`, `optimizacion.py`, `optimizacion_rendimiento.py`, `sensibilidad.py`, `reporting.py`, `web_app.py`) y siete archivos de pruebas. `.venv` contiene dependencias, no código propio. Se distinguen dominio físico, ventana numérica y ventana visual (§14). La suite conserva las 83 pruebas de Fase 3 y añade 25 de sensibilidad; resultados de la verificación actual en §4.40. El cierre anterior de Fase 3 superó 83/83 en 51.733 s; es una comprobación previa, no la ejecución de esta tarea. La verificación interna no constituye validación experimental de un motor.
+Hay ocho módulos (`main.py`, `viabilidad.py`, `optimizacion.py`, `optimizacion_rendimiento.py`, `sensibilidad.py`, `reporting.py`, `dashboard.py`, `web_app.py`) y ocho archivos de pruebas. `.venv` contiene dependencias, no código propio. Se distinguen dominio físico, ventana numérica y ventana visual (§14). La suite conserva las 108 pruebas de Fases 1–4 y añade 15 pruebas del dashboard; resultados de la verificación actual en §4.40. El cierre anterior de Fase 3 superó 83/83 en 51.733 s; es una comprobación previa, no la ejecución de esta tarea. La verificación interna no constituye validación experimental de un motor.
 
 La verificación de esta fase se realiza con informes en carpetas temporales; los seis PNG históricos permanecen intactos. No se crean commits automáticamente. La base verificada de Fase 2 es `f9f9a0495c4231a4d48399fba4bccdcc0f6bcf6f` en `feature/fase-2-optimizacion-noideal`; la implementación de Fase 2 está registrada en el commit `c2f4bff84a173f3b354a5d0f76c2b7bd2ee1fa21` (`Implement non-ideal Brayton work optimization with dynamic intervals`).
 
@@ -29,7 +29,7 @@ El programa estudia un ciclo Brayton ideal y otro no ideal simplificado. Usa gas
 
 **INTERPRETACIÓN FÍSICA.** Los procesos ideales son dos isentrópicas y dos isóbaras. El no ideal incorpora eficiencias de compresor y turbina y pérdida de presión del combustor. Se calculan los máximos de trabajo de ambos modelos y, por separado, el máximo de rendimiento no ideal cuando hay pérdidas y dominio motor. El ideal/reversible tiene sólo un supremo no alcanzado de rendimiento; no se crea un punto B ficticio.
 
-**PYTHON.** Los nueve parámetros predeterminados están en `PARAMETROS_PREDETERMINADOS`. `main()` copia esa configuración y admite cambios por argumento. Flask convierte el formulario y llama a esa misma función para la simulación normal, o a `ejecutar_sensibilidad` para OFAT; las funciones numéricas calculan; Matplotlib dibuja en buffers `BytesIO`; `reporting.py` compone HTML con CSS e imágenes Base64 y publica un archivo completo en `outputs/`. No se genera un TXT intermedio. La terminal muestra tres líneas de éxito; los detalles van al informe.
+**PYTHON.** Los nueve parámetros predeterminados están en `PARAMETROS_PREDETERMINADOS`. `main()` copia esa configuración y admite cambios por argumento. Flask convierte el formulario y llama a esa misma función para la simulación normal, o a `ejecutar_sensibilidad` para OFAT; `dashboard.py` organiza sus resultados en seis secciones y visores de pestañas; las funciones numéricas calculan; Matplotlib dibuja en buffers `BytesIO`; `reporting.py` compone HTML con CSS e imágenes Base64 y publica un archivo completo en `outputs/`. No se genera un TXT intermedio. La terminal muestra tres líneas de éxito; los detalles van al informe.
 
 ```text
 Imports y definiciones
@@ -84,17 +84,22 @@ Brayton_Simulator/
 ├── optimizacion.py             candidatos, búsqueda interior y contraste de máximos
 ├── optimizacion_rendimiento.py rendimiento y comparación A/B
 ├── sensibilidad.py             OFAT, derivadas locales y tres gráficas independientes
-├── reporting.py                HTML y conservación de informes
+├── reporting.py                tablas técnicas y conservación de informes
+├── dashboard.py                presentación compartida local/autónoma, sin física
 ├── web_app.py                  servidor Flask de acceso local
 ├── Abrir_Brayton_Simulator.cmd acceso por doble clic al formulario local
 ├── templates/index.html        formulario Jinja/HTML
-├── static/style.css            estilos locales del formulario
+├── static/style.css            diseño responsive y tipografías
+├── static/dashboard.js         secciones, pestañas y modal progresivos
+├── static/fonts/               tres WOFF2 IBM Plex, OFL y procedencia
+├── static/images/              esquema original del motor y licencia CC0
 ├── tests/test_viabilidad.py    pruebas de dominio, fronteras, máscaras y regresión HTTP
 ├── tests/test_optimizacion.py  máximos, intervalos dinámicos y regresión Flask
 ├── tests/test_optimizacion_rendimiento.py  pruebas unitarias de rendimiento
 ├── tests/test_integracion_rendimiento.py  gráficas, informe, recálculo Flask y criterios
 ├── tests/test_reporting.py     pruebas de informes
 ├── tests/test_web_app.py       pruebas HTTP y compatibilidad
+├── tests/test_dashboard.py     15 pruebas de presentación, datos y rutas
 ├── tests/test_sensibilidad.py  19 pruebas de cálculo y seis de integración OFAT
 ├── README.md                   instalación y uso
 ├── requirements.txt            numpy, matplotlib y Flask
@@ -175,7 +180,7 @@ El formulario usa un servidor Flask local; los informes siguen siendo documentos
 
 **Qué hace:** forma tablas, secciones y CSS, incorporando siete imágenes normales o tres del estudio OFAT.
 
-**PYTHON:** `str`, `escape`, `join`, f-strings multilínea, `b64encode(...).decode("ascii")`. CSS usa llaves dobles para obtener llaves literales en una f-string.
+**PYTHON:** `str`, `escape`, `join`, f-strings multilínea, `b64encode(...).decode("ascii")`. La presentación técnica heredada sigue utilizando llaves dobles en sus f-strings; el CSS final del dashboard se lee desde static/style.css y se incorpora con sus llaves normales.
 
 **INTERPRETACIÓN FÍSICA:** conserva unidades e identificación ideal/no ideal. La presentación no mejora la fidelidad física.
 
@@ -659,7 +664,7 @@ def index():
 
 - **Propósito:** atender GET/POST de `/`. No recibe argumentos posicionales; obtiene método y formulario del contexto HTTP.
 - **Retorno:** para GET, pareja `(HTML, 200)`; ante entradas inválidas/modelo rechazado, `(HTML, 400)`; con éxito, respuesta de redirección HTTP 303 al informe recién creado.
-- **Llama:** `valores_formulario`, `leer_parametros`, `validar_configuracion` y, según el botón, `main` o `ejecutar_sensibilidad`. Flask la llama por el decorador de ruta; las pruebas lo hacen mediante `test_client`.
+- **Llama:** `valores_formulario`, `leer_parametros`, `validar_configuracion`, `listar_informes`, `renderizar_dashboard` y, según el botón, `main` o `ejecutar_sensibilidad`. Flask la llama por el decorador de ruta; las pruebas lo hacen mediante `test_client`.
 - **Unidades:** respeta el contrato de `leer_parametros`; no calcula ecuaciones.
 - **Validación/errores:** no ejecuta cálculos si hay errores de campos. Sólo para OFAT convierte mínimo/máximo a float y muestras a int, valida rangos y exige referencia T3>T1. Las muestras del barrido sí pueden tener T3<=T1 y se registran sin abortar. Los controles OFAT no se validan en simulaciones normales. Captura `ErrorModelo` y `ErrorNumerico` con mensajes distintos durante la ejecución; conserva `request.form.to_dict()` para volver a mostrar valores. Otros errores llegan al tratamiento de HTTP 500 de Flask.
 - **PYTHON:** decorador `@app.route("/", methods=["GET", "POST"])`, condicionales y `try/except/else`. Ese `else` se ejecuta solo si la llamada no lanzó una excepción.
@@ -673,8 +678,8 @@ def ver_informe(nombre):
 
 - **Propósito:** devolver un informe propio completo o su descarga, sin ofrecer un explorador de archivos locales.
 - **Entrada:** `nombre`, cadena de nombre base incluida en la URL, sin unidad física.
-- **Salida:** `Response` HTML; con `?descargar=1`, añade cabecera de descarga y devuelve el contenido guardado intacto. La vista normal añade enlaces al formulario y a la descarga solo a su copia en memoria.
-- **Llama:** ninguna función propia; Flask la llama para `/informes/<nombre>`.
+- **Salida:** `Response` HTML; con `?descargar=1`, añade cabecera de descarga y devuelve el contenido guardado intacto. La vista normal recupera los paneles y parámetros del informe nuevo y renderiza el dashboard local editable, con historial y descarga; los informes anteriores conservan su presentación original con enlaces añadidos sólo en memoria.
+- **Llama:** `separar_presentacion`, `listar_informes`, `renderizar_dashboard` para informes nuevos; Flask la llama para `/informes/<nombre>`.
 - **Validación:** patrón completo de informes, archivo regular no simbólico, ruta resuelta dentro de `OUTPUTS_DIR` y marcas inicial/final. Nombre/ruta/archivo inexistente, no UTF-8 o informe incompleto devuelven 404 mediante `abort`.
 - **Errores:** fallos inesperados de lectura o código se registran como 500. Un informe antiguo eliminado por retención devuelve 404; no se inventa una copia de su contenido.
 - **PYTHON:** `.resolve`, `.read_text`, `.replace(..., 1)`, argumentos de URL, f-string, `Response` y cabeceras HTTP.
@@ -689,7 +694,7 @@ def error_interno(error):
 
 - **Propósito:** presentar un fallo inesperado sin exponer trazas al navegador ni llamarlo inviabilidad física.
 - **Argumento:** excepción HTTP 500 que entrega Flask; sin unidad física. **Retorno:** formulario HTML y estado 500.
-- **Llama:** `valores_formulario` cuando no es un POST; Flask llama a este manejador, registrado con `@app.errorhandler(500)`.
+- **Llama:** `valores_formulario` cuando no es un POST, `listar_informes` y `renderizar_dashboard`; Flask llama a este manejador, registrado con `@app.errorhandler(500)`.
 - **Comportamiento:** Flask ya registra el traceback en terminal. La respuesta dice que es un error interno y conserva las entradas POST si existen. No se genera un informe nuevo desde este manejador.
 - **PYTHON:** decorador de errores, renderizado de plantilla y expresión condicional. No se captura todo como `ErrorModelo`.
 - **Ejemplo:** la prueba sustituye una función de dibujo por una que falla; `client.post` recibe 500 mientras el registro conserva el detalle técnico.
@@ -1051,6 +1056,50 @@ La plantilla usa un selector y tres inputs adicionales (12 numéricos en total),
 
 Verificaciones previas del 20 de octubre de 2026: 107/107 OK en 93.103 s y 107/107 OK en 131.473 s tras fijar los límites visuales. Verificación actual del 21 de octubre de 2026: 108/108 pruebas correctas en 147.931 s con la suite completa, incluyendo la nueva prueba de consigna y máscaras. El primer intento aislado bajo sandbox encontró permisos denegados en temporales Windows; la suite con permisos adecuados utiliza carpetas temporales y no consume outputs. Revisión visual de figuras T3, puntos inviables y escalas grandes; informes completos y simulación normal generados fuera del proyecto. Tiempos de 41 muestras: cálculo 0.045–0.10 s y estudio completo aproximadamente 1.8–2.2 s en este equipo, sin garantías para otros equipos. Modelo sin validación externa.
 
+### 4.41. Dashboard técnico independiente — presentación, sin cambios físicos
+
+**INTERPRETACIÓN FÍSICA / INGENIERÍA.** El rediseño, desarrollado sobre `ac37b9e0b93bcc0449e59fe04d5cfecb082f70ad` en `feature/rediseno-dashboard`, reorganiza Fases 1–4. No implementa Fase 5, cambia variables, ecuaciones, dominios, algoritmos ni píxeles de las gráficas. Seis KPI del **caso no ideal actual** muestran rp, W, eta, Qin, máximo W y máximo eta alcanzado. None se presenta como No disponible, sin falsos ceros; el supremo no alcanzado conserva su explicación, nunca un punto B ficticio. Los conteos OFAT pueden valer cero como recuentos reales, distintos de magnitudes operativas ausentes.
+
+**Arquitectura actual.** Sidebar de 232 px, barra superior y cabecera discreta con SVG original; seis secciones exactas: Simulación, Resultados, Optimización, Sensibilidad, Informes y Ayuda. Los formularios comparten las mismas nueve entradas y sus validaciones. Navegar usa fragmentos y JavaScript local, sin nuevas peticiones de cálculo. Informes mantiene lectura del historial propio completo sin modificar la retención: sigue ocurriendo únicamente en `guardar_informe_html`, tras publicar.
+
+Resultados ofrece seis KPI, rango motor, visor y `Estados y balances detallados` cerrado por defecto. El visor normal tiene Rendimiento (dos PNG), Trabajo (dos), Diagramas termodinámicos (dos), Compromiso de diseño (uno) y Todas (los mismos siete en cuadrícula). No hay imágenes duplicadas: Todas sólo cambia el filtro de los mismos nodos figure. Optimización muestra tarjetas A/B y diferencias B−A, incluido pp frente a cambio relativo %. Sensibilidad conserva R/A/B, consigna y NaN: tres pestañas independientes, conteos por escenario, matriz compacta de elasticidades fiables, configuración reutilizable y tabla completa plegada.
+
+#### PYTHON: contratos nuevos y relaciones
+
+Los contratos físicos de parámetros/ciclos son los ya explicados. Estas funciones sólo presentan o recuperan datos; sus salidas no validan un motor real. HTML ya construido se marca seguro únicamente cuando procede de presentadores controlados; textos/valores se escapan. No se añaden dependencias: Jinja2 ya acompaña a Flask.
+
+- **`json_seguro(datos)`** recibe estructuras JSON (dict/list/escalares finitos) y devuelve str ASCII con `<`/`&` escapados como secuencias Unicode. No calcula física ni llama funciones propias; la llama `renderizar_dashboard`. `allow_nan=False` rechaza NaN/inf con ValueError; tipos no serializables causan TypeError. Evita que un valor cierre el script inerte de metadatos. Ejemplo: `json_seguro({'x':'</script>'})` conserva el texto como datos, sin etiqueta ejecutable.
+- **`renderizar_dashboard(valores, *, contenidos=None, metadata=None, informes=(), errores=None, modo_local=True, informe_actual='', seccion_inicial='simulacion')`** recibe dict de valores de formulario (delta en %), paneles HTML controlados, metadatos dict, secuencia de informes, errores dict, bool local, HTML de ficha actual y sección str. Devuelve HTML str. Lee plantilla/CSS/JS/SVG/OFL; llama `json_seguro` y Jinja Environment. La llaman `terminar_informe`, `index`, `ver_informe`, `error_interno` y pruebas. En local referencia `/static/`; en autónomo incrusta CSS/JS y tres fuentes Base64. Propaga errores de archivo, plantilla y contratos; no los confunde con inviabilidad. Ejemplo: `renderizar_dashboard(valores_formulario())`. Los argumentos tras `*` se pasan por nombre para no confundir opciones de presentación.
+- **`tarjeta_kpi(clave, etiqueta, valor, unidad, explicacion, decimales=3)`** recibe identificador/etiquetas str, escalar o None, unidad str y precisión entera. Devuelve article HTML con data-kpi para pruebas, unidad y disponibilidad. Sólo formatea/escapa; no llama funciones propias y la llama `terminar_informe`. Magnitudes físicas usan tres decimales, recuentos cero; no se redondean cálculos originales. Contratos incorrectos propagan errores de formato. Ejemplo: `tarjeta_kpi('W','Trabajo',None,'kJ/kg','Sin motor')` muestra No disponible.
+- **`plegable(titulo, contenido)`** recibe título str y HTML técnico ya escapado; devuelve details/summary cerrado. La llama `terminar_informe`; sin otras llamadas propias ni física. Ejemplo: `plegable('Estados',tabla_html(('T [K]',),[(300,)]))`. El contenido se conserva completo, no se elimina al plegar.
+- **`separar_presentacion(contenido)`** recibe HTML str y retorna `(metadata,paneles)` o None si es histórico, JSON inválido o faltan marcadores. Busca script inerte `brayton-metadata` con esquema `dashboard=1` y tres bloques delimitados por comentarios, sin ejecutar código. La llaman `ver_informe`, `listar_informes` y pruebas. No llama funciones propias; errores de tipo fuera de contrato propagan. Ejemplo: `separar_presentacion(html_guardado)`. La recuperación no recalcula ni modifica el archivo.
+- **`visor_graficas(legado, imagenes, sensibilidad=False)`** recibe HTML técnico heredado y dict de bytes PNG existentes, bool OFAT; devuelve tupla `(visor,detalles,cabecera)`. Asocia cada figure a su PNG Base64 y grupo, sin volver a dibujar ni cambiar bytes. Exige conservar exactamente el número de imágenes; ValueError si no se conserva, errores de contrato si faltan asociaciones. La llama `terminar_informe`; no llama otras funciones propias. Ejemplo interno: `visor_graficas(legado,imagenes)` produce cinco botones y siete figure únicos; en OFAT, tres botones y tres figure. Se retiran sólo las figuras de la copia de detalles para evitar duplicados; sus tablas y textos se mantienen, convirtiendo section heredadas en div técnicos.
+- **`terminar_informe(legado, parametros, imagenes, fecha, version, *, noideal=None, barrido=None, optimizaciones=None, estudio_rendimiento=None, comparacion=None, sensibilidad=None)`** recibe datos calculados por main o estudio OFAT, datetime y versión Git; retorna HTML str con las mismas marcas de informe completo. Llama visor, KPI, plegables y renderizador; la llaman los dos creadores de reporting. No llama evaluadores físicos. Construye KPI/A/B y elasticidades desde los diccionarios, nunca desde constantes de ejemplo. Convierte pérdida a % sólo para campos de formulario, conserva fracción en metadata. Errores de presentación/contrato propagan. Ejemplo de uso: ejecutar `main(carpeta_de_prueba)` lleva los resultados a esta función antes de guardar.
+- **`listar_informes()`** — web_app: sin argumentos; lee `app.config['OUTPUTS_DIR']` y devuelve lista de dict `nombre/tipo/resumen/fecha/commit/mtime`, de más reciente a antiguo. Filtra patrón, archivos regulares no simbólicos, UTF-8 y marcas completas. Llama `separar_presentacion`; la llaman index, vista y manejador de errores. No elimina, escribe ni recalcula. Datos históricos no disponibles se identifican como tales; no se atribuyen parámetros/fechas inventados. Carpeta inexistente da lista vacía. Errores inesperados de E/S propagan; archivos desaparecidos durante lectura se omiten. Ejemplo: `listar_informes()` dentro de la configuración de pruebas.
+- **`ver_documentacion(nombre)`** — web_app: recibe str y devuelve Response text/plain de README.md o CODE_WALKTHROUGH.md; cualquier otro nombre da 404. Flask la llama por `/documentacion/<nombre>`; sin otras funciones propias ni física. No ofrece rutas arbitrarias. Ejemplo HTTP: GET `/documentacion/README.md`.
+
+`GRUPOS` y `CAMPOS` residen ahora en dashboard.py y se reexportan por los imports de web_app; claves, valores físicos predeterminados y validación se conservan. `index` usa el renderizador y listado; POST sigue ejecutando únicamente main o OFAT y redirige con 303. `ver_informe` descarga exactamente el HTML original antes de cualquier transformación. En la vista nueva recupera paneles/entradas y vuelve a renderizar el formulario editable; en informes anteriores conserva el HTML original con navegación local. `error_interno` usa la misma plantilla compartida, conserva valores y sigue distinguiendo error de programa de rechazo físico.
+
+`crear_informe_html` y `crear_informe_sensibilidad_html` mantienen firmas y datos; primero forman la presentación técnica existente y después llaman `terminar_informe`. Así no se descarta información académica ni se duplica la física. `guardar_informe_html`, verificación de PNG, consulta Git y política de cuatro permanecen intactas. Las 108 pruebas anteriores se conservan; el parser de pruebas ignora href de fragmentos internos (no son dependencias externas) y el test de escape OFAT distingue JS legítimo del dashboard de metadatos escapados.
+
+#### CSS, JavaScript y accesibilidad reales
+
+La paleta es #F5F7FA/#FFFFFF con azul petróleo #174A70, interacción #2563A6, texto #172B42, secundario #65768A y bordes #DFE6EE. IBM Plex Sans Regular/SemiBold para texto y Mono Regular para cifras, instaladas como WOFF2 locales de IBM/plex con SIL OFL 1.1 y commit de origen en static/fonts/SOURCE.md. El autónomo incluye los mismos archivos en CSS Base64 y copia de licencia en Ayuda; no solicita Google Fonts/CDN. El SVG es original geométrico, CC0-1.0, decorativo y no a escala: no añade modelo de tobera ni empuje.
+
+Grid usa `minmax(0,1fr)` y contenedores con `min-width:0` para no ensanchar la página. Tres KPI por fila en escritorio amplio, dos por debajo de 1150 px, uno en teléfonos muy estrechos. Sidebar pasa a menú compacto por debajo de 760 px. Sólo `.table-wrap` tiene scroll horizontal para tablas técnicas; el resto adapta sus columnas. Focus visible y movimiento reducido se respetan.
+
+El script local es mejora progresiva. Sólo añade clase `js` si hay paneles; CSS oculta inactivos únicamente bajo esa clase. Sin JS se muestran todas las secciones/figuras y details nativos siguen funcionando. `activateSection(id,focus=false)` activa panel y aria-current sin cálculos; `locationSection()` interpreta fragmento y pestaña. Los listeners delegados actualizan history.pushState sin saltos nativos innecesarios y manejan Atrás/Adelante. `selectTab(button)` filtra los mismos figure mediante clases, actualiza aria-selected/tabIndex/aria-labelledby; Flechas/Home/End recorren botones reales. El cierre por visor captura sus figuras/botones; todos esos callbacks son locales a su inicialización y no almacenan resultados entre simulaciones.
+
+`enlarge(figure,button)` utiliza el src de una figura ya presente, abre dialog nativo y recuerda el botón. Escape/cerrar restauran foco al disparador; no descarga otra imagen. Los listeners de impresión abren details temporalmente y luego restauran su estado. El selector OFAT sólo propone rangos del catálogo JSON; cambiar pestaña no hace fetch ni una nueva optimización. La validación nativa de un campo oculto activa su sección antes de mostrar el error. En archivos autónomos se deshabilitan los controles de ejecución para no intentar POST al sistema de archivos: consultar no requiere Flask; ejecutar otro caso sí.
+
+#### Verificación de esta intervención
+
+Comprobación de cierre del rediseño (21 de octubre de 2026): suite completa **123/123 OK en 93.985 s**, sin cambiar el código. La primera ejecución en sandbox sufrió errores de permisos en carpetas temporales; la repetición fuera de esa restricción pasó. Se revisaron de nuevo simulación normal, navegación, pestañas por teclado, tablas y OFAT con muestras inviables desde Flask aislado. Descarga, retención de cuatro informes y ejecución directa se comprueban en la suite. La apertura interactiva `file://` sigue bloqueada por la política del navegador; los recursos autónomos se verifican mediante pruebas. Detalles del cierre en la guía de aprendizaje del rediseño.
+
+Primera suite: 123/123 pruebas OK en 124.582 s (108 anteriores + 15 nuevas). Verificación final: 123/123 pruebas correctas en 70.814 s; se conservan las 108 previas y se añaden 15 de dashboard. Las nuevas pruebas comprueban datos/KPI no hardcodeados, None/supremos, seis secciones, nueve entradas, 7/3 PNG sin duplicados, plegables, recursos incrustados/licencias, JSON seguro, historial sólo lectura, descarga idéntica, compatibilidad histórica y documentos permitidos. Las pruebas estáticas de HTML/CSS/JS **no** se presentan como verificación de interactividad.
+
+En navegador real: simulación normal, cambio de pestaña, comparación A/B, ampliación y Escape con retorno del foco; ejecución OFAT con muestras inviables y sus pestañas. Viewport de escritorio 1440 px y móvil 393 px; comprobación DOM de anchura sin overflow horizontal. Recursos e informes de revisión en carpeta aislada, servidor temporal sólo 127.0.0.1:5015; el puerto normal sigue en 5000. Comprobación adicional del autónomo y limitaciones de revisión en la guía del rediseño. Fuente física, algoritmos, dependencias, PNG históricos y guías de fases anteriores intactos. Base ac37b9e, sin commit del rediseño.
+
 ## 5. Variables principales
 
 Python no añade unidades a sus tipos. El diccionario global `PARAMETROS_PREDETERMINADOS` conserva las entradas; `main()` crea una copia local por ejecución. Un `int` puede producir `float` al operar; Flask convierte todos los campos a `float`, y NumPy utiliza también sus escalares.
@@ -1352,11 +1401,11 @@ El servidor se enlaza exclusivamente a `127.0.0.1`. Con `debug=False` no se ofre
 
 ### Plantilla Jinja, campos HTML y CSS
 
-`templates/index.html` es una plantilla, no un informe. Flask/Jinja sustituye `{{ valores.get(nombre, '') }}` por texto escapado; `{% for ... %}`, `{% if ... %}` y `{% set ... %}` controlan repetición, condiciones y asignación en la plantilla. Estas expresiones no se ejecutan en el navegador: Python renderiza el resultado antes de enviarlo. No deben confundirse con las llaves de las f-strings ni de CSS.
+`templates/index.html` es la plantilla compartida por el dashboard Flask y los informes autónomos. La renderiza Jinja tanto desde Flask como desde la presentación sin servidor. Flask/Jinja sustituye `{{ valores.get(nombre, '') }}` por texto escapado; `{% for ... %}`, `{% if ... %}` y `{% set ... %}` controlan repetición, condiciones y asignación en la plantilla. Estas expresiones no se ejecutan en el navegador: Python renderiza el resultado antes de enviarlo. No deben confundirse con las llaves de las f-strings ni de CSS.
 
 `<form method="post" action="...">` define destino y método; el atributo `name` de cada `<input>` será la clave de `request.form`. `label for` y `id` enlazan etiqueta y campo. `type="number"`, `step="any"`, `required`, `min` y `max` ayudan en el navegador, pero no sustituyen el servidor; límites estrictos como mayor que cero o pérdida menor que 100 se comprueban en Python. Los mensajes muestran además el valor recibido para conservar información incluso si un control numérico no puede representar texto inválido.
 
-`fieldset` y `legend` agrupan los tres bloques físicos y un cuarto de sensibilidad. `aria-describedby`, `aria-invalid` y `role="alert"` relacionan ayudas y errores para accesibilidad. El CSS local usa una cuadrícula de dos columnas, que pasa a una en pantallas estrechas. `url_for('static', filename='style.css')` construye la URL del CSS; este recurso sirve solo al formulario. El informe no depende de él.
+`fieldset` y `legend` agrupan Condiciones de entrada (T1/T3/p1), Propiedades del fluido (cp/gamma) y Configuración y pérdidas (rp/eta_c/eta_t/delta). El control OFAT está en la sección Sensibilidad del mismo formulario, sin duplicar las nueve entradas físicas. `aria-describedby`, `aria-invalid` y `role="alert"` relacionan ayudas y errores para accesibilidad. El CSS local usa una cuadrícula de dos columnas, que pasa a una en pantallas estrechas. `url_for('static', filename='style.css')` construye la URL del CSS; este recurso sirve solo al formulario. El informe no depende de él.
 
 ### Qué es HTML y cómo lo genera Python
 
@@ -2053,3 +2102,5 @@ Estos hitos resumen capacidades ya implementadas en la versión analizada, sin a
 - **Fase 3: optimización del rendimiento y comparación de criterios.** Ingeniería: supremo ideal no alcanzado, máximo no ideal único con pérdidas y dominio motor, y distinción de objetivos. Python: raíz racionalizada, funciones estables cerca de cero, búsqueda independiente y contratos de disponibilidad. Integrada en main, gráficas, HTML y Flask con comparación A/B y curva de compromiso; documentación revisada y verificación de cierre. Véase [milestone técnico](docs/milestones/05_optimizacion_rendimiento.md) y [guía educativa](docs/milestones/05_optimizacion_rendimiento_APRENDIZAJE.md).
 
 - **Fase 4: sensibilidad paramétrica OFAT.** Ingeniería: comparación de rp fija y objetivos reajustados, derivadas absolutas/elasticidades y límites de disponibilidad. Python: copias por muestra, arrays con NaN, callback con caché local, contraste de pasos y rutas de acción independientes; informes comparten publicación/retención. Véase [milestone](docs/milestones/06_sensibilidad_parametrica.md) y [aprendizaje](docs/milestones/06_sensibilidad_parametrica_APRENDIZAJE.md).
+
+- **Rediseño del dashboard, independiente de fases físicas.** Ingeniería: presentación de KPI, comparación de objetivos y trazabilidad sin modificar el modelo. Python/web: plantilla compartida, mejora progresiva, navegación por fragmentos, visores sin duplicar PNG, fuentes locales y metadatos JSON. Véase [milestone](docs/milestones/07_rediseno_dashboard.md) y [aprendizaje](docs/milestones/07_rediseno_dashboard_APRENDIZAJE.md).

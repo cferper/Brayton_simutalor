@@ -11,6 +11,19 @@ These instructions apply to the entire repository and all future tasks performed
 - Distinguish code verification (checking implementation, equations and internal consistency) from validation against external physical or experimental data. Do not claim external validation from internal checks alone.
 - Do not make commits unless the user explicitly requests them.
 
+## Work efficiency
+
+1. Read only the files needed for the task. Consult the relevant sections of `CODE_WALKTHROUGH.md` instead of reading it in full when a focused consultation is sufficient.
+2. Make minimal changes, limited to the files and functions related to the requested objective.
+3. During development, run tests for the affected modules. Run the full suite once when finishing a significant functional change; repeat it only for a concrete reason.
+4. Do not regenerate reports or plots unrelated to the modification.
+5. Keep educational documentation synchronized through targeted edits. Avoid rewriting large sections without content changes; reserve a complete documentation review for phase closure.
+6. Avoid commands that print entire files, large diffs or hundreds of test results. Read focused sections and use summarized results when sufficient.
+7. Reuse existing functions and avoid refactoring unrelated to the task.
+8. Keep execution reports brief: modified files, main changes, checks performed and pending issues.
+9. For broad tasks, identify independent parts and execute the requested part first, without expanding the scope on your own initiative.
+10. Preserve all existing requirements for Git safety, thermodynamic precision and final verification. Efficiency does not override these requirements.
+
 ## Educational documentation requirement
 
 `CODE_WALKTHROUGH.md` is the canonical educational explanation of this repository. Maintain it in Spanish, preserving a clear distinction between **PYTHON** and **INTERPRETACIÓN FÍSICA / INGENIERÍA**.

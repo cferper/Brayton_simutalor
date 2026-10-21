@@ -237,14 +237,19 @@ Brayton_Simulator/
 ├── sensibilidad.py
 ├── viabilidad.py
 ├── reporting.py
+├── dashboard.py
 ├── web_app.py
 ├── Abrir_Brayton_Simulator.cmd
 ├── templates/index.html
 ├── static/style.css
+├── static/dashboard.js
+├── static/fonts/               # bundled IBM Plex + SIL OFL
+├── static/images/              # original engine schematic + CC0
 ├── tests/test_optimizacion.py
 ├── tests/test_optimizacion_rendimiento.py
 ├── tests/test_integracion_rendimiento.py
 ├── tests/test_sensibilidad.py
+├── tests/test_dashboard.py
 ├── tests/test_viabilidad.py
 ├── tests/test_reporting.py
 ├── tests/test_web_app.py
@@ -358,6 +363,16 @@ print(study["sensibilidades"]["A"]["rp"]["normalizada"])  # approximately 1.75
 ```
 
 OFAT does not measure parameter interactions or a universal importance ranking. Relative efficiency changes differ from percentage-point changes. Local coefficients use h/h2 checks, reject unavailable/ill-conditioned results, and do not replace experimental validation. See the [Phase 4 learning guide](docs/milestones/06_sensibilidad_parametrica_APRENDIZAJE.md) and [technical milestone](docs/milestones/06_sensibilidad_parametrica.md).
+
+### Technical dashboard redesign
+
+The local app now has exactly six sections: **Simulación, Resultados, Optimización, Sensibilidad, Informes, Ayuda**. Normal runs open Resultados with six non-ideal KPI cards and physical-domain status. Seven original PNGs are grouped into Rendimiento, Trabajo, Diagramas termodinámicos, Compromiso de diseño and Todas; the last view reuses the same images in a grid. OFAT uses three separate tabs, scenario availability counts, a local-elasticity summary and collapsible complete tables. Native dialogs enlarge charts and close with Escape. Arrow keys/Home/End operate chart tabs; section fragments support direct navigation and browser history. Navigation never reruns calculations.
+
+The nine physical inputs keep their names, defaults, units and validation. Reports viewed through Flask recover their saved parameters for another run. Informes lists retained complete reports with view/download controls and available metadata; older reports keep their original layout. Downloads are the original offline files, without local-server navigation. The same four-report retention applies. README and walkthrough have narrowly scoped local text routes from Ayuda.
+
+Offline reports share the new layout, inline CSS/JS, an original CC0 SVG engine schematic, Base64 PNGs and embedded local IBM Plex fonts. Sans Regular/SemiBold and Mono Regular come unmodified from the official IBM/plex repository, under SIL OFL 1.1; provenance and pinned upstream commit are in `static/fonts/SOURCE.md`, licenses in `static/fonts/OFL.txt` and `static/images/LICENSE.txt`. No CDN or Internet is needed at runtime. Without JavaScript, all sections/plots remain accessible and native disclosure tables work; execution controls in offline files are disabled because new calculations require the local server.
+
+Responsive layout uses a 232 px sidebar, three/two/one KPI columns and a mobile menu. Wide tables scroll within their own containers. The redesign does not change any thermodynamic source, optimizer, domain, original plot bytes or dependencies. See [redesign learning guide](docs/milestones/07_rediseno_dashboard_APRENDIZAJE.md) and [technical milestone](docs/milestones/07_rediseno_dashboard.md). The verification suite keeps all 108 previous tests and adds 15 dashboard tests (123 total); static tests are distinguished from real-browser interaction checks.
 
 ## Educational documentation
 
