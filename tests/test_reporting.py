@@ -25,7 +25,7 @@ class InformeParser(HTMLParser):
 
     def handle_starttag(self, tag, attrs):
         for nombre, valor in attrs:
-            if nombre in ("src", "href"):
+            if nombre in ("src", "href") and not valor.startswith("#"):
                 if tag == "img" and valor.startswith("data:image/png;base64,"):
                     self.imagenes.append(b64decode(valor.split(",", 1)[1], validate=True))
                 else:

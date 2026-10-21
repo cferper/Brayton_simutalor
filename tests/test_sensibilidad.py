@@ -337,7 +337,8 @@ class IntegracionSensibilidadTests(unittest.TestCase):
                        {"commit": "<script>", "modificado": None})
         self.assertIn("supremo_no_alcanzado", texto)
         self.assertIn("&lt;script&gt;", texto)
-        self.assertNotIn("<script>", texto)
+        self.assertNotIn("Commit Git: <script>", texto)
+        self.assertIn("\\u003cscript>", texto)  # JSON inerte; el dashboard sí incluye JS legítimo.
         self.assertIn("Estado local Git no disponible", texto)
         with self.assertRaises(ValueError):
             reporting.crear_informe_sensibilidad_html(e, {}, datetime.now(), {"commit": None, "modificado": False})
