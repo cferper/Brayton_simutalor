@@ -82,6 +82,13 @@
   window.addEventListener('beforeprint', () => { printDetails = [...document.querySelectorAll('details:not([open])')]; printDetails.forEach(d => { d.open = true; }); });
   window.addEventListener('afterprint', () => printDetails.forEach(d => { d.open = false; }));
   const options = document.getElementById('catalogo-estudios');
+  const corte = document.getElementById('selector-corte');
+  if (corte) {
+    const figuras = [...document.querySelectorAll('#cortes-mapa [data-corte]')];
+    const seleccionar = () => figuras.forEach(f => f.classList.toggle('plot-hidden', f.dataset.corte !== corte.value));
+    corte.addEventListener('change', seleccionar);
+    seleccionar();
+  }
   const selector = document.getElementById('sens_parametro');
   if (options && selector) selector.addEventListener('change', () => {
     const range = JSON.parse(options.textContent)[selector.value].rango;

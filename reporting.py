@@ -7,8 +7,10 @@ import re
 import subprocess
 from uuid import uuid4
 from warnings import warn
+from time import perf_counter
 
-from dashboard import terminar_informe
+from dashboard import (terminar_informe, EXPLICACIONES_GRAFICAS, bloque_educativo,
+                       conclusiones_html, TEXTO_OPTIMIZACION, TEXTO_DISPONIBILIDAD)
 
 
 MARCA_INICIO = "<!-- Brayton Simulator report v1 -->"
@@ -107,6 +109,79 @@ Verificación de código y consistencia interna; no validación con datos experi
     return terminar_informe(legado, estudio["referencia"], imagenes, fecha, version_git, sensibilidad=estudio)
 
 
+def crear_informe_mapa_html(estudio, imagenes, fecha, version_git):
+    """Informe 2D con recursos incrustados y resultados previamente calculados."""
+    from dashboard import renderizar_dashboard, plegable
+    from mapa_diseno import preparar_resultados
+    inicio = perf_counter()
+    c, resumen = estudio['configuracion'], preparar_resultados(estudio)
+    tablas = []
+    for fila in estudio['filas']:
+        muestra = fila['muestra']
+        dominio = muestra['dominios']['noideal']['intervalo'] if muestra['dominios'] else None
+        for s in 'AB':
+            r = muestra[s]
+            tablas.append((f"{fila['T3']:.6g}", s, r['estado'],
+                f"{r['rp']:.9g}" if r['rp'] is not None else 'No disponible',
+                f"{r['trabajo_neto']:.6f}" if r['trabajo_neto'] is not None else 'No disponible',
+                f"{100*r['rendimiento']:.6f}" if r['rendimiento'] is not None else 'No disponible',
+                f"{r['calor_aportado']:.6f}" if r['calor_aportado'] is not None else 'No disponible',
+                f"{100*r['supremo']['rendimiento']:.6f}" if r['supremo'] else 'No aplicable',
+                str(dominio), '; '.join(r['motivos'])))
+    botones = ''.join(f'<button type="button" role="tab" id="tab-mapa-{k}" aria-controls="graficas-mapa" data-plot-tab="{k}" aria-selected="false">{t}</button>'
+                      for k, t in (('trabajo_neto', 'Trabajo'), ('rendimiento', 'Rendimiento'), ('viabilidad', 'Viabilidad')))
+    figuras = ''.join(imagen_html(imagenes[f'mapa_{k}.png'], titulo, EXPLICACIONES_GRAFICAS[f'mapa_{k}.png']).replace('<figure>', f'<figure data-plot-group="{k}">')
+                      for k, titulo in (('trabajo_neto', 'Trabajo neto motor [kJ/kg]'),
+                                       ('rendimiento', 'Rendimiento térmico motor [%]'), ('viabilidad', 'Viabilidad y fronteras físicas')))
+    cortes = ''.join(imagen_html(imagenes[f'corte_{i}.png'], f"Corte T3={fila['T3']:g} K").replace('<figure>', f'<figure data-corte="{i}">')
+                     for i, fila in enumerate(estudio['cortes']))
+    opciones = ''.join(f'<option value="{i}">{f["T3"]:g} K</option>' for i, f in enumerate(estudio['cortes']))
+    unidades = dict(T1='K', p1='kPa', cp='J/(kg·K)', gamma='−', eta_c='fracción', eta_t='fracción', perdida_presion_combustor='fracción')
+    fijo = tabla_html(('Parámetro fijo', 'Valor', 'Unidad'), [(k, estudio['referencia'][k], unidades[k]) for k in unidades])
+    contexto = (f"Variamos simultáneamente rp de {c['rp_min']:g} a {c['rp_max']:g} y T3 de {c['T3_min']:g} a {c['T3_max']:g} K. "
+        'Cada punto representa un ciclo diferente. T1, p1, cp, gamma, eta_c, eta_t y delta permanecen fijos, con los valores de la tabla. '
+        'Buscamos comparar regiones motoras y objetivos por temperatura, no una T3 óptima global.')
+    observaciones = [f"{resumen['motores']} de {resumen['celdas']} celdas muestreadas cumplen las condiciones motoras; {resumen['limites_numericos']} presentan límites numéricos."]
+    disponibles = {s: sum(f['muestra'][s]['estado'] == 'disponible' for f in estudio['filas']) for s in 'AB'}
+    observaciones.append(f"Hay máximo A alcanzado en {disponibles['A']} temperaturas y máximo B alcanzado en {disponibles['B']} de las {c['n_T3']} temperaturas de la malla.")
+    vacias = sum(f['muestra']['dominios'] is not None and not f['muestra']['dominios']['noideal']['intervalo'] for f in estudio['filas'])
+    supremos = sum(f['muestra']['B']['estado'] == 'supremo_no_alcanzado' for f in estudio['filas'])
+    if vacias:
+        observaciones.append(f'{vacias} temperaturas tienen dominio motor vacío, independientemente de la ventana rp dibujada.')
+    if supremos:
+        observaciones.append(f'En {supremos} temperaturas, B es un supremo no alcanzado: no existe un ciclo operativo que lo alcance.')
+    fuera = sum(r['rp'] is not None and not c['rp_min'] <= r['rp'] <= c['rp_max']
+                for f in estudio['filas'] for r in (f['muestra']['A'], f['muestra']['B']))
+    if fuera:
+        observaciones.append(f'{fuera} máximos A/B calculados quedan fuera de la ventana rp mostrada; el borde de la imagen no los sustituye.')
+    contenido = (bloque_educativo('¿Qué estamos modificando y por qué?', contexto)
+        + f'<div class="card"><h3>Mapa no ideal rp–T3</h3><p>{resumen["motores"]} / {resumen["celdas"]} celdas motoras; '
+        f'{resumen["limites_numericos"]} límites numéricos. {c["n_T3"]} filas T3 × {c["n_rp"]} columnas rp. '
+        f'rp: {c["rp_min"]:g}–{c["rp_max"]:g} ({escape(c["escala"])}); T3: {c["T3_min"]:g}–{c["T3_max"]:g} K.</p>'
+        f'<p>Cálculo: {estudio["segundos_calculo"]:.3f} s. Cálculo + gráficas: {estudio.get("segundos_preparacion", 0):.3f} s.</p>'
+        '<p>Gas ideal, cp/gamma, eficiencias y pérdida relativa constantes; equipos adiabáticos. Sin combustible, caudal, potencia, empuje o tobera. '
+        'Verificación interna, no validación experimental. A/B se calculan independientemente de las columnas y pueden quedar fuera de vista. '
+        'Los huecos interrumpen las curvas; los cortes no amplían la ventana rp del mapa.</p>' + fijo + '</div>'
+        f'<div class="card" data-plot-viewer><div class="plot-tabs" role="tablist" aria-label="Mapas de diseño">{botones}</div><div class="plot-grid" id="graficas-mapa" role="tabpanel">{figuras}</div></div>'
+        f'<div class="card"><p class="plot-help">{escape(EXPLICACIONES_GRAFICAS["corte"])}</p><label for="selector-corte">Cortes de T3</label><select id="selector-corte">{opciones}</select>'
+        f'<div class="plot-grid" id="cortes-mapa">{cortes}</div></div>'
+        + plegable('Resultados principales A/B y dominios',
+            bloque_educativo('¿Qué intentamos optimizar?', TEXTO_OPTIMIZACION)
+            + bloque_educativo('Máximo, supremo y dominio vacío', TEXTO_DISPONIBILIDAD)
+            + tabla_html(('T3 [K]', 'Criterio', 'Estado', 'rp', 'W [kJ/kg]', 'eta [%]', 'Qin [kJ/kg]', 'Supremo no alcanzado [%]', 'Dominio abierto', 'Motivo'), tablas))
+        + conclusiones_html(observaciones))
+    aviso = {True: 'AVISO: cambios locales sin confirmar', False: 'Árbol de trabajo limpio', None: 'Estado local Git no disponible'}[version_git['modificado']]
+    info = f'<div class="card"><h3>Informe actual</h3><p>{escape(fecha.isoformat())}</p><p>Commit Git: {escape(version_git.get("commit") or "No disponible")}</p><p>{aviso}</p><p>Consulta o descarga desde Informes en el servidor local.</p></div>'
+    valores = estudio['referencia'].copy(); valores['perdida_presion_combustor'] *= 100
+    valores.update({'mapa_' + k: v for k, v in c.items() if k != 'cortes'})
+    valores['mapa_cortes'] = ', '.join(str(t) for t in c['cortes'])
+    metadata = dict(dashboard=1, tipo='mapa', parametros=estudio['referencia'], mapa=c, fecha=fecha.isoformat(), git=version_git)
+    pagina = renderizar_dashboard(valores, contenidos=dict(resultados='', optimizacion='', sensibilidad='', mapa=contenido),
+        metadata=metadata, modo_local=False, informe_actual=info, seccion_inicial='mapa')
+    estudio['segundos_html'] = perf_counter() - inicio
+    return MARCA_INICIO + pagina + MARCA_FINAL
+
+
 def obtener_version_git(carpeta):
     """Consulta HEAD y cambios locales sin modificar el repositorio."""
     try:
@@ -134,15 +209,16 @@ def tabla_html(encabezados, filas):
     return f"<div class='table-wrap'><table><thead><tr>{cabecera}</tr></thead><tbody>{cuerpo}</tbody></table></div>"
 
 
-def imagen_html(imagen, titulo):
+def imagen_html(imagen, titulo, explicacion=None):
     """Incorpora los bytes PNG de esta ejecución como una URL de datos Base64."""
     if not imagen.startswith(b"\x89PNG\r\n\x1a\n"):
         raise ValueError("La gráfica debe contener una imagen PNG válida.")
     contenido = b64encode(imagen).decode("ascii")
     etiqueta = escape(titulo)
+    ayuda = f'<p class="plot-help">{escape(explicacion)}</p>' if explicacion else ''
     return (
         f"<figure><img src='data:image/png;base64,{contenido}' alt='{etiqueta}'>"
-        f"<figcaption>{etiqueta}</figcaption></figure>"
+        f"<figcaption>{etiqueta}</figcaption>{ayuda}</figure>"
     )
 
 

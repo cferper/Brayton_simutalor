@@ -14,3 +14,22 @@ details{min-width:0}details.card{padding:0}details.card>summary{padding:16px 20p
 @media(max-width:390px){.kpi-grid{grid-template-columns:1fr}.engine{display:none}}@media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;transition:none!important;animation:none!important}}
 @media print{.sidebar,.topbar,.technical-header,.plot-tabs,.zoom-button,.actions,.menu-toggle{display:none!important}.workspace{margin:0}.main-content{padding:0;max-width:none}.js .dashboard-panel:not(.active),.js figure.plot-hidden{display:block}.dashboard-panel{break-before:page}.card,.kpi{box-shadow:none}figure{break-inside:avoid}.plot-grid{grid-template-columns:1fr}}
 .font-license{margin-top:14px}.font-license pre{white-space:pre-wrap;overflow-wrap:anywhere;font-size:11px;max-width:100%}
+
+/* Lectura educativa de resultados: resaltar sin aumentar el desplazamiento. */
+.educational-intro{border-left:4px solid var(--interactive);background:#f7fbff;padding:17px 21px}
+.educational-intro h2{font-size:17px;margin-bottom:7px}
+.educational-intro p{font-size:13px;line-height:1.65;max-width:95ch;margin-bottom:7px}
+.educational-intro a{font-size:12px}
+.educational-note{background:#f8fafc;border-left:3px solid #92afc9}
+.educational-note h3,.educational-conclusions h3{font-size:15px;margin-bottom:8px}
+.educational-note p,.educational-conclusions li{font-size:13px;line-height:1.65;color:#354c62}
+.educational-conclusions{border-left:3px solid #3b806b}
+.educational-conclusions ul{padding-left:20px;margin-bottom:0}
+.educational-conclusions li+li{margin-top:6px}
+.plot-help{font-size:13px;line-height:1.65;color:#354c62;background:#f5f8fc;border-left:3px solid #bfd2e3;padding:10px 13px;margin:8px 12px 14px;border-radius:0 4px 4px 0;overflow-wrap:anywhere}
+.card>.plot-help{margin-left:0;margin-right:0}
+#ayuda .metric-list{grid-template-columns:minmax(175px,1fr) minmax(0,3fr);gap:11px 18px}
+#ayuda .metric-list dt{font-size:13px;font-weight:600;color:#314c63}
+#ayuda .metric-list dd{font:13px/1.6 'IBM Plex Sans','Segoe UI',sans-serif;text-align:left;color:#354c62;overflow-wrap:anywhere}
+@media(max-width:760px){#ayuda .metric-list{grid-template-columns:minmax(0,1fr)}#ayuda .metric-list dd{margin-bottom:7px}.plot-help{margin-left:6px;margin-right:6px}}
+@media print{.educational-intro,.educational-note,.educational-conclusions,.plot-help{background:#fff;box-shadow:none;break-inside:avoid}}
