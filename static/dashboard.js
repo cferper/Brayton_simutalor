@@ -57,6 +57,32 @@
     });
     if (buttons.length) selectTab(buttons[0]);
   });
+  // Las dos vistas usan el mismo DOM; nunca recalculan resultados.
+  document.querySelectorAll('[data-edu-tabs]').forEach(group => {
+    const buttons = [...group.querySelectorAll(':scope > .edu-tabbar > [role="tab"]')];
+    const panes = buttons.map(b => document.getElementById(b.getAttribute('aria-controls')));
+    function select(index, moveFocus = false) {
+      buttons.forEach((button, i) => {
+        button.setAttribute('aria-selected', String(i === index));
+        button.tabIndex = i === index ? 0 : -1;
+        panes[i].hidden = i !== index;
+      });
+      if (moveFocus) buttons[index].focus();
+    }
+    buttons.forEach((b,i) => {
+      b.addEventListener('click', () => select(i));
+      b.addEventListener('keydown', e => {
+        let index = i;
+        if (e.key === 'ArrowRight') index = (i+1)%buttons.length;
+        else if (e.key === 'ArrowLeft') index = (i+buttons.length-1)%buttons.length;
+        else if (e.key === 'Home') index = 0;
+        else if (e.key === 'End') index = buttons.length-1;
+        else return;
+        e.preventDefault(); select(index,true);
+      });
+    });
+    select(0);
+  });
   const dialog = document.querySelector('.chart-dialog');
   let opener;
   function enlarge(figure, button) {
@@ -95,6 +121,10 @@
     document.getElementById('sens_minimo').value = range[0];
     document.getElementById('sens_maximo').value = range[1];
   });
-  document.getElementById('caso')?.addEventListener('invalid', e => activateSection(e.target.closest('.dashboard-panel')?.id || 'simulacion'), true);
+  document.getElementById('caso')?.addEventListener('invalid', e => {
+    activateSection(e.target.closest('.dashboard-panel')?.id || 'simulacion');
+    const pane = e.target.closest('.edu-tab-pane');
+    if (pane?.hidden) document.getElementById(pane.getAttribute('aria-labelledby'))?.click();
+  }, true);
   locationSection();
 })();
