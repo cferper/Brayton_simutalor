@@ -2,7 +2,7 @@
 
 Documento educativo del **22 de octubre de 2026**. No debe confundirse esta **nueva Fase 1 de verificación numérica y comparación de modelos** con la **antigua Fase 1 de dominio físicamente viable** ([milestone 03](03_dominio_viable.md)).
 
-**Base histórica de la fase:** `27d4519094d5eb74f5009a1889a1e74dc8dddb94` (rama `main` al iniciar la Tarea 1.1). Las tareas anteriores se publicaron en `mejoras/verificacion-numerica`: 1.1 en `275e7558b7d05322054f89ecd672ed5563c59469`, 1.2 en `143d10fd25ebd23ddb897722b7843bddabfd16a5`, 1.3 en `8ecbc1bf75e7e68fc3377cbf97017f8480d32553` y **1.4 en `c3b4bfea12cf6faa1dc90c8f8fb16fb9e8fe7131`**. La Tarea 1.5 parte exactamente de este último commit; sus cambios permanecen **sin commit ni publicación**.
+**Base histórica de la fase:** `27d4519094d5eb74f5009a1889a1e74dc8dddb94` (rama `main` al iniciar la Tarea 1.1). Las cinco tareas se publicaron en `mejoras/verificacion-numerica`: 1.1 en `275e7558b7d05322054f89ecd672ed5563c59469`, 1.2 en `143d10fd25ebd23ddb897722b7843bddabfd16a5`, 1.3 en `8ecbc1bf75e7e68fc3377cbf97017f8480d32553`, 1.4 en `c3b4bfea12cf6faa1dc90c8f8fb16fb9e8fe7131` y **1.5 en `57da73db01882ab32bd5d92d14bdbe739c272b79`**. La **Etapa 6 de cierre**, que documenta la ejecución completa, se prepara sobre ese último commit y sigue **pendiente de revisión y publicación**.
 
 ## 1. Estado anterior y propósito
 
@@ -467,4 +467,26 @@ PYTHONPATH=tests python -B -m unittest -v \
   test_segunda_ley.SegundaLeyTests.test_diagnostico_no_motor
 ```
 
-**Estado al preparar esta iteración:** se conserva la historia remota en `c3b4bfe`; sólo hay tres archivos de la Tarea 1.5 pendientes de revisión (este documento, el manual y el test). No se crea commit ni se publica nada. Quedan fuera del alcance la validación experimental, propiedades variables, extremos numéricos y nuevas optimizaciones.
+**Trazabilidad posterior:** la Tarea 1.5 se publicó en `57da73db01882ab32bd5d92d14bdbe739c272b79`. Las afirmaciones anteriores sobre pruebas focalizadas describen el **momento de la Tarea 1.5**; la suite completa se ejecutó después, en la Etapa 6 (§11). Siguen fuera del alcance la validación experimental, propiedades variables, extremos numéricos y nuevas optimizaciones.
+
+## 11. Iteración del 22 de octubre de 2026 — Etapa 6: reproducibilidad y cierre técnico
+
+### Qué cambia respecto de las tareas anteriores
+
+Las tareas 1.1–1.5 añadieron comprobaciones **especializadas**. Su ejecución por separado no garantizaba que todas las pruebas, informes y rutas Flask funcionasen juntas tras los últimos cambios. En esta etapa se reunió la evidencia en una [matriz de aceptación, tablas y procedimiento reproducible](12_cierre_verificacion_numerica.md), sin modificar código físico, optimizadores, controles predeterminados ni dependencias declaradas. El resultado de la etapa es **documentación de cierre pendiente de revisión**, no un nuevo modelo.
+
+### PYTHON — entorno aislado, ejecución y verificaciones opcionales
+
+`python3 -m venv` permite instalar en un directorio temporal las versiones concretas de NumPy, Matplotlib y Flask que usa una ejecución, sin modificar el intérprete global ni el repositorio. Flask incorpora Jinja2 como dependencia. `unittest discover -s tests -q` busca los módulos de pruebas y devuelve un conteo de **métodos**, mientras que `subTest()` agrupa subcasos dentro de un método: por eso **215 tests** no significa sólo 215 combinaciones de parámetros físicos.
+
+SciPy se añadió **únicamente al entorno temporal de verificación** (`1.17.0`), no a `requirements.txt`. Esto permitió comprobar en la ejecución general los seis métodos que de otro modo se omiten. Además, un proceso focalizado bloqueó `import scipy` y demostró que el cálculo ideal/no ideal y los imports de `main`/Flask siguen funcionando: de ocho métodos del archivo comparativo, **dos pasaron y seis quedaron omitidos explícitamente**. Un `skip` no equivale a un resultado positivo sobre SciPy.
+
+**Ejecución real del cierre (22/10/2026):** Linux `6.18.55`, Python `3.12.14`, NumPy `2.5.4`, Matplotlib `3.11.2`, Flask `3.1.3`, Jinja2 `3.1.6`, SciPy `1.17.0`. Una **única ejecución** de `python -B -m unittest discover -s tests -q` finalizó **215/215 OK, 0 fallos, 0 omisiones, 0 errores de importación**, en **69.358 s**. No se realizó una ejecución equivalente en Windows ni una inspección visual nueva de gráficos. La evidencia Flask/HTML procede de las pruebas de integración que sí formaron parte de la suite.
+
+### INGENIERÍA — referencias, errores y límites
+
+Se recalcularon desde las funciones del commit de partida `57da73d` un ciclo ideal motor, dos no ideales motores, un dominio no ideal vacío, dos puntos muy cercanos al límite superior y máximos de trabajo/rendimiento. A la entrada no ideal de referencia (`rp=10`) resultaron `w_neto≈369.476301 kJ/kg` y `eta≈0.368987324`; para el ideal `w_neto≈505.619018 kJ/kg` y `eta≈0.482052532`. Una distancia relativa `1e−12` de la frontera superior no ideal deja trabajo algebraico positivo (`2.444267e−10 kJ/kg`), pero **no** rendimiento motor por la banda de viabilidad (`1.608e−7 kJ/kg` para el trabajo en ese caso). Los máximos interiores A y B se recogen por separado; el ideal sólo tiene **supremo no alcanzado** de rendimiento. Parámetros, todas las salidas y unidades aparecen en el [cierre técnico](12_cierre_verificacion_numerica.md), sin duplicar aquí sus tablas.
+
+Las cifras se imprimen con un número finito de decimales; un `float` representa aproximaciones binarias. **Error de raíz, residuo de una ecuación y tolerancia de parada son conceptos distintos**, y comparar números redondeados como si fueran idénticos puede ocultar un margen pequeño. La matriz reúne umbrales realmente utilizados en 1.1–1.5: absolutos cuando la referencia se aproxima a cero, relativos cuando la escala importa y mayores márgenes de posición cuando el máximo es plano. Los mayores errores anteriores **no se transforman en garantías universales** mediante el cierre.
+
+**Lo aprendido:** una suite verde y referencias analíticas/SciPy verifican el comportamiento del **software para el modelo planteado**, no que un motor real respete `cp`, `gamma`, eficiencias y pérdidas constantes. La **validación física** necesitaría mediciones o referencias externas independientes. También quedan por investigar casos casi degenerados, límite de representación y modelos de componentes más realistas. Tras revisión del usuario, la fase **puede proponerse como cerrada en el alcance Linux comprobado**, manteniendo explícita la ausencia de ejecución nativa Windows y sin comenzar aún otra fase ni publicar la Etapa 6.
