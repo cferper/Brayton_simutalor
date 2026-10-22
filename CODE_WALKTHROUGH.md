@@ -1,12 +1,12 @@
 # Guía educativa de Brayton Simulator
 
-Guía del estado actual, actualizada el 21 de octubre de 2026. El simulador identifica los dominios motores, optimiza trabajo específico y rendimiento térmico y compara ambos criterios con intervalos recalculados por ejecución. Se mantienen los nueve parámetros, Flask local, siete gráficas por simulación normal o tres por estudio OFAT, metadatos Git y retención compartida de cuatro informes. La Fase 4 permite variar T1, T3, eta_c, eta_t o delta y comparar R/A/B.
+Guía del estado actual, actualizada el 22 de octubre de 2026. El simulador identifica los dominios motores, optimiza trabajo específico y rendimiento térmico y compara ambos criterios con intervalos recalculados por ejecución. Se mantienen los nueve parámetros, Flask local, siete gráficas por simulación normal o tres por estudio OFAT, metadatos Git y retención compartida de cuatro informes. La Fase 4 permite variar T1, T3, eta_c, eta_t o delta y comparar R/A/B. La nueva verificación analítica del Brayton ideal (Tarea 1.1 del Plan de Mejoras, §4.45) sólo añade pruebas.
 
 **Lectura por fases:** la [guía de aprendizaje de Fase 1](docs/milestones/03_dominio_viable_APRENDIZAJE.md) explica sus novedades respecto al commit de partida. La [guía de aprendizaje de Fase 2](docs/milestones/04_optimizacion_noideal_APRENDIZAJE.md) desarrolla la optimización y los intervalos dinámicos. La [guía de aprendizaje de Fase 3](docs/milestones/05_optimizacion_rendimiento_APRENDIZAJE.md) explica su física, algoritmos, integración y verificación de cierre. Este manual describe todo el código actual; `Evolution of the project` resume los grandes hitos, sin historial acumulativo de iteraciones.
 
 Verificación previa de Fase 2, del 20 de octubre de 2026: **55 pruebas superadas** con `python -B -m unittest discover -s tests -v` (40.481 s en esta ejecución).
 
-Hay once módulos (`main.py`, `viabilidad.py`, `optimizacion.py`, `optimizacion_rendimiento.py`, `sensibilidad.py`, `mapa_diseno.py`, `segunda_ley.py`, `guias_educativas.py`, `reporting.py`, `dashboard.py`, `web_app.py`) y doce archivos de pruebas. `.venv` contiene dependencias, no código propio. Se distinguen dominio físico, ventana numérica y ventana visual (§14). La suite conserva las 160 pruebas previas y añade 18 de segunda ley y seis de guías educativas; verificación de segunda ley en §4.44 y navegación actual en §4.41. El cierre anterior de Fase 3 superó 83/83 en 51.733 s; es una comprobación previa, no la ejecución de esta tarea. La verificación interna no constituye validación experimental de un motor.
+Hay once módulos (`main.py`, `viabilidad.py`, `optimizacion.py`, `optimizacion_rendimiento.py`, `sensibilidad.py`, `mapa_diseno.py`, `segunda_ley.py`, `guias_educativas.py`, `reporting.py`, `dashboard.py`, `web_app.py`) y trece archivos de pruebas. `.venv` contiene dependencias, no código propio. Se distinguen dominio físico, ventana numérica y ventana visual (§14). La última suite completa **documentada** en §4.44 fue de 178 pruebas; posteriormente hay seis pruebas de guías y cuatro métodos nuevos de verificación analítica. Estas cuatro pruebas y cuatro existentes relacionadas se ejecutaron el 22 de octubre de 2026, pero **no** se ejecutó la suite completa en esta tarea. La verificación interna no constituye validación experimental de un motor.
 
 La verificación de esta fase se realiza con informes en carpetas temporales; los seis PNG históricos permanecen intactos. No se crean commits automáticamente. La base verificada de Fase 2 es `f9f9a0495c4231a4d48399fba4bccdcc0f6bcf6f` en `feature/fase-2-optimizacion-noideal`; la implementación de Fase 2 está registrada en el commit `c2f4bff84a173f3b354a5d0f76c2b7bd2ee1fa21` (`Implement non-ideal Brayton work optimization with dynamic intervals`).
 
@@ -107,6 +107,7 @@ Brayton_Simulator/
 ├── tests/test_explicaciones.py 16 pruebas de textos educativos y conclusiones
 ├── tests/test_segunda_ley.py   18 pruebas de entropía/exergía e integración
 ├── tests/test_sensibilidad.py  19 pruebas de cálculo y seis de integración OFAT
+├── tests/test_verificacion_analitica.py   referencias ideales y residuos de primera ley
 ├── README.md                   instalación y uso
 ├── requirements.txt            numpy, matplotlib y Flask
 ├── .gitignore
@@ -128,7 +129,7 @@ Brayton_Simulator/
 | `reporting.py` | Git, tablas/Base64, dominio, documento completo y publicación/retención |
 | `web_app.py` | Formulario, entradas, errores diferenciados, vista/descarga y servidor local |
 | `templates/index.html`, `static/style.css` | Plantilla Jinja y presentación adaptable |
-| `tests/test_*.py` | Referencia, dominio físico, integración CLI/HTTP, informes y fallos |
+| `tests/test_*.py` | Referencia, dominio físico, verificación analítica del ideal, integración CLI/HTTP, informes y fallos |
 
 El formulario usa un servidor Flask local; los informes siguen siendo documentos estáticos autocontenidos. No se añade una API general, cuentas, base de datos ni despliegue público.
 
@@ -208,9 +209,9 @@ El formulario usa un servidor Flask local; los informes siguen siendo documentos
 
 ### J. Pruebas
 
-**Qué hace:** comprueba referencias, cinco ejecuciones, errores y colisiones.
+**Qué hace:** comprueba referencias, cinco ejecuciones, errores y colisiones. La batería de §4.45 verifica además estados, energías, rendimiento y temperaturas del óptimo ideal en varios casos motores.
 
-**PYTHON:** clases de `unittest`, `self`, `assert*`, `patch`, directorios temporales y parser HTML. Las excepciones propias heredan de tipos estándar; los resultados físicos siguen siendo diccionarios.
+**PYTHON:** clases de `unittest`, `self`, `assert*`, `subTest` (casos identificados dentro de un mismo método), `patch`, directorios temporales y parser HTML. Las excepciones propias heredan de tipos estándar; los resultados físicos siguen siendo diccionarios.
 
 **INTERPRETACIÓN FÍSICA:** verifica el cálculo conocido; no compara con datos externos de un motor.
 
@@ -1246,6 +1247,35 @@ Caso base T0=288.15 K, no ideal: s=(0,0.0820509581,1.0764067597,1.1632558923). s
 
 18 pruebas nuevas pasaron inicialmente en 2.591 s; incluyen contraste analítico independiente expresado en la guía 09. Suite completa final: **178/178 OK en 265.170 s**, con `python -B -m unittest discover -s tests -q`; 160 métodos previos conservados y 18 nuevos. Verificación AST confirma que no se han eliminado métodos anteriores. Los evaluadores físicos, ambos optimizadores, sensibilidad, mapa, dependencias y PNG históricos no tienen diferencias con la base. Revisión visual real: informe normal, dos SVG, actualización T0 288.15→300 y suma proporcional; ancho DOM 1204 dentro de viewport 1219 px, sin desbordamiento horizontal. No se afirma validación experimental ni revisión exhaustiva móvil/file://. Base Git `174ce4fb9ff2a68880c3c452d82c7c179b7e058f`, rama `feature/fase-6-segunda-ley-exergia`, sin commit. [Milestone 09](docs/milestones/09_segunda_ley_exergia.md) y [guía educativa](docs/milestones/09_segunda_ley_exergia_APRENDIZAJE.md).
 
+### 4.45. Verificación analítica ideal — `tests/test_verificacion_analitica.py`
+
+**Alcance actual.** Esta es la **Tarea 1.1 de la Fase 1 del nuevo Plan de Mejoras: verificación numérica**, distinta de la **antigua Fase 1 de dominio viable** (§4.32 y milestone 03). Sólo incorpora un archivo de pruebas: no modifica los modelos, los optimizadores, los informes ni sus parámetros. Su [guía de aprendizaje](docs/milestones/11_verificacion_numerica_APRENDIZAJE.md) desarrolla las referencias y las limitaciones.
+
+**INGENIERÍA.** Se contrastan cinco puntos motores representables, no fronteras. Para cada uno se forman referencias analíticas directas, sin llamar a la función que se comprueba:
+
+```python
+a = (gamma - 1) / gamma
+T2_ref, T4_ref = T1 * rp**a, T3 / rp**a
+wc_ref = cp * (T2_ref - T1) / 1000
+wt_ref = cp * (T3 - T4_ref) / 1000
+qin_ref = cp * (T3 - T2_ref) / 1000
+qout_ref = cp * (T4_ref - T1) / 1000
+eta_ref = 1 - rp**(-a)
+```
+
+Los trabajos y calores son **kJ/kg**; cp se expresa en **J/(kg·K)** y T en **K**. Son referencias separadas de la implementación, pero **algebraicamente equivalentes dentro del mismo modelo ideal**, no datos experimentales. Se comprueban `wneto=wt-wc` y `wneto=qin-qout`; estas dos igualdades y el residuo `wneto-(qin-qout)` son **identidades internas de primera ley**. `qout` es una variable de prueba: la API pública de ciclo sigue sin devolver esa clave. En el máximo de trabajo se verifica `T2=T4=sqrt(T1*T3)` tanto para la relación analítica como para la búsqueda numérica directa por malla/sección áurea, sin pasar por el coordinador analítico. Las comprobaciones anteriores de rp óptima, dominio abierto y desacoplamiento de la búsqueda siguen en `test_optimizacion.py` y `test_viabilidad.py`, sin duplicarlas.
+
+**PYTHON.** `class VerificacionAnaliticaIdealTests(unittest.TestCase)` hereda de la clase de pruebas de la biblioteca estándar. `CASOS` contiene tuplas de siete campos (nombre, T1, T3, gamma, cp, rp y p1); `for` desempaqueta cada tupla y `with self.subTest(caso=nombre):` informa qué caso falla sin interrumpir los demás. La clase define cuatro métodos, sin argumentos adicionales ni retorno físico; `unittest` los llama y fallan con `AssertionError` si una diferencia supera la tolerancia:
+
+- `test_estados_con_referencias_isentropicas(self)`: llama `main.calcular_ciclo_ideal`; contrasta las cuatro temperaturas [K] y las referencias T2s/T4s con ecuaciones directas.
+- `test_balances_con_referencias_y_residuo(self)`: llama `main.calcular_ciclo_ideal`; contrasta cuatro energías [kJ/kg] calculadas con temperaturas de referencia y evalúa residuos de trabajo/primera ley, sin atribuirles independencia física.
+- `test_rendimiento_analitico_frente_a_balance_motor(self)`: llama `evaluar_punto` y `main.calcular_rendimiento`; exige punto motor y qin positivo antes de comparar el cociente trabajo/calor y la fórmula analítica, en fracción adimensional.
+- `test_temperaturas_coinciden_en_maximo_ideal_analitico_y_numerico(self)`: llama `main.calcular_relacion_optima`, `main.calcular_temperaturas`, `calcular_dominios` y `buscar_maximo_numerico`; compara T2 y T4 con la media geométrica [K], incluidos los estados devueltos por la búsqueda numérica sin consultar su candidato analítico.
+
+`abs(actual-esperado)` mide **error absoluto** en la unidad de la magnitud; dividirlo por `abs(esperado)` produce **error relativo**, sólo cuando la referencia es no nula. Los residuos se expresan en kJ/kg y se comparan con una escala de energías (máximo de trabajos y calores del caso). Las comparaciones usan `atol+rtol*abs(referencia)`: `rtol=2e-12`, `atol_T=1e-9 K`, `atol_E=1e-10 kJ/kg` y `atol_eta=2e-13` como fracción. Son márgenes de redondeo para casos moderados de doble precisión, no incertidumbres experimentales. La búsqueda utiliza una tolerancia térmica más amplia, derivada de `resolucion_rp/rp` y de la sensibilidad relativa aproximada `a` de T2/T4, pues un máximo plano puede localizarse con menos precisión en rp que en trabajo.
+
+**Ejemplo real ejecutado el 22/10/2026:** T1=288.15 K, T3=1600 K, gamma=1.4, rp=10: T2≈556.330551 K, T4≈828.715949 K, trabajo≈505.619018 kJ/kg y rendimiento≈0.482052532. En el máximo numérico rp≈20.085256021667 se obtuvo `|T2-T4|≈5.22445e-6 K`. Entre los cinco casos, el mayor error absoluto observado frente a referencias directas fue ≈1.137e−13 K (temperaturas), ≈1.137e−13 kJ/kg (energías), ≈1.110e−16 en rendimiento, y el mayor residuo de primera ley ≈1.137e−13 kJ/kg. **Ejecución focalizada:** cuatro métodos nuevos y cuatro métodos existentes relacionados: **8/8 correctos**. No se ha vuelto a ejecutar toda la suite; las pruebas de SciPy, convergencia o condicionamiento no forman parte de esta tarea (ni se han añadido).
+
 ## 5. Variables principales
 
 Python no añade unidades a sus tipos. El diccionario global `PARAMETROS_PREDETERMINADOS` conserva las entradas; `main()` crea una copia local por ejecución. Un `int` puede producir `float` al operar; Flask convierte todos los campos a `float`, y NumPy utiliza también sus escalares.
@@ -2254,3 +2284,5 @@ Estos hitos resumen capacidades ya implementadas en la versión analizada, sin a
 - **Fase 5: mapa de diseño rp–T3.** Ingeniería: región motora bidimensional, fronteras, trayectorias A/B y cortes a siete parámetros fijos. Python: matrices orientadas por temperatura, máscaras, datos reutilizados, color discreto y controles de cálculo acotados. Véanse [milestone 08](docs/milestones/08_mapa_diseno_rp_t3.md) y [guía educativa](docs/milestones/08_mapa_diseno_rp_t3_APRENDIZAJE.md).
 
 - **Fase 6: segunda ley y exergía de equipos adiabáticos.** Ingeniería: entropía relativa, generación y Gouy–Stodola, suma parcial compresor+turbina, sin atribuir generación a la cámara. Python: análisis de estados existentes, copias profundas para T0 y dos SVG autónomos; [milestone 09](docs/milestones/09_segunda_ley_exergia.md) y [aprendizaje](docs/milestones/09_segunda_ley_exergia_APRENDIZAJE.md).
+
+- **Nuevo Plan de Mejoras, Fase 1, Tarea 1.1: verificación analítica ideal.** Ingeniería: referencias isentrópicas y energéticas, residuo de primera ley y condición T2=T4 en el máximo numérico, sin validación experimental ni cambios de modelo. Python: `unittest.subTest`, errores absolutos/relativos y tolerancias por magnitud. Véase [aprendizaje de la nueva fase](docs/milestones/11_verificacion_numerica_APRENDIZAJE.md); se distingue de la antigua Fase 1 de dominio viable.
