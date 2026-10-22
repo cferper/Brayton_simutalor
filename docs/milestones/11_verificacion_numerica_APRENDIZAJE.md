@@ -2,7 +2,7 @@
 
 Documento educativo del **22 de octubre de 2026**. No debe confundirse esta **nueva Fase 1 de verificación numérica y comparación de modelos** con la **antigua Fase 1 de dominio físicamente viable** ([milestone 03](03_dominio_viable.md)).
 
-**Base histórica de la fase:** `27d4519094d5eb74f5009a1889a1e74dc8dddb94` (rama `main` en el inicio de la Tarea 1.1). La Tarea 1.1 está publicada en la rama `mejoras/verificacion-numerica`, commit `275e7558b7d05322054f89ecd672ed5563c59469`. **La Tarea 1.2 parte exactamente de ese commit remoto** y queda preparada sólo en una nueva copia de trabajo, sin commit. No se mezcló con el antiguo commit temporal local `16fcb1f`.
+**Base histórica de la fase:** `27d4519094d5eb74f5009a1889a1e74dc8dddb94` (rama `main` en el inicio de la Tarea 1.1). La Tarea 1.1 está publicada en la rama `mejoras/verificacion-numerica`, commit `275e7558b7d05322054f89ecd672ed5563c59469`. La Tarea 1.2 también se publicó allí, en `143d10fd25ebd23ddb897722b7843bddabfd16a5`. **La Tarea 1.3 parte exactamente de ese segundo commit remoto**; sus cambios están sólo en una nueva copia de trabajo y pendientes de revisión, sin commit.
 
 ## 1. Estado anterior y propósito
 
@@ -133,12 +133,12 @@ Caso base (`T1=288.15 K`, `T3=1600 K`, `gamma=1.4`, `cp=1005 J/(kg·K)`, `rp=10`
 ## 6. Limitaciones, próximos pasos y trazabilidad
 
 1. Se han contrastado cinco casos interiores moderados, no todos los valores admisibles. No se han estudiado condicionamiento, límites de representación, puntos degenerados ni fronteras abiertas.
-2. No se ha comparado aún ningún algoritmo con SciPy ni se han estudiado mallas o convergencia: serán otras tareas de la nueva fase, sujetas a su propia autorización.
+2. En esta **Tarea 1.1** aún no se había comparado ningún algoritmo con SciPy; esa comparación se añade posteriormente en la Tarea 1.3 (§8). Los estudios sistemáticos de mallas y convergencia siguen pendientes.
 3. No hay datos experimentales ni comparación con una correlación de un motor real: esto es **verificación de software** y de consistencia bajo el modelo de gas ideal con propiedades constantes, **no validación física**.
 4. No se modifica `qout` como salida pública ni se añaden funciones de producción para los tests.
 5. Esta tarea no crea un milestone **técnico de cierre** de la Fase 1 completa. El documento se ampliará en futuras tareas de esta fase, sin presentar como realizados sus resultados pendientes.
 
-**Archivos de la Tarea 1.1:** `tests/test_verificacion_analitica.py`, `CODE_WALKTHROUGH.md` (§4.45, estructura y conceptos de pruebas) y este documento. Los archivos de las fases anteriores permanecen en su contexto histórico. La publicación de 1.1 corresponde al commit `275e755`; los cambios de la Tarea 1.2 descritos a continuación siguen **sin commit**.
+**Archivos de la Tarea 1.1:** `tests/test_verificacion_analitica.py`, `CODE_WALKTHROUGH.md` (§4.45, estructura y conceptos de pruebas) y este documento. Los archivos de las fases anteriores permanecen en su contexto histórico. La publicación de 1.1 corresponde al commit `275e755`. La Tarea 1.2 se preparó inicialmente sin commit y fue **publicada después** en `143d10f`.
 
 ### Experimentos de aprendizaje sugeridos (no ejecutados)
 
@@ -203,4 +203,80 @@ Las cinco comprobaciones nuevas son: (1) raíces analíticas y residuos para cua
 | Error relativo en rp | `1.4261261054e−12` | entrada_fria, inferior |
 | Mayor `abs(Q(x_num))` | `2.2444268666e−12` | entrada_fria, superior |
 
-Estos números se obtuvieron además con un cálculo diagnóstico separado, sobre los mismos cuatro casos, y **no** son límites universales del método. La verificación sólo confirma la implementación y la interpretación de su **modelo termodinámico simplificado**; validar físicamente un motor requeriría datos o referencias externas. Continúan pendientes el condicionamiento junto a raíces casi dobles, límites de representación, estudios de convergencia y comparaciones opcionales con SciPy. No hay commit de la Tarea 1.2; se revisará antes de su publicación en la rama de desarrollo.
+Estos números se obtuvieron además con un cálculo diagnóstico separado, sobre los mismos cuatro casos, y **no** son límites universales del método. La verificación sólo confirma la implementación y la interpretación de su **modelo termodinámico simplificado**; validar físicamente un motor requeriría datos o referencias externas. Continúan pendientes el condicionamiento junto a raíces casi dobles, límites de representación y estudios de convergencia. Las comparaciones con SciPy se añadieron posteriormente (§8). La Tarea 1.2 se ejecutó primero sin commit y **fue publicada después** en la rama de desarrollo, commit `143d10f`.
+
+## 8. Iteración del 22 de octubre de 2026 — Tarea 1.3: comparación opcional con SciPy
+
+### Qué había antes y qué se contrasta
+
+**Punto de partida:** rama `mejoras/verificacion-numerica`, commit remoto exacto `143d10fd25ebd23ddb897722b7843bddabfd16a5`. Las Tareas 1.1 y 1.2 ya verificaban identidades físicas, raíces cuadráticas y fronteras abiertas mediante ecuaciones directas. Todavía no se habían contrastado los **algoritmos propios** de raíces y máximos con implementaciones numéricas distintas.
+
+Se añade `tests/test_comparacion_scipy.py` y se documenta en [§4.47 del manual](../../CODE_WALKTHROUGH.md). No se modifica ninguna función física ni de optimización; no se añade SciPy a `requirements.txt`. La comparación usa SciPy únicamente si está instalado. Si no, seis pruebas quedan marcadas como **omitidas** con `unittest.skipIf`; otras dos siguen ejecutándose sin SciPy.
+
+### INGENIERÍA Y MATEMÁTICAS — tres métodos para encontrar raíces
+
+Se comparan `bisectar_raiz` propio, `scipy.optimize.bisect` y `scipy.optimize.brentq` aplicados al **mismo intervalo con cambio de signo** y a la misma función:
+
+- `f(x)=x²−2` en `[1,2]`: referencia matemática independiente `sqrt(2)`.
+- `Q(x)=(x−1)(x−h)+h(k−1)` de tres ciclos no ideales, en dos intervalos que encierran respectivamente cada raíz. La fórmula cuadrática directa proporciona las referencias, como en la Tarea 1.2.
+
+La **bisección** divide repetidamente el intervalo que contiene el cambio de signo; es robusta por continuidad, pero reduce el ancho a un ritmo fijo. **Brent** también mantiene un intervalo válido y combina pasos seguros con interpolación para acelerar cuando es conveniente. No se utiliza ninguno si los extremos tienen el mismo signo: los tres rechazan `f(x)=x²+1` en `[1,2]` con `ValueError`.
+
+La variable termodinámica es `x=rp**a`, donde `a=(gamma−1)/gamma`. La posición buscada es `rp=x**(1/a)`: una pequeña desviación relativa de x puede aumentar en rp aproximadamente por el factor `1/a`. Por ello se registran **errores absolutos y relativos en ambas variables** y, por separado, el **residuo** `|Q(x)|`. Un residuo pequeño no garantiza una raíz bien localizada si la pendiente cerca de ella es pequeña.
+
+### INGENIERÍA Y PYTHON — máximos de trabajo y rendimiento
+
+Se compara cada buscador propio de malla logarítmica y **sección áurea** con `scipy.optimize.minimize_scalar(method="bounded")`. Dado que `minimize_scalar` busca un *mínimo*, el callback devuelve `-trabajo_neto` [kJ/kg] o `-rendimiento` [fracción]: minimizar `-W` equivale a maximizar `W`, y análogamente para eta.
+
+Ambos algoritmos buscan en `y=log(rp)`, con `rp=exp(y)`. Así el intervalo representa **razones multiplicativas** de presión y evita comparar una búsqueda en escala lineal con otra logarítmica. Se recorta sólo para la búsqueda una fracción `1e−6` en cada extremo del intervalo logarítmico abierto; **las fronteras físicas no cambian**. Se prueban cuatro máximos interiores de trabajo (uno ideal y tres no ideales) y tres máximos interiores de rendimiento **no ideal**.
+
+Para aceptar un máximo de SciPy se exige, además de `result.success` y números finitos, estar dentro del dominio, superar `evaluar_punto(...)["viable"]` y presentar valores menores del objetivo en dos puntos interiores a ambos lados. Este último control es una evidencia local de máximo, **no una demostración global para funciones arbitrarias**. El rendimiento ideal constituye un contraejemplo deliberado: crece hacia una frontera de aporte nulo y sólo tiene **supremo no alcanzado**. SciPy puede informar éxito junto a la frontera; el filtro descarta correctamente la etiqueta de máximo motor interior. Cuando no existe dominio motor, la búsqueda propia informa ausencia de solución en vez de atribuirla a fallo de convergencia.
+
+**PYTHON.** `for` y `unittest.subTest()` reutilizan combinaciones de parámetros sin crear docenas de métodos. Una función interna `contado(x)` utiliza un cierre sobre una lista `[0]` para contar cada evaluación; en SciPy se coteja con `function_calls` (raíces) o `nfev` (máximos). `types.SimpleNamespace` fabrica cuatro resultados falsos (`success=False`, frontera, NaN, punto sin máximo) para verificar el filtro sin necesitar provocar fallos reales inestables. Las firmas y retornos de los dos auxiliares, junto a los ocho tests, están descritos en el manual §4.47.
+
+### Tolerancias, precisión y resultados observados
+
+Se fijan explícitamente `xtol=rtol=1e−12` en `bisect`/`brentq`; el método propio usa `tolerancia=1e−12`, que detiene por **anchura relativa del intervalo en x**. No son criterios matemáticamente idénticos. Para las referencias analíticas se comprueba:
+
+| Magnitud | Límite de error/residuo |
+|---|---|
+| Raíz x, adimensional | `|Δx|≤2e−12+3e−12|x_ref|` |
+| Raíz rp, adimensional | `|Δrp|≤1e−9+2e−11|rp_ref|` |
+| Residuo de Q, adimensional | `|Q(x)|≤2e−11·max(1,x²,|(1+h)x|,hk)` |
+| Posición rp del máximo, adimensional | `|Δrp|≤1e−6+2e−6·max(rp_propio,rp_SciPy)` |
+| Trabajo máximo, kJ/kg | `|ΔW|≤1e−8+1e−10·max(|W_propio|,|W_SciPy|,cp*T3/1000)` |
+| Rendimiento máximo, fracción | `|Δeta|≤1e−10+1e−10·|eta_SciPy|` |
+
+En máximos se fija `xatol=1e−9` en `y=log(rp)` para SciPy y `tolerancia_log=1e−9` para el buscador propio. Cerca de un máximo plano, los valores de W o eta varían **cuadráticamente** con la desviación de posición; por tanto, pueden coincidir casi a precisión de máquina mientras rp difiere en varias millonésimas. Las tolerancias permiten esa geometría, sin ser márgenes experimentales. `resolucion_rp` informa una escala de precisión interna, no una cota formal del error frente a SciPy.
+
+**Ejecución real (22/10/2026, SciPy 1.17.0):** ocho métodos nuevos superados, ninguno fallido u omitido; ocho pruebas preexistentes de raíces/optimización también superadas. **Total focalizado: 16/16.** En un ensayo separado que simula ausencia de SciPy, se ejecutaron **2 métodos correctos y 6 omitidos**. No se ejecutó la suite completa.
+
+| Comparación | Mayor error absoluto observado | Mayor error relativo observado |
+|---|---:|---:|
+| Raíces Q, posición x frente a fórmula cuadrática (3 métodos) | `3.3155700e−12` | `1.1178260e−12` |
+| Raíces Q, posición rp frente a fórmula cuadrática (3 métodos) | `4.2663828e−10` | `4.5051234e−12` |
+| Máximo trabajo, posición rp propia frente a SciPy | `7.2124703e−7` | `5.9060284e−8` |
+| Máximo trabajo, W propio frente a SciPy [kJ/kg] | `2.2737368e−13` | `4.8875800e−16` |
+| Máximo rendimiento no ideal, posición rp | `1.7468397e−6` | `6.9062480e−8` |
+| Máximo rendimiento no ideal, eta [fracción] | `3.3306691e−16` | `8.5944239e−16` |
+
+El mayor residuo en las seis raíces de Q y tres métodos fue `|Q(x)|=1.0637699e−11` (SciPy `bisect`, raíz superior del caso de referencia). La mayor diferencia **entre bisección propia y SciPy bisect**, sin fórmula intermedia, fue `3.5766945e−12` en x y `4.6023274e−10` en rp; frente a `brentq` fue `1.6404655e−12` en x y `2.0206414e−10` en rp.
+
+Para el ejemplo `x²−2=0`, con referencia `sqrt(2)≈1.4142135623730951`, los errores absolutos fueron `2.1605e−13` (propia, 43 llamadas), `1.5803e−12` (`bisect`, 41 llamadas) y `4.1300e−14` (`brentq`, 8 llamadas). Sólo describen ese caso, no la rapidez garantizada de cada algoritmo.
+
+| Ejemplo no ideal de referencia | Método propio | SciPy bounded | Evaluaciones propia / SciPy |
+|---|---:|---:|---:|
+| rp para máximo trabajo | `12.89505173504` | `12.89505166962` | 297 / 6 |
+| Trabajo máximo [kJ/kg] | `373.2108274827` | `373.2108274827` | — |
+| rp para máximo rendimiento | `35.45232192220` | `35.45232299066` | 297 / 11 |
+| Rendimiento máximo [fracción] | `0.4389310716313` | `0.4389310716313` | — |
+
+Los contadores de raíces variaron de **43 a 45** evaluaciones propias, **41 a 43** en `bisect` y **10 a 11** en `brentq` para estos seis intervalos; los ejemplos de máximos propios usaron 297 evaluaciones (malla y refinamiento) frente a **6–24** de SciPy para trabajo y **11–14** para rendimiento. Se cuentan funciones **en estrategias distintas**: no se concluye superioridad universal de velocidad ni se exigen iteraciones exactas en los tests.
+
+**Caso límite observado:** SciPy devuelve `success=True` y `rp≈403.4151` para el rendimiento ideal. `evaluar_punto` aún considera motor ese punto interior, pero su rendimiento sigue aumentando al acercarse a la frontera: **no es un máximo interior**, y el filtro lo rechaza. El buscador propio conserva `estado="supremo_no_alcanzado"`.
+
+### Qué hemos aprendido y qué queda pendiente
+
+Los resultados son consistentes en estos ejemplos **moderados y con máximos interiores resolubles**. No se ha detectado una discrepancia que justifique alterar por ahora los algoritmos propios. La diferencia de evaluaciones sugiere estudiar su coste en futuras tareas, pero **sin benchmarks exhaustivos aquí**. En casos cercanos a raíces dobles, fronteras abiertas o máximos muy planos podría ser necesario estudiar precisión y criterios de aceptación con mayor cuidado.
+
+Esta es **verificación cruzada de implementaciones que comparten el mismo modelo**; no valida los supuestos termodinámicos frente a datos experimentales. Siguen pendientes los estudios sistemáticos de tolerancia, malla, convergencia, condicionamiento y límites numéricos, así como la validación física externa. La Tarea 1.3 permanece **sin commit ni publicación**, a la espera de revisión; no se ha modificado `main`.
