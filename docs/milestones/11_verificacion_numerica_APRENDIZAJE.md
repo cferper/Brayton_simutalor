@@ -2,7 +2,7 @@
 
 Documento educativo del **22 de octubre de 2026**. No debe confundirse esta **nueva Fase 1 de verificación numérica y comparación de modelos** con la **antigua Fase 1 de dominio físicamente viable** ([milestone 03](03_dominio_viable.md)).
 
-**Base histórica de la fase:** `27d4519094d5eb74f5009a1889a1e74dc8dddb94` (rama `main` en el inicio de la Tarea 1.1). La Tarea 1.1 está publicada en la rama `mejoras/verificacion-numerica`, commit `275e7558b7d05322054f89ecd672ed5563c59469`. La Tarea 1.2 también se publicó allí, en `143d10fd25ebd23ddb897722b7843bddabfd16a5`. **La Tarea 1.3 parte exactamente de ese segundo commit remoto**; sus cambios están sólo en una nueva copia de trabajo y pendientes de revisión, sin commit.
+**Base histórica de la fase:** `27d4519094d5eb74f5009a1889a1e74dc8dddb94` (rama `main` al iniciar la Tarea 1.1). La Tarea 1.1 se publicó en `mejoras/verificacion-numerica`, commit `275e7558b7d05322054f89ecd672ed5563c59469`; la Tarea 1.2, en `143d10fd25ebd23ddb897722b7843bddabfd16a5`; y **la Tarea 1.3, en `8ecbc1bf75e7e68fc3377cbf97017f8480d32553`**. La Tarea 1.4 parte de ese último commit remoto. Sus cambios siguen pendientes de revisión **sin commit ni publicación**.
 
 ## 1. Estado anterior y propósito
 
@@ -133,7 +133,7 @@ Caso base (`T1=288.15 K`, `T3=1600 K`, `gamma=1.4`, `cp=1005 J/(kg·K)`, `rp=10`
 ## 6. Limitaciones, próximos pasos y trazabilidad
 
 1. Se han contrastado cinco casos interiores moderados, no todos los valores admisibles. No se han estudiado condicionamiento, límites de representación, puntos degenerados ni fronteras abiertas.
-2. En esta **Tarea 1.1** aún no se había comparado ningún algoritmo con SciPy; esa comparación se añade posteriormente en la Tarea 1.3 (§8). Los estudios sistemáticos de mallas y convergencia siguen pendientes.
+2. En esta **Tarea 1.1** aún no se había comparado ningún algoritmo con SciPy; esa comparación se añadió posteriormente en la Tarea 1.3 (§8). Los estudios de mallas y convergencia estaban pendientes entonces y se abordan en la Tarea 1.4 (§9).
 3. No hay datos experimentales ni comparación con una correlación de un motor real: esto es **verificación de software** y de consistencia bajo el modelo de gas ideal con propiedades constantes, **no validación física**.
 4. No se modifica `qout` como salida pública ni se añaden funciones de producción para los tests.
 5. Esta tarea no crea un milestone **técnico de cierre** de la Fase 1 completa. El documento se ampliará en futuras tareas de esta fase, sin presentar como realizados sus resultados pendientes.
@@ -203,7 +203,7 @@ Las cinco comprobaciones nuevas son: (1) raíces analíticas y residuos para cua
 | Error relativo en rp | `1.4261261054e−12` | entrada_fria, inferior |
 | Mayor `abs(Q(x_num))` | `2.2444268666e−12` | entrada_fria, superior |
 
-Estos números se obtuvieron además con un cálculo diagnóstico separado, sobre los mismos cuatro casos, y **no** son límites universales del método. La verificación sólo confirma la implementación y la interpretación de su **modelo termodinámico simplificado**; validar físicamente un motor requeriría datos o referencias externas. Continúan pendientes el condicionamiento junto a raíces casi dobles, límites de representación y estudios de convergencia. Las comparaciones con SciPy se añadieron posteriormente (§8). La Tarea 1.2 se ejecutó primero sin commit y **fue publicada después** en la rama de desarrollo, commit `143d10f`.
+Estos números se obtuvieron además con un cálculo diagnóstico separado, sobre los mismos cuatro casos, y **no** son límites universales del método. La verificación sólo confirma la implementación y la interpretación de su **modelo termodinámico simplificado**; validar físicamente un motor requeriría datos o referencias externas. Quedaron entonces pendientes el condicionamiento junto a raíces casi dobles, límites de representación y estudios de convergencia (estos últimos se desarrollan para casos moderados en §9). Las comparaciones con SciPy se añadieron posteriormente (§8). La Tarea 1.2 se ejecutó primero sin commit y **fue publicada después** en la rama de desarrollo, commit `143d10f`.
 
 ## 8. Iteración del 22 de octubre de 2026 — Tarea 1.3: comparación opcional con SciPy
 
@@ -279,4 +279,100 @@ Los contadores de raíces variaron de **43 a 45** evaluaciones propias, **41 a 4
 
 Los resultados son consistentes en estos ejemplos **moderados y con máximos interiores resolubles**. No se ha detectado una discrepancia que justifique alterar por ahora los algoritmos propios. La diferencia de evaluaciones sugiere estudiar su coste en futuras tareas, pero **sin benchmarks exhaustivos aquí**. En casos cercanos a raíces dobles, fronteras abiertas o máximos muy planos podría ser necesario estudiar precisión y criterios de aceptación con mayor cuidado.
 
-Esta es **verificación cruzada de implementaciones que comparten el mismo modelo**; no valida los supuestos termodinámicos frente a datos experimentales. Siguen pendientes los estudios sistemáticos de tolerancia, malla, convergencia, condicionamiento y límites numéricos, así como la validación física externa. La Tarea 1.3 permanece **sin commit ni publicación**, a la espera de revisión; no se ha modificado `main`.
+Esta es **verificación cruzada de implementaciones que comparten el mismo modelo**; no valida los supuestos termodinámicos frente a datos experimentales. Al cerrar la Tarea 1.3 aún estaban pendientes los estudios de tolerancia, malla, convergencia, condicionamiento y límites numéricos; el estudio representativo de los tres primeros se prepara en §9. La Tarea 1.3 quedó **publicada después** en el commit `8ecbc1b` de `mejoras/verificacion-numerica`, sin modificar `main`.
+
+## 9. Iteración del 22 de octubre de 2026 — Tarea 1.4: convergencia y sensibilidad numérica
+
+### Qué se estudia y por qué
+
+**Estado verificado:** rama remota `mejoras/verificacion-numerica`, commit `8ecbc1bf75e7e68fc3377cbf97017f8480d32553`. La Tarea 1.3 había demostrado concordancia con SciPy en casos seleccionados, pero no explicaba cuánto cambia la respuesta cuando se modifican la **tolerancia**, el **presupuesto de iteraciones** o el **número de muestras**. Esta Tarea 1.4 añade sólo `tests/test_convergencia_numerica.py`, la sección [4.48 del manual](../../CODE_WALKTHROUGH.md) y esta sección educativa. No se cambian funciones de producción, predeterminados, interfaz ni dependencias.
+
+En matemáticas, una sucesión converge si se acerca a un límite. En un ordenador, la **convergencia numérica** significa que el algoritmo satisface un **criterio de parada declarado**, con operaciones finitas y redondeo. Son conceptos conectados, pero distintos: cumplir la condición de anchura de un intervalo no equivale a demostrar un error exacto en `rp`; tampoco implica que la física del modelo sea experimentalmente correcta.
+
+### A. Raíces: tolerancia, anchura, residuos y coste
+
+La bisección exige una función continua cuyos valores en los extremos tengan signos contrarios. Si el intervalo inicial mide `L`, tras `n` divisiones su anchura geométrica será `L/2**n`; si el algoritmo hace la comprobación antes de subdividir una última vez, hay que contar exactamente en qué momento se observa esa anchura. Se ensayan `f(x)=x²−2` con referencia `sqrt(2)` y **dos raíces** de la cuadrática de trabajo de cada uno de dos ciclos no ideales (`referencia` y `gamma_133`), con fórmulas directas `x_±=((1+h)±sqrt(D))/2`. Son cinco raíces en total, todas simples y moderadas. Para las cuatro tolerancias se mantienen **100 iteraciones disponibles**.
+
+| Tolerancia en x | Máx. `|Δx|` | Máx. `|Δrp|` | Máx. residuo `|f(x)|` | Pasos de bisección | Evaluaciones |
+|---|---:|---:|---:|---:|---:|
+| `1e−6` | `3.281e−7` | `4.222e−5` | `1.053e−6` | 21–23 | 23–25 |
+| `1e−8` | `1.405e−8` | `2.075e−6` | `3.164e−8` | 27–29 | 29–31 |
+| `1e−10` | `1.417e−10` | `1.824e−8` | `4.548e−10` | 34–36 | 36–38 |
+| `1e−12` | `3.191e−13` | `3.359e−11` | `8.397e−13` | 41–43 | 43–45 |
+
+El error relativo máximo en x de toda la serie es `2.787e−7` (`gamma_133`, raíz inferior, `1e−6`); en rp es `1.123e−6` (mismo caso). Los máximos absolutos de x (`3.281e−7`), rp (`4.222e−5`) y residuo (`1.053e−6`) corresponden a la raíz **superior** del caso de referencia con `1e−6`. Los valores en rp se refieren únicamente a las cuatro raíces termodinámicas, no a `sqrt(2)`.
+
+**INGENIERÍA.** La conversión `rp=x**(1/a)` con `a=(gamma−1)/gamma` puede amplificar el error relativo en aproximadamente `1/a`. El **residuo** `|Q(x)|` expresa el defecto de la ecuación, mientras que el **error de raíz** mide distancia a la solución analítica; una pendiente pequeña puede dejar un residuo minúsculo sin precisión de posición. Por eso la prueba compara el error con la **última anchura reconstruida** más un margen para coma flotante; nunca interpreta `tolerancia` como una cota universal de rp.
+
+Al limitar deliberadamente la búsqueda a **1, 5 o 12 pasos** con `tolerancia=1e−12`, las cinco raíces producen `ErrorNumerico` por agotamiento. El callback registra exactamente dos evaluaciones de los extremos más las de esos pasos. Un intervalo sin cambio de signo produce `ValueError`, no un falso resultado ni un diagnóstico de dominio motor vacío. No se estudian aquí raíces casi dobles.
+
+### B. Tamaño de malla: resolución inicial frente a coste
+
+`buscar_maximo_numerico()` toma muestras en `y=log(rp)` y refina con sección áurea. Se fijan `tolerancia_log=1e−9`, `max_iteraciones=100` y los parámetros físicos de **tres casos** (ideal, no ideal de referencia y `gamma_133`); sólo cambia `muestras`. El óptimo analítico se usa **después**, para medir el error y verificar si los nodos vecinos del mejor punto inicial lo acotaban, nunca para orientar el algoritmo.
+
+| Muestras | Máx. error `rp` | Máx. error trabajo [kJ/kg] | Evaluaciones | Iteraciones refinamiento |
+|---:|---:|---:|---:|---:|
+| 17 | `8.492e−7` | `1.705e−13` | 62–63 | 43–44 |
+| 33 | `8.414e−7` | `2.274e−13` | 77–78 | 42–43 |
+| 65 | `2.389e−7` | `2.274e−13` | 108 | 41 |
+| 129 | `3.969e−7` | `2.274e−13` | 170–171 | 39–40 |
+| **257** | **`1.792e−7`** | **`1.705e−13`** | **297** | **38** |
+| 513 | `5.359e−7` | `5.684e−14` | 551–552 | 36–37 |
+
+Las seis mallas acotaron el máximo interior en estos tres casos. El mayor error absoluto de rp se produjo con **17 nodos en el caso ideal** (`8.492e−7`); el mayor relativo fue `4.389e−8` con 17 nodos en el caso de referencia. El mayor error observado de trabajo fue `2.274e−13 kJ/kg` (entre otros, referencia con 33 nodos). Aumentar muestras **no mejora obligatoriamente el error de rp**: las diferencias son pequeñas, el máximo es plano y el valor de W ya está próximo al límite de redondeo. En cambio, más muestras sí elevan claramente las evaluaciones. Son **contadores de funciones, no tiempos de CPU**; no se ha hecho benchmarking.
+
+### C. Refinamiento: cambiar sólo la tolerancia logarítmica
+
+Con `muestras=257` y `max_iteraciones=100` fijos, se aplican las cuatro tolerancias a **trabajo** (los tres casos anteriores) y a **rendimiento no ideal** (dos casos con máximo interior). El candidato estacionario `calcular_candidato_analitico` o `calcular_candidato_rendimiento` es referencia de contraste, no entrada de búsqueda. El error de posición se expresa en `rp` (adimensional), el trabajo en **kJ/kg** y el rendimiento como **fracción**, no como porcentaje.
+
+| `tolerancia_log` | Máx. `|Δrp|` trabajo | Máx. `|ΔW|` [kJ/kg] | Evaluaciones trabajo (máx.) | Máx. `|Δrp|` rendimiento | Máx. `|Δeta|` | Evaluaciones rendimiento (máx.) |
+|---|---:|---:|---:|---:|---:|---:|
+| `1e−5` | `9.258e−12` | `2.274e−13` | 278 | `1.829e−5` | `2.237e−14` | 278 |
+| `1e−7` | `2.530e−7` | `1.137e−13` | 288 | `1.082e−6` | `2.220e−16` | 287 |
+| `1e−9` | `1.792e−7` | `1.705e−13` | 297 | `1.649e−6` | `2.220e−16` | 297 |
+| `1e−11` | `1.792e−7` | `2.274e−13` | 307 | `1.649e−6` | `2.220e−16` | 306 |
+
+Las iteraciones máximas fueron respectivamente **19, 29, 38 y 48** para trabajo, y **19, 28, 38 y 47** para rendimiento. El mayor error absoluto de rp de trabajo en esta serie (`2.530e−7`) corresponde al **ideal, `1e−7`**, y el mayor error relativo (`1.485e−8`) a **`gamma_133`, `1e−11`**. En rendimiento el mayor error absoluto (`1.829e−5`), relativo (`5.849e−7`) y en fracción (`2.237e−14`) se produjo en **`gamma_133`, `1e−5`**. Los errores máximos de cada fila pueden corresponder a casos distintos: no constituyen una trayectoria de un único ensayo.
+
+**Máximo plano y doble precisión.** En un extremo estacionario, la derivada primera se anula y el cambio de W/eta por un pequeño desplazamiento en rp suele ser de **segundo orden**. Por ello una coincidencia de quince cifras en trabajo **no** garantiza la misma precisión en la posición. Los buscadores informan `resolucion_rp=rp·max(tolerancia_log,32√eps)`; como `32√eps≈4.768e−7` para `float64`, esta escala **deja de reducirse** al pedir `1e−7`, `1e−9` o `1e−11`. Es una estimación conservadora de resolución, no el error medido. Para el caso no ideal de referencia, la `resolucion_rp` observada de **trabajo** fue `1.290e−4` (`1e−5`) y aproximadamente `6.149e−6` (`1e−7`, `1e−9`, `1e−11`); para **rendimiento**, `3.545e−4` y aproximadamente `1.690e−5`, respectivamente. En ese mismo caso, el error efectivo de rp a `1e−9` y `1e−11` resultó idéntico mientras las evaluaciones crecieron de 297 a 306–307. Una tolerancia más estricta puede aumentar el coste sin aportar cifras fiables adicionales; ello no prueba por sí solo un defecto.
+
+Con el control fijo `tolerancia_log=1e−11`, los presupuestos máximos de **1, 12 y 30 iteraciones** causaron el mensaje explícito de no convergencia en los casos seleccionados de ambos optimizadores; con **100** finalizaron correctamente. No se inventan posiciones ni evaluaciones para las búsquedas que lanzan una excepción, pues su API no devuelve un resultado parcial.
+
+### D. Fronteras físicas abiertas y banda de admisión
+
+Los dominios son intervalos **abiertos** por exigencias físicas (`rp>1`, expansión, `qin>0` y `wneto>0`). En los casos ideal y no ideal de referencia se examinan puntos interiores multiplicando el extremo inferior por `1+distancia` o el superior por `1−distancia`. Una distancia muy pequeña aún puede superar cero matemáticamente y, a la vez, ser **rechazada por la banda numérica relativa `1e−10`** de `evaluar_punto()`.
+
+| Caso / frontera | Distancia relativa | Trabajo `wneto` [kJ/kg] | Calor `qin` [kJ/kg] | ¿Motor aceptado? |
+|---|---:|---:|---:|---|
+| Ideal, superior | `1e−3` | `0.376799` | `0.459593` | Sí |
+| Ideal, superior | `1e−6` | `3.76688e−4` | `4.59429e−4` | Sí |
+| Ideal, superior | `1e−9` | `3.76688e−7` | `4.59428e−7` | Sí |
+| Ideal, superior | `1e−12` | `3.76531e−10` | `4.59306e−10` | **No (banda)** |
+| No ideal, superior | `1e−3` | `0.312446` | `218.934` | Sí |
+| No ideal, superior | `1e−9` | `3.12295e−7` | `218.522` | Sí |
+| No ideal, superior | `1e−12` | `2.44427e−10` | `218.522` | **No (banda)** |
+
+La frontera inferior de ambos casos presenta el mismo patrón de admisión: `1e−3`, `1e−6` y `1e−9` aceptados; `1e−12` excluido. Con `tolerancia=0`, los puntos a esas cuatro distancias aún tienen todos los márgenes estrictamente positivos; el diagnóstico correcto a `1e−12` es **punto matemáticamente interior excluido por tolerancia**, no ausencia de dominio. En ambos extremos el trabajo tiende a cero, pero `qin` sólo tiende a cero en el extremo **superior ideal**: el no ideal del ejemplo pierde la condición de trabajo antes que la de calor. Al ser rechazado un punto, `rendimiento=None`, evitando dividir por aporte de calor no admisible. Las propias fronteras quedan excluidas; el rendimiento ideal conserva un **supremo no alcanzado** y no se declara un máximo ficticio.
+
+### PYTHON, tolerancias de aceptación y comprobaciones reales
+
+Se usan `unittest.TestCase`, ocho métodos y `subTest()` para identificar combinaciones, sin crear centenares de métodos independientes. El auxiliar `_referencias_raices(self)` prepara los cinco intervalos y sus fórmulas; su callback `Q(x,h=h,k=k)` fija los coeficientes de cada caso mediante argumentos por defecto para evitar reutilizar por accidente los del último ciclo. `contado(x)` guarda cada evaluación. En mallas, el test reconstruye por separado los puntos iniciales, identifica el nodo de máximo y confirma que sus vecinos encierran el óptimo analítico. Las firmas, unidades, excepciones y llamadas aparecen en el [manual §4.48](../../CODE_WALKTHROUGH.md).
+
+Las pruebas de bisección verifican el intervalo dividido y un margen de coma flotante de `5e−13·max(1,|x_ref|)`; el error relativo transformado en rp se controla mediante `4|Δx|/(a·x_ref)+1e−12`. Para posiciones del máximo de trabajo se admite `|Δrp|≤2e−7·rp_ref` al variar mallas, o `|Δrp|/rp_ref≤max(2e−7,3*tolerancia_log)` al variar tolerancia. Para rendimiento no ideal se exige `|Δrp|/rp_ref≤max(2e−6,3*tolerancia_log)`. En magnitudes objetivo, `|ΔW|≤1e−9 kJ/kg` y `|Δeta|≤1e−10`. Estos márgenes son deliberadamente mayores que los errores medidos en los casos **moderados** ensayados; no se han reajustado para imponer monotonía ni son garantías generales. Se comprueba adicionalmente la anchura final en logaritmos con `tolerancia_log+1e−14` para redondeo al exponenciar límites.
+
+**Ejecución realmente realizada el 22/10/2026:** `8/8` métodos nuevos correctos y `8/8` regresiones seleccionadas correctas de `test_verificacion_raices.py`, `test_comparacion_scipy.py` y `test_optimizacion_rendimiento.py`. **Total final 16 métodos superados, 0 fallidos, 0 omitidos**, sin suite general. Hubo una aserción inicialmente incorrecta en el test nuevo: el dominio vacío se representa como `()` y no como `None`; se corrigió únicamente esa expectativa y se ejecutaron de nuevo las ocho pruebas nuevas con éxito. No se detectó error de producción. Comandos:
+
+```bash
+python -B -m unittest discover -s tests -p 'test_convergencia_numerica.py' -v
+PYTHONPATH=tests python -B -m unittest -v \
+  test_verificacion_raices.VerificacionRaicesTests.test_raices_noideales_con_referencias_y_residuos \
+  test_verificacion_raices.VerificacionRaicesTests.test_interseccion_de_restricciones_y_fronteras_abiertas \
+  test_comparacion_scipy.ComparacionSciPyTests.test_raiz_matematica_conocida \
+  test_comparacion_scipy.ComparacionSciPyTests.test_maximo_trabajo_con_bounded \
+  test_comparacion_scipy.ComparacionSciPyTests.test_maximo_rendimiento_noideal_con_bounded \
+  test_optimizacion_rendimiento.RendimientoTests.test_busqueda_numerica_independiente \
+  test_optimizacion_rendimiento.RendimientoTests.test_banda_numerica_no_crea_un_maximo_de_frontera \
+  test_optimizacion_rendimiento.RendimientoTests.test_ideal_supremo_no_es_optimo_motor
+```
+
+**Conclusiones acotadas.** Los **257 nodos predeterminados son razonables**: los tres ejemplos acotan un máximo admisible y alcanzan error de rp menor de `2e−7` con unas 297 evaluaciones. No obstante, 17–129 nodos también lo consiguen en estos ejemplos y pueden ahorrar llamadas: no se demuestra que 257 sea óptimo para otros dominios. **`tolerancia_log=1e−9` es razonable**, aunque en estos máximos planos apretar más que `1e−7` no ofreció mejora consistente de la posición. **100 iteraciones bastaron** holgadamente en lo ensayado (máximo 48), no en cualquier problema posible. La planitud, las evaluaciones redundantes cuando la precisión está saturada y la clasificación en las bandas estrechas merecen investigaciones futuras; **no hay evidencia para cambiar hoy los algoritmos ni los controles predeterminados**. Permanecen fuera de alcance raíces casi dobles, estudio estadístico o temporal de eficiencia, extremos de representación y validación física experimental. La Tarea 1.4 está guardada sólo en una **copia de trabajo temporal pendiente de revisión**, no publicada.
