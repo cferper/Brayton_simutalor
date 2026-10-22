@@ -8,11 +8,12 @@ import re
 
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 from sensibilidad import PARAMETROS_ESTUDIO
+from guias_educativas import construir_guias, construir_pestanas
 
 RAIZ = Path(__file__).resolve().parent
 SECCIONES = (("simulacion", "Simulación"), ("resultados", "Resultados"),
              ("optimizacion", "Optimización"), ("sensibilidad", "Sensibilidad"),
-             ("mapa", "Mapa de diseño"), ("informes", "Informes"), ("ayuda", "Ayuda"))
+             ("mapa", "Mapa de diseño"), ("segunda_ley", "Segunda ley"), ("informes", "Informes"), ("ayuda", "Ayuda"))
 GRUPOS = (("Condiciones de entrada", ("T1", "T3", "p1")),
           ("Propiedades del fluido", ("cp", "gamma")),
           ("Configuración y pérdidas", ("relacion_presiones", "eta_c", "eta_t", "perdida_presion_combustor")))
@@ -125,7 +126,7 @@ def renderizar_dashboard(valores, *, contenidos=None, metadata=None, informes=()
         titulo="Configuración del ciclo" if modo_local else "Informe técnico",
         css=css, js=js, motor=(RAIZ / "static/images/engine-cutaway.svg").read_text(encoding="utf-8"),
         valores=valores, grupos=GRUPOS, campos=CAMPOS, estudios=PARAMETROS_ESTUDIO,
-        secciones=SECCIONES, ayuda=AYUDA, errores=errores or {}, informes=informes,
+        secciones=SECCIONES, guias=construir_guias(), pestanas=construir_pestanas(), ayuda=AYUDA, errores=errores or {}, informes=informes,
         tiene_informe=bool(metadata), texto_intro=INTRODUCCION, glosario=GLOSARIO,
         contenidos=contenidos or {k: "" for k in ("resultados", "optimizacion", "sensibilidad")},
         informe_actual=informe_actual, modo_local=modo_local, seccion_inicial=seccion_inicial,
@@ -167,6 +168,9 @@ def separar_presentacion(contenido):
     parte_mapa = re.search(r'<!--PANEL:mapa-->(.*?)<!--FIN:mapa-->', contenido, re.S)
     if parte_mapa:
         paneles['mapa'] = parte_mapa[1]
+    parte_segunda = re.search(r'<!--PANEL:segunda_ley-->(.*?)<!--FIN:segunda_ley-->', contenido, re.S)
+    if parte_segunda:
+        paneles['segunda_ley'] = parte_segunda[1]
     return metadata, paneles
 
 
@@ -207,15 +211,19 @@ def visor_graficas(legado, imagenes, sensibilidad=False):
 
 def terminar_informe(legado, parametros, imagenes, fecha, version, *, noideal=None,
                      barrido=None, optimizaciones=None, estudio_rendimiento=None,
-                     comparacion=None, sensibilidad=None):
+                     comparacion=None, sensibilidad=None, segunda_ley=None):
     """Convierte presentación heredada a dashboard conservando datos/PNG sin recalcular."""
-    from reporting import MARCA_INICIO, MARCA_FINAL
+    from reporting import MARCA_INICIO, MARCA_FINAL, seccion_segunda_ley_html
     visor, detalles, cabecera = visor_graficas(legado, imagenes, sensibilidad is not None)
     paneles = {k: "" for k in ("resultados", "optimizacion", "sensibilidad")}
     metadata = {"dashboard": 1, "tipo": "sensibilidad" if sensibilidad is not None else "normal",
                 "parametros": parametros, "fecha": fecha.isoformat(), "git": version}
     valores = parametros.copy()
     valores["perdida_presion_combustor"] *= 100
+    if segunda_ley is not None:
+        metadata['segunda_ley'] = segunda_ley
+        valores['T0'] = segunda_ley['T0']
+        paneles['segunda_ley'] = bloque_educativo('Parámetros del caso', parametros_fijos_texto(parametros, ())) + seccion_segunda_ley_html(segunda_ley)
     if sensibilidad is not None:
         c = sensibilidad["configuracion"]
         metadata["estudio"] = c

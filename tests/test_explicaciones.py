@@ -39,8 +39,9 @@ class ExplicacionesTests(unittest.TestCase):
 
     def test_introduccion_y_glosario_en_tres_informes(self):
         for html in (self.normal, self.ofat_html, self.map_html):
-            self.assertEqual(html.count('¿Qué estamos estudiando?'), 1)
-            self.assertIn('Todavía no calculamos el empuje', html)
+            self.assertNotIn('¿Qué estamos estudiando?', html)
+            self.assertIn('no calcula empuje', html)
+            self.assertEqual(html.count('data-edu-tabs='), 6)
             self.assertIn('Glosario de magnitudes', html)
             for termino in ('Back work ratio', 'kJ/kg', 'kW', 'eta_c y eta_t', 'delta'):
                 self.assertIn(termino, html)
@@ -157,7 +158,8 @@ class ExplicacionesTests(unittest.TestCase):
             ruta = reporting.guardar_informe_html(self.map_html, d, self.fecha)
             cliente = web_app.app.test_client()
             vista = cliente.get('/informes/'+ruta.name).get_data(as_text=True)
-            for texto in (dashboard.INTRODUCCION, dashboard.EXPLICACIONES_GRAFICAS['mapa_viabilidad.png']):
+            self.assertNotIn(dashboard.INTRODUCCION, vista)
+            for texto in (dashboard.EXPLICACIONES_GRAFICAS['mapa_viabilidad.png'],):
                 self.assertEqual(vista.count(texto), 1)
             self.assertEqual(cliente.get('/informes/'+ruta.name+'?descargar=1').get_data(as_text=True), self.map_html)
             self.assertIn('Glosario de magnitudes', cliente.get('/').get_data(as_text=True))

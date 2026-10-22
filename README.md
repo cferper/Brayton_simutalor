@@ -237,6 +237,7 @@ Brayton_Simulator/
 ├── sensibilidad.py
 ├── viabilidad.py
 ├── reporting.py
+├── segunda_ley.py
 ├── mapa_diseno.py
 ├── dashboard.py
 ├── web_app.py
@@ -250,6 +251,7 @@ Brayton_Simulator/
 ├── tests/test_optimizacion_rendimiento.py
 ├── tests/test_integracion_rendimiento.py
 ├── tests/test_sensibilidad.py
+├── tests/test_segunda_ley.py
 ├── tests/test_mapa_diseno.py
 ├── tests/test_dashboard.py
 ├── tests/test_viabilidad.py
@@ -368,7 +370,7 @@ OFAT does not measure parameter interactions or a universal importance ranking. 
 
 ### Technical dashboard redesign
 
-The local app now has seven sections: **Simulación, Resultados, Optimización, Sensibilidad, Mapa de diseño, Informes, Ayuda**. Normal runs open Resultados with six non-ideal KPI cards and physical-domain status. Seven original PNGs are grouped into Rendimiento, Trabajo, Diagramas termodinámicos, Compromiso de diseño and Todas; the last view reuses the same images in a grid. OFAT uses three separate tabs, scenario availability counts, a local-elasticity summary and collapsible complete tables. Native dialogs enlarge charts and close with Escape. Arrow keys/Home/End operate chart tabs; section fragments support direct navigation and browser history. Navigation never reruns calculations.
+The local app now has eight sections: **Simulación, Resultados, Optimización, Sensibilidad, Mapa de diseño, Segunda ley, Informes, Ayuda**. Normal runs open Resultados with six non-ideal KPI cards and physical-domain status. Seven original PNGs are grouped into Rendimiento, Trabajo, Diagramas termodinámicos, Compromiso de diseño and Todas; the last view reuses the same images in a grid. OFAT uses three separate tabs, scenario availability counts, a local-elasticity summary and collapsible complete tables. Native dialogs enlarge charts and close with Escape. Arrow keys/Home/End operate chart tabs; section fragments support direct navigation and browser history. Navigation never reruns calculations.
 
 The nine physical inputs keep their names, defaults, units and validation. Reports viewed through Flask recover their saved parameters for another run. Informes lists retained complete reports with view/download controls and available metadata; older reports keep their original layout. Downloads are the original offline files, without local-server navigation. The same four-report retention applies. README and walkthrough have narrowly scoped local text routes from Ayuda.
 
@@ -383,6 +385,14 @@ Open **Mapa de diseño** in the local Flask dashboard. It varies compressor pres
 Three maps show motor net work [kJ/kg], thermal efficiency [%] and viability, with physical A/B trajectories independent of grid resolution. Grey cells carry no motor performance; signed energies, exclusion reasons and numerical-limit flags remain in study data. Physical optima outside the plotted window remain in the results table. Reversible efficiency is an unattained supremum, with no point B. Cell edges are not exact physical boundaries. Cut selection and chart tabs only switch saved images.
 
 The standalone report embeds resources, seven fixed parameters/units, Git metadata, maps, cuts and collapsed A/B tables. It shares the four-report retention policy with normal/OFAT runs. No equations, optimizers or dependencies change. Module API: `mapa_diseno.analizar_mapa(parameters, n_rp=100, n_T3=80)`; publication: `mapa_diseno.ejecutar_mapa(output_directory, parameters, **configuration)`. See [learning guide](docs/milestones/08_mapa_diseno_rp_t3_APRENDIZAJE.md) and walkthrough §4.42. New calculations require the local Python server; saved reports work without Internet.
+
+### Second law and component exergy destruction (Phase 6)
+
+Normal reports now include **Segunda ley**: relative entropy at four ideal/non-ideal states (s1=0), adiabatic compressor/turbine entropy generation [kJ/(kg·K)] and component exergy destruction [kJ/kg] at independent ambient reference **T0=288.15 K**. The original seven PNGs remain unchanged; two embedded vector SVGs compare T-s states and component destruction. Dashed connections are visual guides, not internal irreversible process paths.
+
+T0 changes only eD=T0·s_gen. The component sum is **not** the destruction of the whole installation or the direct ideal/non-ideal work difference. Chamber s3−s2 is a fluid entropy change, not its entropy generation: heat-transfer boundary temperatures or combustion modeling are still missing. No global exergetic efficiency is invented.
+
+The section can run a diagnostic for calculable non-motor states or update T0 from a retained report with identical physical inputs, without reevaluating states/optimizers/maps. Normal calculations accept `main(directory, parameters, T0=300)`; direct diagnostic API is `segunda_ley.ejecutar_segunda_ley(directory, parameters, T0=300)`. Reports remain standalone, with the shared four-report history; OFAT/maps do not run second-law analyses per sample. See walkthrough §4.44, [technical milestone](docs/milestones/09_segunda_ley_exergia.md) and [learning guide](docs/milestones/09_segunda_ley_exergia_APRENDIZAJE.md).
 
 ## Educational documentation
 

@@ -182,6 +182,61 @@ def crear_informe_mapa_html(estudio, imagenes, fecha, version_git):
     return MARCA_INICIO + pagina + MARCA_FINAL
 
 
+def seccion_segunda_ley_html(estudio):
+    """Presentación compacta de resultados calculados y dos SVG autocontenidos."""
+    from segunda_ley import crear_graficas_segunda_ley
+    figuras = crear_graficas_segunda_ley(estudio)
+    contenido = bloque_educativo('¿Por qué generan entropía los equipos reales?',
+        'Bajo la hipótesis adiabática y estacionaria, las irreversibilidades del compresor y la turbina aumentan la entropía del fluido. '
+        'Se compara el ideal isentrópico con el no ideal usando exactamente sus cuatro estados calculados. s1=0 es una referencia arbitraria, no entropía absoluta.')
+    contenido += bloque_educativo('¿Qué significa destruir exergía?',
+        f"Con T0={estudio['T0']:g} K, Gouy–Stodola da eD=T0·s_gen: capacidad de producir trabajo útil destruida por irreversibilidad. "
+        'T0 sólo cambia esta valoración, no las temperaturas, trabajo, rendimiento u óptimos. La suma cuantificada comprende únicamente compresor y turbina; no es la pérdida total de la instalación ni la diferencia directa de trabajo ideal/no ideal.')
+    filas_s, filas_c, filas_camara = [], [], []
+    for nombre, d in estudio['modelos'].items():
+        modelo = 'Ideal' if nombre == 'ideal' else 'No ideal'
+        if 'entropias' in d:
+            filas_s.append((modelo, *(f'{x:.8f}' for x in d['entropias'])))
+        if d['estado'] not in ('motor', 'diagnostico_no_motor'):
+            contenido += bloque_educativo(modelo+': '+d['estado'], d['motivo'])
+            continue
+        contenido += f'<p><strong>{modelo}:</strong> {escape(d["estado"])}; {escape(", ".join(d["motivos"]) or "sin motivos de exclusión")}.</p>'
+        for equipo, c in d['componentes'].items():
+            filas_c.append((modelo, equipo, f'{c["valor"]:.8f}', f'{c["exergia_destruida"]:.6f}'))
+            if c['bruto'] < 0:
+                contenido += f'<p class="muted">{modelo} · {equipo}: s_gen bruta={c["bruto"]:.3g}; cero por redondeo dentro de tolerancia {c["tolerancia"]:.3g} kJ/(kg·K).</p>'
+        contenido += f'<p>{modelo} · suma cuantificada de compresor y turbina: <strong>{d["suma_componentes"]:.6f} kJ/kg</strong>.</p>'
+        camara = d['camara']
+        filas_camara.append((modelo, *(f'{camara[k]:.8f}' for k in ('termica', 'presion', 'total'))))
+    contenido += tabla_html(('Modelo', 's1', 's2', 's3', 's4 [kJ/(kg·K)]'), filas_s)
+    contenido += tabla_html(('Modelo', 'Equipo', 's_gen [kJ/(kg·K)]', 'eD [kJ/kg]'), filas_c)
+    contenido += '<div class="plot-grid">' + ''.join(
+        f'<figure data-segunda-ley="{nombre}">{svg}<figcaption>{texto}</figcaption></figure>'
+        for nombre, svg, texto in (('estados_ts', figuras['estados_ts'], 'Estados T-s: conexiones discontinuas sólo como guía visual; no describen procesos irreversibles internos.'),
+                                   ('exergia_componentes', figuras['exergia_componentes'], 'Destrucción de exergía específica de los dos equipos adiabáticos; la suma se indica separadamente.'))) + '</div>'
+    contenido += bloque_educativo('¿Por qué no calculamos todavía todas las pérdidas del ciclo?',
+        's3−s2 es el incremento de entropía del fluido en el aporte de calor; se descompone en contribuciones de temperatura y presión. '
+        'No es la generación de entropía de la cámara: falta la entropía transferida con el calor, sus temperaturas de frontera o un modelo de combustión. '
+        'No calculamos una eficiencia exergética global.')
+    from dashboard import plegable
+    contenido += plegable('Cambio de entropía del fluido 2→3 [kJ/(kg·K)]',
+        tabla_html(('Modelo', 'Temperatura', 'Presión', 'Cambio total del fluido'), filas_camara))
+    return contenido
+
+
+def crear_informe_segunda_ley_html(parametros, estudio, fecha, version):
+    """Informe diagnóstico o de actualización T0; sin simulación normal adicional."""
+    from dashboard import renderizar_dashboard, parametros_fijos_texto
+    paneles = dict(resultados='', optimizacion='', sensibilidad='', segunda_ley=bloque_educativo('Parámetros del caso', parametros_fijos_texto(parametros, ())) + seccion_segunda_ley_html(estudio))
+    valores = parametros.copy(); valores['perdida_presion_combustor'] *= 100; valores['T0'] = estudio['T0']
+    metadata = dict(dashboard=1, tipo='segunda_ley', parametros=parametros, segunda_ley=estudio,
+                    fecha=fecha.isoformat(), git=version)
+    aviso = {True:'Cambios locales sin confirmar', False:'Árbol de trabajo limpio', None:'Estado Git no disponible'}[version['modificado']]
+    info = f'<div class="card"><p>{escape(fecha.isoformat())} · Commit Git: {escape(version.get("commit") or "No disponible")} · {aviso}</p></div>'
+    return MARCA_INICIO + renderizar_dashboard(valores, contenidos=paneles, metadata=metadata,
+        modo_local=False, informe_actual=info, seccion_inicial='segunda_ley') + MARCA_FINAL
+
+
 def obtener_version_git(carpeta):
     """Consulta HEAD y cambios locales sin modificar el repositorio."""
     try:
@@ -342,7 +397,7 @@ def seccion_rendimiento_html(estudios, comparacion):
 
 def crear_informe_html(parametros, ideal, noideal, detalles_ideal, optimo,
                        rendimientos, comprobaciones, imagenes, fecha, version, barrido=None,
-                       optimizaciones=None, *, estudio_rendimiento=None, comparacion_criterios=None):
+                       optimizaciones=None, *, estudio_rendimiento=None, comparacion_criterios=None, segunda_ley=None):
     """Presenta resultados y seis PNG suministrados por main, sin recalcular física."""
     base = {"rendimiento_brayton.png", "diagrama_ts_brayton.png", "diagrama_pv_brayton.png",
             "trabajo_neto_vs_rp.png", "comparacion_ideal_noideal.png", "trabajo_neto_ideal_noideal.png"}
@@ -551,7 +606,7 @@ footer {{ padding: 24px 0; font-size: .85rem; color: #475969; }}
 {MARCA_FINAL}"""
     return terminar_informe(legado, parametros, imagenes, fecha, version, noideal=noideal,
         barrido=barrido, optimizaciones=optimizaciones, estudio_rendimiento=estudio_rendimiento,
-        comparacion=comparacion_criterios)
+        comparacion=comparacion_criterios, segunda_ley=segunda_ley)
 
 
 def guardar_informe_html(contenido, carpeta, fecha):

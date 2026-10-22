@@ -12,6 +12,7 @@ from reporting import MARCA_FINAL, MARCA_INICIO, PATRON_INFORME
 from sensibilidad import PARAMETROS_ESTUDIO, ejecutar_sensibilidad, validar_configuracion
 from dashboard import CAMPOS, GRUPOS, renderizar_dashboard, separar_presentacion
 from mapa_diseno import ejecutar_mapa, validar_configuracion as validar_mapa
+from segunda_ley import ejecutar_segunda_ley, validar_referencia
 
 
 app = Flask(__name__)
@@ -75,7 +76,7 @@ def listar_informes():
         if presentacion:
             metadata = presentacion[0]
             p = metadata["parametros"]
-            tipo = {'sensibilidad': 'Sensibilidad OFAT', 'mapa': 'Mapa de diseño'}.get(metadata['tipo'], 'Simulación normal')
+            tipo = {'sensibilidad': 'Sensibilidad OFAT', 'mapa': 'Mapa de diseño', 'segunda_ley': 'Segunda ley'}.get(metadata['tipo'], 'Simulación normal')
             resumen = f"T1={p['T1']:g} K · T3={p['T3']:g} K · rp={p['relacion_presiones']:g}"
             fecha = metadata["fecha"]
             commit = metadata.get("git", {}).get("commit") or "No disponible"
@@ -97,12 +98,43 @@ def ver_documentacion(nombre):
     return Response(ruta.read_text(encoding="utf-8"), mimetype="text/plain")
 
 
+def estudio_conservado(nombre, parametros):
+    """Reutiliza sólo un informe propio completo con las mismas nueve entradas."""
+    if not PATRON_INFORME.fullmatch(nombre):
+        return None
+    carpeta = Path(app.config['OUTPUTS_DIR']).resolve()
+    ruta = carpeta / nombre
+    if ruta.is_symlink() or not ruta.is_file() or ruta.resolve().parent != carpeta:
+        return None
+    texto = ruta.read_text(encoding='utf-8')
+    if not texto.startswith(MARCA_INICIO) or not texto.endswith(MARCA_FINAL):
+        return None
+    presentacion = separar_presentacion(texto)
+    if presentacion and presentacion[0].get('parametros') == parametros:
+        return presentacion[0].get('segunda_ley')
+    return None
+
+
 @app.route("/", methods=["GET", "POST"])
 def index():
     valores = valores_formulario() if request.method == "GET" else request.form.to_dict()
     errores = {}
     if request.method == "POST":
         parametros, errores = leer_parametros(request.form)
+        accion = request.form.get('accion')
+        T0 = 288.15
+        if accion not in ('sensibilidad', 'mapa'):
+            try:
+                T0 = validar_referencia(float(request.form.get('T0', '288.15')))
+            except ValueError as error:
+                errores['T0'] = str(error)
+        if accion == 'segunda_ley' and not errores:
+            from viabilidad import validar_parametros
+            from sensibilidad import argumentos_fisicos
+            try:
+                validar_parametros(*argumentos_fisicos(parametros))
+            except ValueError as error:
+                errores['modelo'] = str(error)
         configuracion = None
         configuracion_mapa = None
         if request.form.get('accion') == 'mapa' and not errores:
@@ -126,10 +158,13 @@ def index():
                 errores["sensibilidad"] = f"Configuración de sensibilidad inválida: {error}"
         if not errores:
             try:
-                if configuracion_mapa is not None:
+                if accion == 'segunda_ley':
+                    anterior = estudio_conservado(request.form.get('informe_origen', ''), parametros)
+                    ruta = ejecutar_segunda_ley(app.config['OUTPUTS_DIR'], parametros, T0, anterior)
+                elif configuracion_mapa is not None:
                     ruta = ejecutar_mapa(app.config['OUTPUTS_DIR'], parametros, **configuracion_mapa)
                 elif configuracion is None:
-                    ruta = main(app.config["OUTPUTS_DIR"], parametros=parametros)
+                    ruta = main(app.config["OUTPUTS_DIR"], parametros=parametros, T0=T0)
                 else:
                     if parametros["T3"] <= parametros["T1"]:
                         raise ErrorModelo("La referencia debe cumplir T3 > T1; el barrido sí admite muestras no motoras.")
@@ -142,7 +177,7 @@ def index():
             else:
                 return redirect(url_for("ver_informe", nombre=ruta.name), code=303)
     return renderizar_dashboard(valores, errores=errores, informes=listar_informes(),
-        seccion_inicial=request.form.get('accion') if request.form.get('accion') in ('sensibilidad', 'mapa') else 'simulacion'), 400 if errores else 200
+        seccion_inicial=request.form.get('accion') if request.form.get('accion') in ('sensibilidad', 'mapa', 'segunda_ley') else 'simulacion'), 400 if errores else 200
 
 
 @app.route("/informes/<nombre>")
@@ -169,6 +204,9 @@ def ver_informe(nombre):
         metadata, paneles = presentacion
         valores = metadata["parametros"].copy()
         valores["perdida_presion_combustor"] *= 100
+        valores['informe_origen'] = nombre
+        if metadata.get('segunda_ley'):
+            valores['T0'] = metadata['segunda_ley']['T0']
         if metadata.get('mapa'):
             valores.update({'mapa_' + k: v for k, v in metadata['mapa'].items() if k != 'cortes'})
             valores['mapa_cortes'] = ', '.join(str(t) for t in metadata['mapa']['cortes'])
@@ -185,7 +223,7 @@ def ver_informe(nombre):
             f'<nav><a href="/">Volver al formulario</a> · <a href="/informes/{nombre}?descargar=1">Descargar informe HTML</a></nav></div>')
         return Response(renderizar_dashboard(valores, contenidos=paneles, metadata=metadata,
             informes=listar_informes(), informe_actual=actual,
-            seccion_inicial={'sensibilidad': 'sensibilidad', 'mapa': 'mapa'}.get(metadata['tipo'], 'resultados')), mimetype="text/html")
+            seccion_inicial={'sensibilidad': 'sensibilidad', 'mapa': 'mapa', 'segunda_ley': 'segunda_ley'}.get(metadata['tipo'], 'resultados')), mimetype="text/html")
     # Solo la respuesta del navegador lleva navegación. El HTML guardado no cambia.
     navegacion = (
         '<nav aria-label="Navegación del informe" style="margin:20px 0">'

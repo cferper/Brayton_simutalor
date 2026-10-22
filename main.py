@@ -10,6 +10,7 @@ from viabilidad import (calcular_estados, calcular_energias, evaluar_punto, calc
 from optimizacion import optimizar_trabajo_neto
 from optimizacion_rendimiento import estudiar_rendimiento_ideal, optimizar_rendimiento, comparar_criterios
 from reporting import crear_informe_html, guardar_informe_html, obtener_version_git
+from segunda_ley import analizar_segunda_ley, validar_referencia
 from math import isclose, isfinite, log
 
 import numpy as np
@@ -471,7 +472,8 @@ def guardar_grafica_rendimiento(gamma, ruta, barrido=None):
     plt.close(figura)
 
 
-def main(carpeta_salida=None, parametros=None):
+def main(carpeta_salida=None, parametros=None, *, T0=288.15):
+    T0 = validar_referencia(T0)
     fecha = datetime.now().astimezone()
     version = obtener_version_git(Path(__file__).resolve().parent)
     # Copia por ejecución: el formulario no modifica los valores predeterminados.
@@ -598,6 +600,7 @@ def main(carpeta_salida=None, parametros=None):
              for rp, eta in calcular_rendimientos(gamma)], comprobaciones,
             {nombre: buffer.getvalue() for nombre, buffer in imagenes.items()}, fecha, version, barrido, optimizaciones,
             estudio_rendimiento=estudio_rendimiento, comparacion_criterios=comparacion_criterios,
+            segunda_ley=analizar_segunda_ley(referencia, cp, gamma, T0),
         )
     finally:
         for buffer in imagenes.values():

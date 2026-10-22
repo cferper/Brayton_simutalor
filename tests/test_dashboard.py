@@ -43,7 +43,7 @@ class DashboardTests(unittest.TestCase):
             self.assertIn(f'href="#{clave}"', html)
         for clave in web_app.CAMPOS:
             self.assertEqual(html.count(f'name="{clave}"'), 1)
-        self.assertEqual(html.count('type="number"'), 18)  # 9 físicos, 3 OFAT, 6 mapa.
+        self.assertEqual(html.count('type="number"'), 19)  # 9 físicos, 3 OFAT, 6 mapa + T0.
         for titulo, _ in dashboard.GRUPOS:
             self.assertIn(titulo, html)
 
@@ -88,7 +88,7 @@ class DashboardTests(unittest.TestCase):
         self.assertEqual(len(parser.imagenes), 7)
         self.assertCountEqual(parser.imagenes, self.args[7].values())
         self.assertEqual(parser.externos, [])
-        self.assertEqual(self.html.count('role="tab"'), 5)
+        self.assertEqual(len(re.findall(r'<button\b[^>]*data-plot-tab=', self.html)), 5)
         for clave in ('rendimiento', 'trabajo', 'diagramas', 'compromiso', 'todas'):
             self.assertIn(f'data-plot-tab="{clave}"', self.html)
 
@@ -110,7 +110,7 @@ class DashboardTests(unittest.TestCase):
     def test_metadatos_json_seguro_y_paneles_recuperables(self):
         self.assertEqual(self.metadata['tipo'], 'normal')
         self.assertEqual(self.metadata['parametros'], self.args[0])
-        self.assertEqual(set(self.paneles), {'resultados', 'optimizacion', 'sensibilidad'})
+        self.assertEqual(set(self.paneles), {'resultados', 'optimizacion', 'sensibilidad', 'segunda_ley'})
         self.assertNotIn('<', dashboard.json_seguro({'x': '</script><script>alert(1)</script>'}))
         self.assertIsNone(dashboard.separar_presentacion('<html>antiguo</html>'))
 
@@ -121,7 +121,7 @@ class DashboardTests(unittest.TestCase):
         parser = InformeParser(); parser.feed(html)
         self.assertEqual(len(parser.imagenes), 3)
         self.assertEqual(parser.externos, [])
-        self.assertEqual(html.count('role="tab"'), 3)
+        self.assertEqual(len(re.findall(r'<button\b[^>]*data-plot-tab=', html)), 3)
         self.assertIn('muestras', html)
         self.assertIn('no disponibles', html)
         self.assertIn('parametros_inviables', html)
