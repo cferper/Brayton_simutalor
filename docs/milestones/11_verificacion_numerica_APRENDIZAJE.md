@@ -2,7 +2,7 @@
 
 Documento educativo del **22 de octubre de 2026**. No debe confundirse esta **nueva Fase 1 de verificación numérica y comparación de modelos** con la **antigua Fase 1 de dominio físicamente viable** ([milestone 03](03_dominio_viable.md)).
 
-**Base histórica de la fase:** `27d4519094d5eb74f5009a1889a1e74dc8dddb94` (rama `main` al iniciar la Tarea 1.1). La Tarea 1.1 se publicó en `mejoras/verificacion-numerica`, commit `275e7558b7d05322054f89ecd672ed5563c59469`; la Tarea 1.2, en `143d10fd25ebd23ddb897722b7843bddabfd16a5`; y **la Tarea 1.3, en `8ecbc1bf75e7e68fc3377cbf97017f8480d32553`**. La Tarea 1.4 parte de ese último commit remoto. Sus cambios siguen pendientes de revisión **sin commit ni publicación**.
+**Base histórica de la fase:** `27d4519094d5eb74f5009a1889a1e74dc8dddb94` (rama `main` al iniciar la Tarea 1.1). Las tareas anteriores se publicaron en `mejoras/verificacion-numerica`: 1.1 en `275e7558b7d05322054f89ecd672ed5563c59469`, 1.2 en `143d10fd25ebd23ddb897722b7843bddabfd16a5`, 1.3 en `8ecbc1bf75e7e68fc3377cbf97017f8480d32553` y **1.4 en `c3b4bfea12cf6faa1dc90c8f8fb16fb9e8fe7131`**. La Tarea 1.5 parte exactamente de este último commit; sus cambios permanecen **sin commit ni publicación**.
 
 ## 1. Estado anterior y propósito
 
@@ -375,4 +375,96 @@ PYTHONPATH=tests python -B -m unittest -v \
   test_optimizacion_rendimiento.RendimientoTests.test_ideal_supremo_no_es_optimo_motor
 ```
 
-**Conclusiones acotadas.** Los **257 nodos predeterminados son razonables**: los tres ejemplos acotan un máximo admisible y alcanzan error de rp menor de `2e−7` con unas 297 evaluaciones. No obstante, 17–129 nodos también lo consiguen en estos ejemplos y pueden ahorrar llamadas: no se demuestra que 257 sea óptimo para otros dominios. **`tolerancia_log=1e−9` es razonable**, aunque en estos máximos planos apretar más que `1e−7` no ofreció mejora consistente de la posición. **100 iteraciones bastaron** holgadamente en lo ensayado (máximo 48), no en cualquier problema posible. La planitud, las evaluaciones redundantes cuando la precisión está saturada y la clasificación en las bandas estrechas merecen investigaciones futuras; **no hay evidencia para cambiar hoy los algoritmos ni los controles predeterminados**. Permanecen fuera de alcance raíces casi dobles, estudio estadístico o temporal de eficiencia, extremos de representación y validación física experimental. La Tarea 1.4 está guardada sólo en una **copia de trabajo temporal pendiente de revisión**, no publicada.
+**Conclusiones acotadas.** Los **257 nodos predeterminados son razonables**: los tres ejemplos acotan un máximo admisible y alcanzan error de rp menor de `2e−7` con unas 297 evaluaciones. No obstante, 17–129 nodos también lo consiguen en estos ejemplos y pueden ahorrar llamadas: no se demuestra que 257 sea óptimo para otros dominios. **`tolerancia_log=1e−9` es razonable**, aunque en estos máximos planos apretar más que `1e−7` no ofreció mejora consistente de la posición. **100 iteraciones bastaron** holgadamente en lo ensayado (máximo 48), no en cualquier problema posible. La planitud, las evaluaciones redundantes cuando la precisión está saturada y la clasificación en las bandas estrechas merecen investigaciones futuras; **no hay evidencia para cambiar hoy los algoritmos ni los controles predeterminados**. Permanecen fuera de alcance raíces casi dobles, estudio estadístico o temporal de eficiencia, extremos de representación y validación física experimental. **Nota posterior de trazabilidad:** la Tarea 1.4 fue publicada en `c3b4bfea12cf6faa1dc90c8f8fb16fb9e8fe7131`; la frase original de «pendiente de revisión» describía sólo el estado anterior a esa publicación.
+
+## 10. Iteración del 22 de octubre de 2026 — Tarea 1.5: energía e invariantes físicos
+
+### Objetivo y significado de la primera ley
+
+La base verificada es la rama remota `mejoras/verificacion-numerica` en `c3b4bfea12cf6faa1dc90c8f8fb16fb9e8fe7131`. La batería 1.1 contrastaba principalmente el **ideal**; 1.2–1.4 verificaron raíces, máximos y sus controles numéricos. Faltaba un contraste compacto de los balances **no ideales**, de su respuesta a cambios físicos y de su coherencia cuando el punto es calculable pero **no produce trabajo motor admisible**. Se añade sólo `tests/test_invariantes_fisicos.py`; `viabilidad.py`, optimizadores, interfaz y dependencias permanecen inalterados.
+
+Para compresor/turbina adiabáticos y `cp` constante, se usan temperaturas absolutas en K, `cp` en J/(kg·K) y se divide por 1000 para obtener **kJ/kg**:
+
+\[
+\begin{aligned}
+w_c &= c_p(T_2-T_1)/1000, & w_t &= c_p(T_3-T_4)/1000,\\
+q_{in} &= c_p(T_3-T_2)/1000, & q_{out} &= c_p(T_4-T_1)/1000,\\
+w_{neto} &= w_t-w_c &= q_{in}-q_{out}.
+\end{aligned}
+\]
+
+`qout` se calcula **únicamente dentro del test** y puede tener signo algebraico fuera de las condiciones de motor; no es una salida nueva de producción. La verificación construye referencias no ideales a partir de los **parámetros de entrada**, sin llamar a los métodos verificados para calcular lo esperado: con `a=(gamma−1)/gamma`, `E=rp(1−delta)` (expansión efectiva),
+
+\[
+T_{2,ref}=T_1\left[1+\frac{rp^a-1}{\eta_c}\right],\qquad
+T_{4,ref}=T_3\left[1-\eta_t\left(1-E^{-a}\right)\right].
+\]
+
+Desde esas referencias se reconstruyen `wc`, `wt`, `wn`, `qin` y `qout`. Se ensayan cinco conjuntos: un ideal de anclaje, tres no ideales motores moderados (incluida `gamma=1.33`) y un no ideal no motor (`rp=200`). Verificar una identidad y comparar referencias de implementación sirve para detectar signos, unidades o errores de programación. **No es una validación física externa** de eficiencias, gas perfecto o pérdidas reales.
+
+### Irreversibilidades, límite reversible y cambios de escala
+
+Con `rp=10`, `T1=288.15 K`, `T3=1600 K`, `gamma=1.4`, `cp=1005 J/(kg·K)` y `p1=100 kPa`, se parte de `eta_c=.95`, `eta_t=.98`, `delta=.01` y se modifica **una sola magnitud cada vez**. Reducir `eta_c` a `.8` eleva `T2` y `wc`; reducir `eta_t` a `.82` eleva `T4` y reduce `wt`; elevar `delta` a `.12` reduce `p3/p4` y `wt`. En los tres casos disminuye `wn` y se comprueba de nuevo la primera ley. Se consulta el indicador motor del resultado: las tendencias algebraicas **no dependen** de que la combinación resulte admisible como motor.
+
+El límite reversible se verifica poniendo simultáneamente `eta_c=eta_t=1−epsilon`, `delta=epsilon` con `epsilon=.1, .01, .001, .00001`. La diferencia absoluta de trabajo neto respecto del ideal a igual `rp=10` se redujo sucesivamente a `130.36835`, `12.844907`, `1.2828066` y `0.012826236 kJ/kg`. La diferencia de rendimiento pasó de `0.11377736` a `1.0989753e−5` (fracciones, no puntos porcentuales). Es una tendencia **en esos cuatro casos**, no una demostración de monotonicidad universal de todos los indicadores.
+
+La invariancia es consecuencia de las **hipótesis del modelo**:
+
+- Al cambiar sólo `cp` por los factores `.6`, `1.5`, `2.3` (ideal y no ideal), las temperaturas y presiones permanecieron idénticas; `wc`, `wt`, `wn`, `qin`, `qout` se escalaron linealmente y `eta=wn/qin` permaneció constante en puntos motores.
+- Al cambiar sólo `p1` por `.5`, `1.7`, `3`, las cuatro presiones se escalaron de forma proporcional; las temperaturas, energías específicas y rendimiento no cambiaron en los casos ejecutados. Las relaciones de presión, no su escala absoluta, fijan aquí las temperaturas.
+
+Las conclusiones dejarían de tener esa forma sencilla si `cp` dependiera de temperatura o si las pérdidas cambiaran con presión, caudal o geometría.
+
+### Estados no motores: coherencia no equivale a admisión
+
+También se evalúan cinco casos: `rp=1` ideal (sin compresión/expansión), `rp=1.03` con pérdida `.05` (expansión insuficiente), `rp=500` ideal (`qin≤0`), `rp=200` no ideal (calor aún positivo, `wn≤0`) y `T1=300 K`, `T3=400 K`, eficiencias `.85/.9`, pérdida `.5` (dominio motor vacío). Se comprueba **a la vez** que las cuatro energías se pueden calcular, el balance cierra, los códigos de `motivos` corresponden a márgenes que no superan sus umbrales y el rendimiento y el cociente de trabajos motores son `None`. Un dominio vacío se registra como `intervalo=()`; no significa que fallen las operaciones de energía.
+
+La banda se observa cerca de la frontera superior no ideal `rp≈155.454326`. Con separación relativa `1e−9`, el programa acepta el punto (`wn≈3.12295e−7 kJ/kg`, mayor que el umbral `1.608e−7`); a `1e−12`, la energía neta sigue positiva (`≈2.44427e−10 kJ/kg`) pero queda **dentro** de la tolerancia energética, de modo que se informa `trabajo_neto` como motivo/frontera y **no** se publica rendimiento motor. Con `tolerancia=0` el punto sigue teniendo márgenes físicamente positivos. Esto diferencia *estado matemáticamente interior*, *punto admitido por la banda* y *dominio vacío*. Entradas físicamente imposibles (por ejemplo `cp<=0`) generan `ValueError`, y un límite no representable genera `ErrorNumerico`; estos dos últimos contratos ya se prueban en `test_viabilidad.py` y no se duplican.
+
+### PYTHON: pruebas parametrizadas, errores y resultados observados
+
+`InvariantesFisicosTests(unittest.TestCase)` contiene **seis métodos `test_...`**, con `subTest(caso=...)`, `subTest(factor_cp=...)`, `subTest(factor_p1=...)` para mostrar la combinación exacta que falla. La clase declara `CASOS` como tuplas de entradas en unidades explícitas y `MEDIDAS` como diccionario donde registra máximos realmente medidos. `_comparar(self,magnitud,obtenido,referencia,atol)` conserva por nombre el error absoluto y el relativo si la referencia no es cero; `_comprobar_balance(self,punto,cp)` contrasta cuatro energías y tres residuos y retorna el calor rechazado calculado para el ensayo. Ambos son **auxiliares exclusivos de la prueba**, con firmas y llamadas desarrolladas en [§4.49 del manual](../../CODE_WALKTHROUGH.md). El módulo se ejecuta con `python -B -m unittest discover -s tests -p 'test_invariantes_fisicos.py' -v`, sin bibliotecas adicionales.
+
+Se acepta `|resultado−referencia| ≤ atol + 2e−12·|referencia|`, con `atol=1e−9 K/kPa` para estados y `1e−10 kJ/kg` para energías; el residuo de primera ley permite además el término de redondeo `2e−12·escala_energética`. La parte absoluta protege referencias cercanas a cero; la relativa escala con el tamaño. En cocientes como `eta`, se usa una tolerancia absoluta propia. **No son incertidumbres físicas del motor.** Un error relativo de residuo frente a referencia cero no está definido; por eso se da el residuo **absoluto**.
+
+**Mediciones ejecutadas (22/10/2026, cinco casos de referencia y escalados):**
+
+| Magnitud contrastada | Máximo error absoluto | Máximo error relativo |
+|---|---:|---:|
+| Temperaturas vs. referencia | `2.274e−13 K` | `1.883e−16` |
+| Trabajos y calor vs. referencia independiente | `4.547e−13 kJ/kg` | `5.452e−15` |
+| `qout` del estado vs. referencia | `1.137e−13 kJ/kg` | `2.320e−16` |
+| Residuos de primera ley | `2.842e−13 kJ/kg` | No definido (cero) |
+| Energías con escalado de `cp` | `4.547e−13 kJ/kg` | `2.880e−16` |
+| Rendimiento con escalado de `cp` | `1.110e−16` (fracción) | `3.009e−16` |
+| Energías y rendimiento al escalar `p1` | `0` | `0` |
+
+Los máximos de las distintas columnas pueden venir de casos diferentes. La comparación del balance calculado directamente con sus mismas temperaturas produjo diferencias exactamente nulas para las cuatro energías; los **residuos** no necesariamente son cero por la suma/resta en coma flotante. Estos valores son magnitudes medibles del **software** bajo estos escenarios, no errores conocidos frente a mediciones de turbinas reales.
+
+**Pruebas realmente ejecutadas:** los **6 métodos nuevos** y **6 regresiones relacionadas** de `test_verificacion_raices.py`, `test_comparacion_scipy.py` y `test_convergencia_numerica.py` finalizaron correctamente: **12/12** en la primera verificación. Las otras **9 regresiones** de `test_verificacion_analitica.py`, `test_viabilidad.py` y `test_segunda_ley.py` se bloquearon inicialmente en la importación `main → reporting → dashboard` por ausencia de `jinja2` (sin llegar a evaluar aserciones). Después se instaló **exclusivamente `requirements.txt`** en un entorno virtual aislado de `/tmp` y se ejecutaron esas nueve pruebas: **9/9 correctas, 0 fallidas, 0 omitidas**. Total acumulado: **21/21 métodos correctos**, en dos etapas; **no se repitieron las doce pruebas anteriores** ni se ejecutó la suite completa. Entorno complementario: **Python 3.12.14, Flask 3.1.3, Jinja2 3.1.6, NumPy 2.5.4 y Matplotlib 3.11.2**. No se modificaron dependencias declaradas ni interfaz. Comandos (la segunda etapa utiliza el intérprete del entorno virtual):
+
+```bash
+python -B -m unittest discover -s tests -p 'test_invariantes_fisicos.py' -v
+PYTHONPATH=tests python -B -m unittest -v \
+  test_verificacion_raices.VerificacionRaicesTests.test_interseccion_de_restricciones_y_fronteras_abiertas \
+  test_verificacion_raices.VerificacionRaicesTests.test_limite_reversible_factoriza_y_es_abierto \
+  test_verificacion_raices.VerificacionRaicesTests.test_raices_reales_sin_dominio_motor \
+  test_comparacion_scipy.ComparacionSciPyTests.test_dominio_vacio_se_distingue_de_fallo_numerico \
+  test_convergencia_numerica.ConvergenciaNumericaTests.test_fronteras_abiertas_y_banda_de_viabilidad \
+  test_convergencia_numerica.ConvergenciaNumericaTests.test_dominio_vacio_separa_ausencia_de_fallo_numerico
+```
+
+```bash
+PYTHONPATH=tests python -B -m unittest -v \
+  test_verificacion_analitica.VerificacionAnaliticaIdealTests.test_balances_con_referencias_y_residuo \
+  test_viabilidad.ViabilidadTests.test_limite_reversible_en_estados_dominios_y_barrido \
+  test_viabilidad.ViabilidadTests.test_calor_positivo_no_basta_para_motor \
+  test_viabilidad.ViabilidadTests.test_invariancia_limites_con_cp_y_presion \
+  test_viabilidad.ViabilidadTests.test_parametros_invalidos_no_son_inviabilidad \
+  test_viabilidad.ViabilidadTests.test_limite_numerico_no_se_clasifica_como_inviabilidad \
+  test_segunda_ley.SegundaLeyTests.test_contraste_analitico_independiente \
+  test_segunda_ley.SegundaLeyTests.test_limite_reversible \
+  test_segunda_ley.SegundaLeyTests.test_diagnostico_no_motor
+```
+
+**Estado al preparar esta iteración:** se conserva la historia remota en `c3b4bfe`; sólo hay tres archivos de la Tarea 1.5 pendientes de revisión (este documento, el manual y el test). No se crea commit ni se publica nada. Quedan fuera del alcance la validación experimental, propiedades variables, extremos numéricos y nuevas optimizaciones.
