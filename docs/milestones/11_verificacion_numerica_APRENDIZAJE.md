@@ -1,8 +1,8 @@
-# Nuevo Plan de Mejoras — Fase 1, Tarea 1.1: verificación analítica del Brayton ideal
+# Nuevo Plan de Mejoras — Fase 1: verificación numérica
 
 Documento educativo del **22 de octubre de 2026**. No debe confundirse esta **nueva Fase 1 de verificación numérica y comparación de modelos** con la **antigua Fase 1 de dominio físicamente viable** ([milestone 03](03_dominio_viable.md)).
 
-**Base comprobada:** `27d4519094d5eb74f5009a1889a1e74dc8dddb94` (rama remota `main`, merge de segunda ley). La copia local estaba inicialmente en `main`, sin cambios ajenos: sólo `CODE_WALKTHROUGH.md` modificado y `tests/test_verificacion_analitica.py` sin seguimiento. La implementación de esta tarea se conserva en la rama de desarrollo `mejoras/verificacion-numerica`. **Commit asociado:** pendiente de registrar; el hash de la base no es el de esta tarea.
+**Base histórica de la fase:** `27d4519094d5eb74f5009a1889a1e74dc8dddb94` (rama `main` en el inicio de la Tarea 1.1). La Tarea 1.1 está publicada en la rama `mejoras/verificacion-numerica`, commit `275e7558b7d05322054f89ecd672ed5563c59469`. **La Tarea 1.2 parte exactamente de ese commit remoto** y queda preparada sólo en una nueva copia de trabajo, sin commit. No se mezcló con el antiguo commit temporal local `16fcb1f`.
 
 ## 1. Estado anterior y propósito
 
@@ -138,10 +138,69 @@ Caso base (`T1=288.15 K`, `T3=1600 K`, `gamma=1.4`, `cp=1005 J/(kg·K)`, `rp=10`
 4. No se modifica `qout` como salida pública ni se añaden funciones de producción para los tests.
 5. Esta tarea no crea un milestone **técnico de cierre** de la Fase 1 completa. El documento se ampliará en futuras tareas de esta fase, sin presentar como realizados sus resultados pendientes.
 
-**Archivos de la tarea:** `tests/test_verificacion_analitica.py`, `CODE_WALKTHROUGH.md` (§4.45, estructura y conceptos de pruebas) y este documento. Los archivos de las fases anteriores permanecen en su contexto histórico. **Commit propio de la fase:** pendiente hasta el commit autorizado; no insertar su hash en el propio commit.
+**Archivos de la Tarea 1.1:** `tests/test_verificacion_analitica.py`, `CODE_WALKTHROUGH.md` (§4.45, estructura y conceptos de pruebas) y este documento. Los archivos de las fases anteriores permanecen en su contexto histórico. La publicación de 1.1 corresponde al commit `275e755`; los cambios de la Tarea 1.2 descritos a continuación siguen **sin commit**.
 
 ### Experimentos de aprendizaje sugeridos (no ejecutados)
 
 - Cambia una sola entrada de `CASOS` en una copia y calcula a mano T2, T4, wc y wt antes de ejecutar el método.
 - Introduce deliberadamente una referencia incorrecta y observa cómo `subTest` identifica el caso sin detener los demás.
 - Compara la magnitud de un residuo en kJ/kg con la escala del trabajo: no confundas un residuo diminuto con un error de modelo despreciable para cualquier motor real.
+
+## 7. Iteración del 22 de octubre de 2026 — Tarea 1.2
+
+### Estado, objetivo y referencia matemática
+
+**Estado de partida verificado:** rama remota `mejoras/verificacion-numerica`, commit `275e7558b7d05322054f89ecd672ed5563c59469`, copia de trabajo limpia antes de editar. El simulador ya construía fronteras de compresión, expansión, calor y trabajo, y `test_viabilidad.py` comprobaba cambios de signo, vecindades de la raíz y clasificación. Faltaba una comparación sistemática de **ambas raíces calculadas por bisección** con su posición exacta según la ecuación cuadrática. Esta tarea sólo añade `tests/test_verificacion_raices.py` y actualiza estas explicaciones; las ecuaciones y las funciones de producción no cambian.
+
+Con `a=(gamma−1)/gamma>0`, `x=rp**a`, `theta=T3/T1`, `h=theta*eta_c*eta_t`, `k=(1−delta)**(−a)`, la condición de trabajo motor es:
+
+\[
+Q(x)=x^2-(1+h)x+hk<0,\qquad D=(h-1)^2-4h(k-1).
+\]
+
+Si `D>0`, las raíces matemáticas independientes son `x_±=((1+h)±sqrt(D))/2` y `rp_±=x_±**(1/a)`. El test las calcula con operaciones aritméticas y `math.sqrt` **sin llamar a `bisectar_raiz()` ni a `calcular_dominios()` para determinar las referencias**. Después consulta `calcular_dominios()` para compararlas. Es independencia **de implementación**, no un modelo físico independiente.
+
+**INTERPRETACIÓN FÍSICA.** El signo de Q se obtiene multiplicando el trabajo específico neto por un factor positivo; por eso `Q<0` equivale a trabajo positivo. Deben cumplirse simultáneamente las cuatro condiciones:
+
+1. Compresión: `rp>1`.
+2. Expansión: `rp>1/(1−delta)`.
+3. Calor aportado positivo: `x<1+eta_c*(theta−1)`.
+4. Trabajo neto positivo: `Q(x)<0`.
+
+El intervalo motor es su **intersección abierta**, que puede ser vacía. Las raíces de Q por sí solas no certifican un motor. El ensayo utiliza un punto central y puntos a distancia relativa `1e−5` en los dos lados de cada frontera: esto supera la banda `1e−10` de clasificación en `evaluar_punto`. En la frontera exacta se excluye el estado porque la condición es estricta y la pequeña banda numérica lo clasifica como no motor; **la banda no es parte de la ecuación física**.
+
+### PYTHON y algoritmo de bisección
+
+La clase `VerificacionRaicesTests(unittest.TestCase)` declara cuatro casos no ideales moderados en tuplas y cinco métodos con firma `metodo(self)` y retorno implícito `None`. Sus entradas físicas son T1/T3 [K], gamma/eficiencias/delta [adimensional], cp [J/(kg·K)] y p1 [kPa]. Cada método llama a `calcular_dominios` y, cuando comprueba clasificación, a `evaluar_punto`. `for` recorre los parámetros; `zip` empareja raíces y resultados; `with self.subTest(caso=..., raiz=... o punto=...)` identifica un fallo concreto, sin interrumpir el resto. Una aserción falsa produce `AssertionError`; parámetros inesperadamente inválidos podrían propagar `ValueError` o `ErrorNumerico`. Ejemplo de ejecución:
+
+```bash
+python -B -m unittest discover -s tests -p 'test_verificacion_raices.py' -v
+```
+
+La **bisección** parte de un intervalo donde una función continua toma signos contrarios y, en cada iteración, elige la mitad que mantiene el cambio de signo. Por el teorema del valor intermedio, esa mitad conserva alguna raíz; el ancho disminuye geométricamente (`ancho_inicial/2**n`). `bisectar_raiz()` detiene la búsqueda cuando el ancho es suficientemente pequeño respecto a `max(abs(x_medio),1)` (tolerancia relativa `1e−12`) o encuentra un cero exacto. Esa condición es un criterio de parada en **x**, no una garantía universal sobre `rp` o sobre toda raíz mal condicionada.
+
+La comparación evalúa tres clases de error diferentes:
+
+| Medida | Definición | Unidad |
+|---|---|---|
+| Error absoluto de raíz | `abs(x_num−x_ref)` o `abs(rp_num−rp_ref)` | adimensional |
+| Error relativo de raíz | error absoluto dividido por `abs(referencia)` no nula | adimensional |
+| Residuo de función | `abs(Q(x_num))` | adimensional (escala de términos de Q) |
+
+El residuo mide cuán cerca está `Q(x_num)` de cero, **no directamente la distancia hasta la raíz**; cuando `Q'(x)` es pequeño, una posición imprecisa puede dar un residuo pequeño. Además, `rp=x**(1/a)` amplifica en primer orden el error relativo aproximadamente `1/a` veces. Por eso los umbrales de posición se separan por variable: en x, `atol=2e−12` y `rtol=2e−12`; en rp, `atol=1e−9` y `rtol=2e−11`. Para el residuo se exige `abs(Q)≤2e−11*max(1,x²,abs((1+h)x),hk)`. Son tolerancias conservadoras para doble precisión y raíces simples moderadas; no se aplica un único umbral indiscriminado.
+
+### Casos especiales y pruebas realmente ejecutadas
+
+Las cinco comprobaciones nuevas son: (1) raíces analíticas y residuos para cuatro combinaciones no ideales (ocho raíces); (2) intersección de restricciones, punto interior, vecindades exteriores e interiores y exclusión de las fronteras; (3) límite reversible con `Q=(x−1)(x−theta)`, fronteras `rp=1` y `rp=theta**(1/a)`; (4) `D<0` y raíz doble exacta `D=0` con `theta=2`, `eta_c=.5`, `eta_t=1`, `delta=0`, de modo que `Q=(x−1)²`; (5) `D=.25>0` con `h=.5,k=1`, raíces `x=.5` y `x=1`, pero toda la región de `Q<0` exige `rp<1`, incompatible con compresión. No se han confundido estos tres últimos fenómenos con límites de representación numérica.
+
+**Ejecución real, 22/10/2026.** Los cinco métodos nuevos pasaron (`5/5`); también siete métodos de `ViabilidadTests` directamente relacionados (raíces y vecindades, calor, expansión, reversible, dominios vacíos, clasificación combinada y errores de bisección), `7/7`. **Total focalizado: 12/12; cero fallos y cero errores**. No se ejecutó de nuevo la suite general ni se modificó un módulo físico.
+
+| Máximo observado entre 8 raíces no ideales | Valor | Caso y raíz |
+|---|---:|---|
+| Error absoluto en x | `9.1304741545e−13` | entrada_fria, superior |
+| Error relativo en x | `3.7747594652e−13` | entrada_fria, inferior |
+| Error absoluto en rp | `1.1246470422e−10` | entrada_fria, superior |
+| Error relativo en rp | `1.4261261054e−12` | entrada_fria, inferior |
+| Mayor `abs(Q(x_num))` | `2.2444268666e−12` | entrada_fria, superior |
+
+Estos números se obtuvieron además con un cálculo diagnóstico separado, sobre los mismos cuatro casos, y **no** son límites universales del método. La verificación sólo confirma la implementación y la interpretación de su **modelo termodinámico simplificado**; validar físicamente un motor requeriría datos o referencias externas. Continúan pendientes el condicionamiento junto a raíces casi dobles, límites de representación, estudios de convergencia y comparaciones opcionales con SciPy. No hay commit de la Tarea 1.2; se revisará antes de su publicación en la rama de desarrollo.

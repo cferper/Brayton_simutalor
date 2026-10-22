@@ -108,6 +108,7 @@ Brayton_Simulator/
 ├── tests/test_segunda_ley.py   18 pruebas de entropía/exergía e integración
 ├── tests/test_sensibilidad.py  19 pruebas de cálculo y seis de integración OFAT
 ├── tests/test_verificacion_analitica.py   referencias ideales y residuos de primera ley
+├── tests/test_verificacion_raices.py       raíces analíticas, dominios y casos degenerados
 ├── README.md                   instalación y uso
 ├── requirements.txt            numpy, matplotlib y Flask
 ├── .gitignore
@@ -1276,6 +1277,28 @@ Los trabajos y calores son **kJ/kg**; cp se expresa en **J/(kg·K)** y T en **K*
 
 **Ejemplo real ejecutado el 22/10/2026:** T1=288.15 K, T3=1600 K, gamma=1.4, rp=10: T2≈556.330551 K, T4≈828.715949 K, trabajo≈505.619018 kJ/kg y rendimiento≈0.482052532. En el máximo numérico rp≈20.085256021667 se obtuvo `|T2-T4|≈5.22445e-6 K`. Entre los cinco casos, el mayor error absoluto observado frente a referencias directas fue ≈1.137e−13 K (temperaturas), ≈1.137e−13 kJ/kg (energías), ≈1.110e−16 en rendimiento, y el mayor residuo de primera ley ≈1.137e−13 kJ/kg. **Ejecución focalizada:** cuatro métodos nuevos y cuatro métodos existentes relacionados: **8/8 correctos**. No se ha vuelto a ejecutar toda la suite; las pruebas de SciPy, convergencia o condicionamiento no forman parte de esta tarea (ni se han añadido).
 
+### 4.46. Verificación analítica de raíces — `tests/test_verificacion_raices.py`
+
+**Alcance actual.** Es la **Tarea 1.2 de la nueva Fase 1 de verificación numérica**. No cambia `viabilidad.py`, los optimizadores ni el modelo físico. Las comprobaciones de clasificación y bisección previamente existentes permanecen en `tests/test_viabilidad.py`; este archivo añade contrastes explícitos frente a raíces algebraicas independientes. Véase la [guía de aprendizaje de la fase](docs/milestones/11_verificacion_numerica_APRENDIZAJE.md), sección 7.
+
+**INGENIERÍA / MATEMÁTICAS.** Con `a=(gamma−1)/gamma`, `x=rp**a`, `theta=T3/T1`, `h=theta*eta_c*eta_t`, `k=(1−delta)**(−a)`, el signo del trabajo específico neto se reduce a `Q(x)=x*x−(1+h)*x+h*k<0`. Para `D=(h−1)**2−4*h*(k−1)>0` hay dos raíces `x_±=(1+h±sqrt(D))/2`, que se transforman en `rp_±=x_±**(1/a)`. **La referencia se calcula directamente en el test con `sqrt`**, sin llamar a `bisectar_raiz` ni a `calcular_dominios`; estas funciones sólo producen el resultado sometido a comprobación. Los valores analíticos se obtienen con las mismas hipótesis físicas del modelo, no con datos de motores reales.
+
+El dominio motor es la **intersección abierta** de compresión `rp>1`, expansión `rp>1/(1−delta)`, calor `x<1+eta_c*(theta−1)` y trabajo `Q(x)<0`. Si `D<0`, no hay raíces reales; si `D=0`, sólo hay tangencia sin región negativa. Incluso con `D>0`, las raíces pueden estar en `x≤1` y no constituir motor. En el caso reversible `Q(x)=(x−1)*(x−theta)`, recuperando las fronteras ideales. La prueba comprueba puntos suficientemente separados (`1e−5` relativo) a ambos lados del intervalo y distingue esas fronteras matemáticas de la banda relativa `1e−10` que excluye `evaluar_punto`.
+
+**PYTHON.** `class VerificacionRaicesTests(unittest.TestCase)` organiza cinco métodos ejecutados por `unittest`. Todos tienen **firma `metodo(self)`**, reciben sólo el objeto de prueba y retornan implícitamente `None`: los parámetros provienen de tuplas `CASOS_NO_IDEALES` (T1, T3 [K], gamma y eficiencias [—], cp [J/(kg·K)], p1 [kPa], delta [—]). `for`, `zip` y `with self.subTest(caso=..., raiz=... o punto=...)` permiten identificar cada combinación sin crear métodos separados. `assertLessEqual`, `assertEqual` y `assertGreater` producen un fallo de prueba (`AssertionError`); errores de validación inesperados de producción se propagan. Ningún método altera estados persistentes ni genera resultados gráficos.
+
+| Método completo (`self` implícito) | Llamadas y comprobación |
+|---|---|
+| `test_raices_noideales_con_referencias_y_residuos(self)` | `calcular_dominios`; cuatro casos, raíces inferiores/superiores, errores absolutos/relativos en x y rp [—] y residuo adimensional de Q |
+| `test_interseccion_de_restricciones_y_fronteras_abiertas(self)` | `calcular_dominios`, `evaluar_punto`; cotas analíticas de compresión, expansión, calor y trabajo, estado del punto central y de dos lados de cada frontera |
+| `test_limite_reversible_factoriza_y_es_abierto(self)` | `calcular_dominios`, `evaluar_punto`; factorización, raíces `1` y `theta**(1/a)`, exclusión de fronteras |
+| `test_discriminante_negativo_y_raiz_doble(self)` | `calcular_dominios`; D negativo y D exactamente nulo construido con h=k=1, ambos sin interior motor |
+| `test_raices_reales_sin_dominio_motor(self)` | `calcular_dominios`, `evaluar_punto`; D positivo y Q negativa sólo para x entre 0,5 y 1, incompatible con compresión |
+
+**ERROR NUMÉRICO.** Error de posición `abs(x_num−x_ref)` y `abs(rp_num−rp_ref)` (también relativos a referencias no nulas) no equivale al **residuo** `abs(Q(x_num))`. La bisección reduce a la mitad un intervalo con cambio de signo y se detiene con ancho relativo `1e−12` en **x**; para raíces simples de estos casos se comprueba `atol_x=2e−12`, `rtol_x=2e−12`. La transformación potencia puede amplificar el error relativo en aproximadamente `1/a`, por lo que en rp se usa `atol_rp=1e−9`, `rtol_rp=2e−11`. Para Q se exige `abs(Q)≤2e−11·max(1,x²,|(1+h)x|,hk)`, sin unidades. Son umbrales conservadores de redondeo/bisección, no garantías generales, especialmente si `D≈0`. Un residuo minúsculo por sí solo **no garantiza** poco error en la raíz cuando `Q'` es pequeño.
+
+**Resultados ejecutados (22/10/2026):** cinco métodos nuevos correctos y siete métodos preexistentes directamente relacionados correctos; **12/12**, sin suite completa. Máximos observados entre las ocho raíces no ideales: error x absoluto `9.1304741545e−13`, relativo `3.7747594652e−13`; error rp absoluto `1.1246470422e−10`, relativo `1.4261261054e−12`; `|Q(x)|=2.2444268666e−12`. No se han realizado comparaciones con SciPy ni estudios de convergencia.
+
 ## 5. Variables principales
 
 Python no añade unidades a sus tipos. El diccionario global `PARAMETROS_PREDETERMINADOS` conserva las entradas; `main()` crea una copia local por ejecución. Un `int` puede producir `float` al operar; Flask convierte todos los campos a `float`, y NumPy utiliza también sus escalares.
@@ -1397,7 +1420,7 @@ El módulo `optimizacion.py` importa `exp`, `log`, `isfinite` y `sqrt` de `math`
 
 `unittest` aporta pruebas y aserciones; `unittest.mock.patch` sustituye temporalmente operaciones para simular fallos; `tempfile` aísla archivos; `redirect_stdout` y `StringIO` capturan terminal; `HTMLParser` inspecciona etiquetas; `b64decode` comprueba la codificación; `sha256` compara los PNG históricos; `matplotlib.image` decodifica imágenes. También se importan fechas, zona UTC, rutas y bytes en memoria, y los módulos propios `main` y `reporting`.
 
-Estas herramientas verifican implementación, almacenamiento y rutas HTTP, no datos experimentales del modelo.
+Las pruebas de raíces incorporan `sqrt` de `math` para la fórmula cuadrática, y reutilizan `unittest` y `subTest`; no requieren bibliotecas adicionales. Estas herramientas verifican implementación, almacenamiento y rutas HTTP, no datos experimentales del modelo.
 
 ## 7. NumPy: uso real
 
@@ -1902,7 +1925,7 @@ x_± = [1+h ± sqrt(D)]/2, si D>0
 
 La segunda forma de Q y D reduce cancelaciones con pérdidas pequeñas. Una cuadrática con coeficiente principal positivo es negativa sólo ENTRE dos raíces reales distintas: D<=0 implica ausencia de interior con wn>0; D=0 sólo permite un cero tangente. Si h<=1, para x>=k>=1 todos los factores de la segunda forma son no negativos: no existe motor, incluso si hay dos raíces menores o iguales a 1. Si D>0, la transformación x→rp=x^(1/a) es creciente; la intersección con compresión, expansión y calor positivos es un intervalo ABIERTO o vacío. Esta prueba corresponde a las ecuaciones de este modelo; no se presupone que valga con propiedades variables o mapas de componentes.
 
-El código usa el vértice `centro=(1+h)/2` como punto interior negativo y las cotas Q(0)=Q(1+h)=hk>0 para acotar ambas raíces mediante bisección. El vértice sólo acota raíces de Q; no se usa como óptimo de trabajo no ideal. La fórmula de x_± permite un contraste analítico independiente. El criterio de parada es relativo en x (1e−12) y tiene 100 iteraciones como máximo. Las fronteras de rp se obtienen elevando x a 1/a. Si las escalas dejan de ser representables, se informa de límite numérico y no de ausencia física de motor.
+El código usa el vértice `centro=(1+h)/2` como punto interior negativo y las cotas Q(0)=Q(1+h)=hk>0 para acotar ambas raíces mediante bisección. El vértice sólo acota raíces de Q; no se usa como óptimo de trabajo no ideal. La fórmula de x_± permite un contraste analítico independiente, ejecutado para casos moderados en `tests/test_verificacion_raices.py` (§4.46). El criterio de parada es relativo en x (1e−12) y tiene 100 iteraciones como máximo. Las fronteras de rp se obtienen elevando x a 1/a. Si las escalas dejan de ser representables, se informa de límite numérico y no de ausencia física de motor.
 
 Con eta_c=eta_t=1 y delta=0, k=1, h=theta y Q=(x−1)(x−theta): se recuperan exactamente las condiciones ideales, salvo redondeo y la banda de clasificación.
 
