@@ -1,6 +1,6 @@
 # Guía educativa de Brayton Simulator
 
-Guía del estado actual, actualizada el 23 de octubre de 2026. El simulador identifica los dominios motores, optimiza trabajo específico y rendimiento térmico y compara ambos criterios con intervalos recalculados por ejecución. Se mantienen los nueve parámetros, Flask local, siete gráficas por simulación normal o tres por estudio OFAT, metadatos Git y retención compartida de cuatro informes. La Fase 4 permite variar T1, T3, eta_c, eta_t o delta y comparar R/A/B. Las verificaciones históricas del modelo y la integración se explican en §§4.45–4.55. El panel **Diagnóstico y coherencia física** (§4.56) calcula controles sobre los resultados de cada informe; no ejecuta las pruebas históricas V.1–V.5 ni equivale a validación experimental.
+Guía del estado actual, actualizada el 23 de octubre de 2026. El simulador identifica los dominios motores, optimiza trabajo específico y rendimiento térmico y compara ambos criterios con intervalos recalculados por ejecución. Se mantienen los nueve parámetros, Flask local, siete gráficas por simulación normal o tres por estudio OFAT, metadatos Git y retención compartida de cuatro informes. La Fase 4 permite variar T1, T3, eta_c, eta_t o delta y comparar R/A/B. Las verificaciones históricas del modelo y la integración se explican en §§4.45–4.55. El panel **Diagnóstico y coherencia física** (§4.56) calcula controles sobre los resultados de cada informe; no ejecuta las pruebas históricas V.1–V.5 ni equivale a validación experimental. La nueva **Fase 2A del plan de propiedades variables** (§4.57) incorpora un módulo independiente para aire ideal con `cp(T)`; todavía **no** participa en el cálculo Brayton, las gráficas ni el HTML, que continúan usando propiedades constantes.
 
 **Lectura por fases:** la [guía de aprendizaje de Fase 1](docs/milestones/03_dominio_viable_APRENDIZAJE.md) explica sus novedades respecto al commit de partida. La [guía de aprendizaje de Fase 2](docs/milestones/04_optimizacion_noideal_APRENDIZAJE.md) desarrolla la optimización y los intervalos dinámicos. La [guía de aprendizaje de Fase 3](docs/milestones/05_optimizacion_rendimiento_APRENDIZAJE.md) explica su física, algoritmos, integración y verificación de cierre. Este manual describe todo el código actual; `Evolution of the project` resume los grandes hitos, sin historial acumulativo de iteraciones.
 
@@ -19,6 +19,8 @@ La ejecución normal no lee ni sobrescribe los PNG históricos. Los ejemplos que
 ## 1. Visión general del programa
 
 El programa estudia un ciclo Brayton ideal y otro no ideal simplificado. Usa gas ideal con `cp` y `gamma` constantes, equipos adiabáticos en régimen estacionario y cambios despreciables de energía cinética y potencial. No calcula caudal másico, potencia, combustible, empuje ni mapas de máquinas.
+
+Por separado, `propiedades_aire.py` calcula propiedades térmicas variables de una mezcla ideal fija (N₂/O₂/Ar) entre 200 y 2000 K. Su API puede probarse desde Python, pero ningún flujo del simulador la importa aún. Los resultados actuales del ciclo no han cambiado.
 
 | Estado | Lugar físico |
 |---|---|
@@ -81,6 +83,7 @@ Brayton_Simulator/
 ├── CODE_WALKTHROUGH.md         explicación educativa actual
 ├── main.py                     modelo, gráficas y coordinación
 ├── viabilidad.py               estados comunes, clasificación, fronteras y barridos
+├── propiedades_aire.py          aire ideal de cp(T), h(T), s(T,p), gamma(T) e inversión; aislado
 ├── optimizacion.py             candidatos, búsqueda interior y contraste de máximos
 ├── optimizacion_rendimiento.py rendimiento y comparación A/B
 ├── sensibilidad.py             OFAT, derivadas locales y tres gráficas independientes
@@ -100,6 +103,7 @@ Brayton_Simulator/
 ├── static/fonts/               tres WOFF2 IBM Plex, OFL y procedencia
 ├── static/images/              esquema original del motor y licencia CC0
 ├── tests/test_viabilidad.py    pruebas de dominio, fronteras, máscaras y regresión HTTP
+├── tests/test_propiedades_aire.py  NIST, integrales, tramos, inversión y errores de entrada
 ├── tests/test_optimizacion.py  máximos, intervalos dinámicos y regresión Flask
 ├── tests/test_optimizacion_rendimiento.py  pruebas unitarias de rendimiento
 ├── tests/test_integracion_rendimiento.py  gráficas, informe, recálculo Flask y criterios
@@ -123,7 +127,7 @@ Brayton_Simulator/
 ├── README.md                   instalación y uso
 ├── requirements.txt            numpy, matplotlib y Flask
 ├── .gitignore
-├── docs/milestones/            informes técnicos, guías, verificaciones 13–17 y diagnóstico 18
+├── docs/milestones/            informes técnicos, guías y fase 2A: milestone 19
 ├── outputs/                    informes generados, excluidos de Git
 └── *.png                       seis imágenes históricas conservadas
 ```
@@ -133,6 +137,7 @@ Brayton_Simulator/
 | Archivo/bloque | Responsabilidad actual |
 |---|---|
 | `viabilidad.py` | Validación, ecuaciones de estados/energías compartidas, clasificación sin excepciones físicas, bisección y barridos |
+| `propiedades_aire.py` | Propiedades termodinámicas de aire seco cp(T) para futura integración; sólo biblioteca estándar, sin invocaciones desde el ciclo actual (§4.57) |
 | `optimizacion.py` | Máximo analítico y numérico de trabajo; reutiliza estados y dominio de Fase 1 |
 | `optimizacion_rendimiento.py` | Supremo ideal, máximo de rendimiento y comparación A/B integrados en main |
 | `main.py`: funciones de ciclo | API estricta de cálculo motor, comprobaciones, entropía/P-v y óptimo ideal |
@@ -1740,6 +1745,52 @@ Las filas tienen texto de estado además de color; los encabezados de tabla usan
 
 Las comprobaciones ejecutadas para esta funcionalidad y sus límites se registran en el [milestone 18](docs/milestones/18_diagnostico_fisico.md) y en [§12 de la guía de aprendizaje activa](docs/milestones/11_verificacion_numerica_APRENDIZAJE.md). El **23/10/2026**, tras importar la copia ZIP sobre el commit remoto verificado en un directorio Linux independiente, el caso de integración antes pendiente pasó. El cierre focalizado obtuvo **20/20 pruebas físicas, 11/11 de integración, 101/101 regresiones relacionadas y 12/12 pruebas de contratos V.5**: **144 métodos distintos correctos**. Se corrigió exclusivamente la coerción de clasificaciones `viable` ausentes o de tipo incorrecto en el diagnóstico. El análisis estructural de HTML comprobó etiquetas `details`, identificadores/referencias accesibles y CSS móvil integrado; **no equivale a una inspección visual de escritorio o teléfono**. No se ha ejecutado la suite completa ni se ha podido acceder al directorio Windows. Los recuentos de V.1–V.5 anteriores mantienen su fecha/entorno y no se suman como si se hubieran vuelto a ejecutar en cada informe. El panel por sí solo no corrige la limitación V.5 sobre JSON manipulado (abordada posteriormente en §4.44); tampoco estima incertidumbre experimental ni introduce modelos de combustión o destrucción global de exergía.
 
+### 4.57. Propiedades caloríficas variables del aire — `propiedades_aire.py` (Fase 2A)
+
+**Alcance exacto.** Es un módulo autónomo sin importaciones desde `main.py`, `viabilidad.py`, `segunda_ley.py`, Flask o el dashboard. Su existencia no reemplaza el modelo de `cp=1005 J/(kg·K)` y `gamma=1.4` del motor actual. Las pruebas nuevas tampoco validan un motor real. El [milestone técnico 19](docs/milestones/19_cp_variable_aire.md) y la [guía de aprendizaje independiente](docs/milestones/19_cp_variable_aire_APRENDIZAJE.md) desarrollan las hipótesis y los casos de prueba.
+
+**INTERPRETACIÓN FÍSICA.** Aire seco de composición molar constante `0.78 N₂ + 0.21 O₂ + 0.01 Ar`, sin disociación ni cambio de especies; masa molar de mezcla `M=0.02896968 kg/mol`, constante específica `R_u/M≈287.005677 J/(kg·K)` y presión de referencia `p_ref=100 kPa=1 bar`. N₂ y O₂ emplean los coeficientes Shomate de NIST WebBook (N₂: 200–500 y 500–2000 K; O₂: 200–700 y 700–2000 K); argón monoatómico usa `cp,m=5 R_u/2`. NIST tabula `t=T/1000`, `cp,m=A+Bt+Ct²+Dt³+E/t²`, la primitiva de entalpía en kJ/mol y la de entropía en J/(mol·K). Las fracciones son **molares**, no másicas: primero se suma `Σ y_i propiedad_molar_i` y después se divide por `M` (y por `1000` si el retorno está en kJ/kg).
+
+La referencia **relativa** es `h(298.15 K)=0` y `s0(298.15 K)=0`, en lugar de entalpía o entropía absolutas; el término constante de mezcla ideal desaparece al restar la referencia para una composición fija. Con p en kPa:
+
+```text
+cp(T)         = Σ y_i cp,m,i(T) / M                       [J/(kg K)]
+h(T)          = [Σ y_i ∫(Tref→T) cp,m,i(u) du] / (1000 M) [kJ/kg]
+s0(T)         = [Σ y_i ∫(Tref→T) cp,m,i(u)/u du] / (1000 M)
+s(T,p)        = s0(T) − (R_u/(1000 M)) ln(p/100)          [kJ/(kg K)]
+gamma(T)      = cp(T) / [cp(T) − R_u/M]                   [−]
+T_desde_h(h)  = solución monótona de h(T) = h_objetivo   [K]
+```
+
+Las dos primitivas de NIST, ajustadas por separado a cada intervalo, pueden diferir ligeramente en el empalme. `_incremento_molar` integra desde `T_REF` hasta el límite con el primer polinomio y desde éste hasta T con el segundo, conservando **continuidad exacta de h y s0**. No obliga a que cp sea continua: los ajustes NIST pueden tener una discontinuidad pequeña en 500/700 K. No se extrapola fuera del intervalo cerrado 200–2000 K. `T_desde_h` usa bisección porque `dh/dT=cp/1000>0`; no requiere SciPy, derivadas numéricas ni una estimación inicial arbitraria.
+
+**PYTHON: contratos públicos.** Todas reciben reales finitos (se rechazan `bool`, `None`, complejos, cadenas, NaN e infinitos) y plantean `ValueError` si el valor no pertenece al dominio. Las temperaturas se dan en K:
+
+| Firma completa | Retorno y contrato | Llamadas y ejemplo |
+|---|---|---|
+| `cp(T)` | `float`, J/(kg·K), `200<=T<=2000` | `_temperatura`, `_coeficientes`, `_cp_shomate`; invocada desde `gamma`, las pruebas y usuarios de la API. `cp(300)` ≈ `1004.414` |
+| `h(T)` | `float`, kJ/kg relativa a Tref; mismo intervalo | `_temperatura`, `_incremento_molar`, `_h_shomate`; invocada por `T_desde_h`. `h(1000)` ≈ `747.4853` |
+| `s0(T)` | `float`, kJ/(kg·K) relativa a Tref a 1 bar | `_temperatura`, `_incremento_molar`, `_s_shomate`; invocada por `s`. `s0(1000)` ≈ `1.271674` |
+| `s(T, p)` | `float`, kJ/(kg·K); `p` real finita y positiva en kPa | `_temperatura`, `_real_finito`, `s0`, `math.log`. `s(298.15, 100)==0`; p inválida → `ValueError` |
+| `gamma(T)` | `float` adimensional, `cp/(cp−R_AIRE)` | `cp`; `gamma(300)` ≈ `1.400059`, no es `gamma` del ciclo actual |
+| `T_desde_h(entalpia)` | `float` en K; entrada `h` en kJ/kg dentro de `[h(200),h(2000)]` | `_real_finito`, `h`, 80 iteraciones como máximo, parada por anchura `1e−10 K`; `T_desde_h(h(1000))` ≈ `1000` |
+
+**PYTHON: auxiliares privados** (el guion bajo inicial comunica que no son API pública). ` _real_finito(valor)` recibe un objeto y devuelve `bool`, usa `numbers.Real` y `math.isfinite` con captura de excepciones numéricas para rechazar incluso enteros inmensos; lo llaman `_temperatura`, `s` y `T_desde_h`. `_temperatura(T)` devuelve `float` en K tras validar límites y llama `_real_finito`; lo llaman `cp`, `h`, `s0`, `s`. `_coeficientes(nombre, T)` recibe nombre `str` (`'N2'`/`'O2'`) y T en K, devuelve una tupla de ocho coeficientes y se usa en `cp` (un nombre no registrado produce `KeyError`). `_cp_shomate(T, c)` devuelve J/(mol·K), `_h_shomate(T, c)` devuelve J/mol y `_s_shomate(T, c)` devuelve J/(mol·K); todas reciben T en K y tupla Shomate, son fórmulas internas utilizadas desde `cp` o `_incremento_molar`. `_incremento_molar(nombre, T, primitiva)` recibe nombre y T válidos más una **función** de primitiva (h o s) y devuelve su diferencia molar desde Tref en las unidades de esa función; lo llaman `h` y `s0`. Estos auxiliares presuponen argumentos ya validados por la API pública y no aceptan nombres arbitrarios.
+
+`_SHOMATE` es un diccionario de dos especies cuyos valores son tuplas `(límite, coeficientes_inferiores, coeficientes_superiores)`; `_ESPECIES` es una tupla de ternas `(nombre, fracción_molar, masa_molar)`. El `for nombre, y, _ in _ESPECIES[:2]` desempaqueta las ternas y descarta sólo la masa molar individual porque la conversión se realiza con `MASA_MOLAR` al final. `for _ in range(80)` denota una variable de bucle cuyo índice no se necesita. En `T_desde_h`, cada comparación conserva una de las dos mitades de `[inferior,superior]`; sus cotas finales garantizan error de temperatura pequeño, no exactitud experimental.
+
+Ejemplo aislado, desde la raíz del proyecto, sin generar informes ni modificar ningún estado del ciclo:
+
+```python
+from propiedades_aire import cp, h, s0, s, gamma, T_desde_h
+print(cp(300), gamma(300))        # aprox. 1004.414 J/(kg K), 1.400059
+print(h(1000), s0(1000))          # aprox. 747.4853 kJ/kg, 1.271674 kJ/(kg K)
+print(s(1000, 200))               # incluye el término de presión respecto a 100 kPa
+print(T_desde_h(h(1000)))         # vuelve a 1000 K
+```
+
+**Verificación frente a validación.** `tests/test_propiedades_aire.py` contrasta cp en temperaturas representativas con valores fijados a partir de NIST, deriva numéricamente h y s0, integra por cuadratura independiente, inspecciona ambos empalmes, extremos, inversión y rechazo de errores. Son pruebas de fórmulas y consistencia del **modelo elegido**, no datos de rendimiento de un motor. La función `s0` no incluye una entropía absoluta de mezcla: sólo diferencias respecto al estado de referencia. La integración en balances, estados, optimizadores y HTML queda **pendiente de Fase 2B**.
+
 ## 5. Variables principales
 
 Python no añade unidades a sus tipos. El diccionario global `PARAMETROS_PREDETERMINADOS` conserva las entradas; `main()` crea una copia local por ejecución. Un `int` puede producir `float` al operar; Flask convierte todos los campos a `float`, y NumPy utiliza también sus escalares.
@@ -1829,6 +1880,7 @@ Una clave `.png` en `imagenes` no es una ruta de lectura. `getvalue()` obtiene b
 | `from datetime import datetime` | Estándar | Fecha y hora con zona local |
 | `from io import BytesIO` | Estándar | PNG en memoria |
 | `from math import isclose, isfinite, log` | Estándar | Tolerancias, finitud y entropía escalar |
+| `from math import isfinite, log`, `from numbers import Real` — `propiedades_aire.py` | Estándar | Shomate, integración analítica, logaritmos estables, control estricto de tipos y bisección |
 | `from viabilidad import ...` | Módulo propio | Estados y balances comunes, dominios y clasificación |
 | `import numpy as np` | Dependencia existente | Mallas, arrays, máximo y operaciones por elemento |
 | `import matplotlib` | Dependencia existente | Selección de Agg |
@@ -2602,6 +2654,8 @@ HTML básico se aprende con tablas pequeñas; la dificultad principal es coordin
 
 ## 17. Posibles mejoras del código, sin aplicarlas
 
+El módulo independiente de propiedades variables ya existe (Fase 2A, §4.57); **integrarlo** en los procesos Brayton y sustituir las hipótesis caloríficas constantes es trabajo posterior. Esta sección describe únicamente mejoras todavía pendientes.
+
 ### PROBLEMA REAL: límites con consecuencias concretas
 
 | Observación | Consecuencia |
@@ -2758,3 +2812,5 @@ Estos hitos resumen capacidades ya implementadas en la versión analizada, sin a
 - **Verificación V.3 de Segunda Ley y Exergía (pendiente de revisión).** Ingeniería: referencias decimales de entropía, balances exergéticos alternativos de compresor/turbina, cámara sin atribución de generación, invariantes y límites de representabilidad. Python: `Decimal.ln`, `subTest`, aserciones con errores absolutos e intercepción temporal de trazas Matplotlib. Nueve pruebas nuevas y 22 regresiones pertinentes correctas en Linux; véase [documento técnico 15](docs/milestones/15_verificacion_segunda_ley.md).
 
 - **Diagnóstico y coherencia física en cada informe (revisión focalizada completada; sin commit).** Ingeniería: residuos y tolerancias por magnitud, distinción entre identidades, contrastes del mismo modelo y restricciones, disponibilidad de Segunda Ley y naturaleza de los óptimos. Python: registros homogéneos, generadores y agregación de estudios completos, separación entre motor/orquestación/HTML y persistencia del panel. Pertenece a la fase vigente de verificación, sin cambiar el modelo ni ejecutar V.1–V.5 por informe; queda pendiente la inspección visual real y cotejar la copia con Windows. Véanse [milestone 18](docs/milestones/18_diagnostico_fisico.md) y [aprendizaje §12](docs/milestones/11_verificacion_numerica_APRENDIZAJE.md).
+
+- **Fase 2A del nuevo plan: propiedades caloríficas variables del aire.** Ingeniería: mezcla molar ideal N₂/O₂/Ar, correlaciones Shomate contrastadas con NIST, h y s0 continuas por integración y referencia a 298,15 K/1 bar, cp y gamma dependientes de T; el ciclo histórico sigue intacto. Python: módulo independiente sin dependencias externas, tablas de coeficientes, funciones internas, validación estricta y bisección monótona de entalpía. Véanse [milestone técnico 19](docs/milestones/19_cp_variable_aire.md) y [guía de aprendizaje de Fase 2A](docs/milestones/19_cp_variable_aire_APRENDIZAJE.md).
