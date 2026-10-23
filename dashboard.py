@@ -3,6 +3,7 @@
 from base64 import b64encode
 from html import escape
 import json
+from math import isfinite
 from pathlib import Path
 import re
 
@@ -157,7 +158,40 @@ def separar_presentacion(contenido):
         metadata = json.loads(coincidencia[1])
     except (ValueError, TypeError):
         return None
-    if not isinstance(metadata, dict) or metadata.get("dashboard") != 1:
+    if not isinstance(metadata, dict) or type(metadata.get("dashboard")) is not int or metadata['dashboard'] != 1:
+        return None
+    parametros = metadata.get('parametros')
+    if (not isinstance(parametros, dict) or not set(CAMPOS).issubset(parametros)
+            or any(type(parametros[k]) not in (int, float) or not isfinite(parametros[k]) for k in CAMPOS)
+            or not isinstance(metadata.get('tipo'), str)
+            or not isinstance(metadata.get('fecha'), str)
+            or not isinstance(metadata.get('git'), dict)):
+        return None
+    version = metadata['git']
+    if (version.get('commit') is not None and not isinstance(version['commit'], str)) or (
+            version.get('modificado') is not None and type(version['modificado']) is not bool):
+        return None
+    estudio = metadata.get('estudio')
+    if estudio is not None and (not isinstance(estudio, dict)
+            or not isinstance(estudio.get('parametro'), str)
+            or estudio['parametro'] not in CAMPOS
+            or any(type(estudio.get(k)) not in (int, float) or not isfinite(estudio[k])
+                   for k in ('minimo', 'maximo'))
+            or type(estudio.get('muestras')) is not int):
+        return None
+    mapa = metadata.get('mapa')
+    if mapa is not None and (not isinstance(mapa, dict)
+            or not isinstance(mapa.get('cortes'), list)
+            or any(type(t) not in (int, float) or not isfinite(t) for t in mapa['cortes'])
+            or any(type(mapa.get(k)) not in (int, float) or not isfinite(mapa[k])
+                   for k in ('rp_min', 'rp_max', 'T3_min', 'T3_max'))
+            or any(type(mapa.get(k)) is not int for k in ('n_rp', 'n_T3'))
+            or not isinstance(mapa.get('escala'), str)):
+        return None
+    segunda = metadata.get('segunda_ley')
+    if segunda is not None and (not isinstance(segunda, dict)
+            or type(segunda.get('T0')) not in (int, float)
+            or not isfinite(segunda['T0']) or segunda['T0'] <= 0):
         return None
     paneles = {}
     for clave in ("resultados", "optimizacion", "sensibilidad"):

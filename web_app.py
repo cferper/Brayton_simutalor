@@ -12,7 +12,7 @@ from reporting import MARCA_FINAL, MARCA_INICIO, PATRON_INFORME
 from sensibilidad import PARAMETROS_ESTUDIO, ejecutar_sensibilidad, validar_configuracion
 from dashboard import CAMPOS, GRUPOS, renderizar_dashboard, separar_presentacion
 from mapa_diseno import ejecutar_mapa, validar_configuracion as validar_mapa
-from segunda_ley import ejecutar_segunda_ley, validar_referencia
+from segunda_ley import ejecutar_segunda_ley, validar_estudio_reutilizable, validar_referencia
 
 
 app = Flask(__name__)
@@ -81,8 +81,11 @@ def listar_informes():
             fecha = metadata["fecha"]
             commit = metadata.get("git", {}).get("commit") or "No disponible"
         else:
-            tipo = "Sensibilidad OFAT (formato anterior)" if "Análisis de sensibilidad paramétrica" in contenido else "Informe anterior"
-            resumen = "Parámetros y metadatos: consultar el informe original."
+            danado = 'id="brayton-metadata"' in contenido
+            tipo = ("Informe con metadatos inválidos" if danado else
+                    "Sensibilidad OFAT (formato anterior)" if "Análisis de sensibilidad paramétrica" in contenido else "Informe anterior")
+            resumen = ("El JSON no puede recuperarse; el archivo original sigue disponible."
+                       if danado else "Parámetros y metadatos: consultar el informe original.")
             fecha, commit = "Fecha: consultar original", "No disponible en el índice"
         informes.append({"nombre": ruta.name, "tipo": tipo, "resumen": resumen,
                          "fecha": fecha, "commit": commit, "mtime": ruta.stat().st_mtime_ns})
@@ -106,12 +109,17 @@ def estudio_conservado(nombre, parametros):
     ruta = carpeta / nombre
     if ruta.is_symlink() or not ruta.is_file() or ruta.resolve().parent != carpeta:
         return None
-    texto = ruta.read_text(encoding='utf-8')
+    try:
+        texto = ruta.read_text(encoding='utf-8')
+    except (OSError, UnicodeError):
+        return None
     if not texto.startswith(MARCA_INICIO) or not texto.endswith(MARCA_FINAL):
         return None
     presentacion = separar_presentacion(texto)
     if presentacion and presentacion[0].get('parametros') == parametros:
-        return presentacion[0].get('segunda_ley')
+        estudio = presentacion[0].get('segunda_ley')
+        if validar_estudio_reutilizable(estudio, parametros):
+            return estudio
     return None
 
 
@@ -200,6 +208,13 @@ def ver_informe(nombre):
             "Content-Disposition": f'attachment; filename="{nombre}"',
         })
     presentacion = separar_presentacion(contenido)
+    if presentacion is None and 'id="brayton-metadata"' in contenido:
+        aviso = ('<main><h1>Metadatos del informe inválidos</h1>'
+                 '<p>El JSON conservado no puede recuperarse con seguridad. '
+                 'Esto no implica inviabilidad física del ciclo. El archivo histórico no se ha modificado.</p>'
+                 f'<p><a href="{url_for("ver_informe", nombre=nombre, descargar=1)}">Descargar HTML original</a></p>'
+                 '<p><a href="/">Volver al formulario</a></p></main>')
+        return Response(aviso, status=422, mimetype="text/html")
     if presentacion is not None:
         metadata, paneles = presentacion
         valores = metadata["parametros"].copy()
@@ -221,6 +236,10 @@ def ver_informe(nombre):
             f'<p>Commit Git: <code>{escape(version.get("commit") or "No disponible")}</code></p>'
             f'<p class="version-warning">{aviso}</p>'
             f'<nav><a href="/">Volver al formulario</a> · <a href="/informes/{nombre}?descargar=1">Descargar informe HTML</a></nav></div>')
+        if metadata.get('segunda_ley') is not None and not validar_estudio_reutilizable(metadata['segunda_ley'], metadata['parametros']):
+            actual += ('<div class="card metadata"><p><strong>Estudio de Segunda Ley no verificable:</strong> '
+                       'los datos JSON de este informe no se reutilizarán. El HTML original se conserva; '
+                       'este aviso no significa inviabilidad física ni autenticidad comprobada.</p></div>')
         return Response(renderizar_dashboard(valores, contenidos=paneles, metadata=metadata,
             informes=listar_informes(), informe_actual=actual,
             seccion_inicial={'sensibilidad': 'sensibilidad', 'mapa': 'mapa', 'segunda_ley': 'segunda_ley'}.get(metadata['tipo'], 'resultados')), mimetype="text/html")

@@ -190,3 +190,79 @@ no contabilizan repeticiones ni errores del lanzador.
 sin fallos, errores ni omisiones finales**. No se observó un defecto reproducible
 de integración web dentro de los escenarios ensayados. V.5 queda **preparada
 para revisión, sin commit ni publicación**; ninguna fase posterior ha comenzado.
+
+## 7. Corrección posterior de la limitación JSON — 23/10/2026
+
+Esta sección refleja una intervención **posterior** a las 26 pruebas históricas
+de V.5. Base verificada: rama `mejoras/verificacion-numerica`, commit remoto
+`d6b3741d6c5834e5657e35a3deac4c0cfd036728`. Se trabaja en una copia
+independiente, sin alterar ni sincronizar Windows y **sin commit nuevo**.
+
+### Causa y comportamiento corregido
+
+`web_app.estudio_conservado` comprobaba nombre, ubicación, marcas de HTML y
+coincidencia de los nueve parámetros, pero devolvía el bloque `segunda_ley`
+sin inspeccionar `modelos`, estados, entropías ni exergías. Una modificación de
+esas claves podía provocar errores internos al actualizar T0 o reutilizar
+datos incoherentes. Además, algunos metadatos externos defectuosos podían
+provocar errores al reconstruir el historial de informes.
+
+`segunda_ley.validar_estudio_reutilizable(estudio, parametros)` verifica ahora:
+
+1. Dos modelos y equipos completos; tipos numéricos auténticos (no `bool`),
+   finitud de T, p, s, generación, exergía y T0; clasificación y motivos.
+2. `cp`, `gamma` y cuatro T/p frente al modelo ideal o no ideal configurado,
+   usando las mismas relaciones físicas existentes sin modificar ecuaciones.
+3. Entropías relativas, tolerancia de generación adiabática, generación bruta
+   y cuantificada, Gouy–Stodola `eD=T0·sgen`, suma parcial y descomposición
+   del cambio de entropía en la cámara.
+
+Las igualdades numéricas del JSON usan `isclose(rtol=1e-9)` y sólo las
+entropías/magnitudes derivadas tienen `atol=1e-10` en su unidad. Se respetan
+por separado la tolerancia física `TOL_REL` y la banda de generación. No son
+incertidumbres experimentales. No se acepta un estudio incompleto de estado
+`limite_numerico` o `inconsistencia` para reutilización: se recalcula.
+
+Si el estudio conservado falla, `estudio_conservado` devuelve `None` y la
+ejecución reconstruye los dos puntos desde las entradas actuales válidas.
+`ejecutar_segunda_ley` verifica también el argumento opcional de llamadas
+directas. Si es íntegro y sólo cambia T0, se mantienen los cuatro estados y
+sus entropías sin llamar a `evaluar_punto`; sólo se actualiza la exergía
+destruida. Ningún archivo histórico se corrige ni reescribe.
+
+`dashboard.separar_presentacion` rechaza un envoltorio JSON de tipos
+incompatibles con la navegación. El historial identifica los informes con
+metadatos inválidos; su recuperación estructurada responde HTTP 422 y ofrece
+descarga del original sin alterarlo. Los informes legados sin bloque de
+metadatos continúan su ruta anterior. Los estudios de Segunda Ley internamente
+defectuosos que aún se pueden abrir reciben un aviso visible y no se reutilizan.
+
+### Comprobaciones y riesgos pendientes
+
+- Se prepararon **12 métodos nuevos** en `tests/test_integridad_json_v5.py`:
+  casos íntegros, nueve parámetros, corrupción estructural y tipográfica,
+  no finitos, incoherencias, errores JSON, legado, historial/descargas, caso no
+  motor, ejecución directa y T0 con un doble de prueba que impide reevaluar.
+- **12/12 nuevos correctos** en un entorno temporal autorizado, con las
+  dependencias ya declaradas en `requirements.txt`. El primer intento usó
+  el intérprete sin Flask y produjo un error de importación del entorno,
+  no un fallo funcional de las pruebas.
+- **78/78 regresiones correctas** de los módulos `test_verificacion_integracion_web`,
+  `test_segunda_ley`, `test_web_app`, `test_dashboard`, `test_reporting` y
+  `test_diagnostico_integracion` (39,398 s de ejecución acumulada en esa invocación).
+  **Total: 90/90 métodos distintos, cero fallos y errores finales.**
+- Una ejecución matemática **aislada** con un sustituto mínimo de
+  `viabilidad` permitió comprobar siete condiciones de aceptación/rechazo
+  y copia de T0; no equivale a pruebas HTTP o regresiones.
+- No se repitieron las 144 pruebas del panel ni la suite histórica completa.
+  Las rutas de historial, recuperación y descarga están cubiertas por las
+  pruebas focalizadas y relacionadas; no se realizó auditoría completa de
+  archivos externos arbitrarios. La revisión visual del panel había sido
+  aceptada por el usuario de forma independiente.
+- Ningún conjunto de ecuaciones internas certifica **autenticidad
+  criptográfica**. Se pueden construir datos fraudulentos que satisfagan
+  simultáneamente las relaciones; tampoco se demuestra validación experimental.
+
+**Estado de esta corrección:** implementada y verificada mediante **90/90
+pruebas relacionadas** en copia independiente; sin commit ni publicación,
+pendiente de revisión y autorización expresa del usuario.

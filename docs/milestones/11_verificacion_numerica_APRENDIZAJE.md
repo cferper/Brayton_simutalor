@@ -555,7 +555,7 @@ Antes, `terminar_informe` sólo organizaba resultados/KPI; ahora añade `diagnos
 4. Consulta un informe sólo de Segunda Ley. Explica por qué disponer de temperaturas y entropías no equivale a disponer del balance energético guardado.
 5. Abre un informe anterior desde el historial y descarga uno actual. La consulta debe conservar el diagnóstico guardado, sin ejecutar el modelo de nuevo.
 
-Son prácticas propuestas, **no una afirmación de que el lector ya las haya ejecutado**. La evidencia ejecutada en esta tarea se identifica separadamente en el [milestone 18](18_diagnostico_fisico.md). Permanece la limitación V.5: la reutilización no inspecciona exhaustivamente la semántica de un bloque `segunda_ley` de JSON manipulado. El panel no se presenta como una corrección de ese comportamiento ni como validación experimental; tampoco cambia `cp`, `gamma`, las hipótesis de equipos o los optimizadores.
+Son prácticas propuestas, **no una afirmación de que el lector ya las haya ejecutado**. La evidencia ejecutada en esta tarea se identifica separadamente en el [milestone 18](18_diagnostico_fisico.md). En el momento de aquella revisión permanecía la limitación V.5: la reutilización no inspeccionaba la semántica de un bloque `segunda_ley` de JSON manipulado. El panel por sí solo no corrigió ese comportamiento, abordado posteriormente en §13. Tampoco constituye validación experimental ni cambia `cp`, `gamma`, las hipótesis de equipos o los optimizadores.
 
 ### Evidencia inicial y resultado de la revisión del 23/10/2026
 
@@ -564,3 +564,94 @@ En la sesión inicial constaban **19/19 métodos físicos** correctos; integraci
 Sobre la copia independiente se ejecutaron **20/20 pruebas físicas**, **11/11 de integración del diagnóstico**, **101/101 regresiones de reporting/dashboard/Flask/Segunda Ley/sensibilidad/mapa** y **12/12 pruebas de contratos web V.5**: **144 métodos distintos correctos**. Se añadieron dos pruebas: una detecta la coerción indebida de `viable` y otra comprueba en el HTML autónomo identificadores, referencias de accesibilidad, pares `details` y presencia de CSS adaptativo. Una primera invocación de las regresiones carecía de `tests` en `PYTHONPATH`: dio cuatro errores de importación del ejecutor, corregidos al repetir esos 101 métodos. No hay resultado documental de la suite general iniciada en la sesión anterior y **no se ha ejecutado la suite completa** en esta revisión.
 
 La sesión anterior pudo arrancar Flask, pero el navegador no conectó. Esta revisión ha contrastado las respuestas HTTP de generación, historial y descarga con el cliente Flask, además de la estructura HTML y las reglas CSS. **No se han visto ni accionado manualmente el panel en escritorio/móvil**; falta esa comprobación visual antes de dar el acabado por definitivamente cerrado. La copia no es el repositorio Windows: trasladar las correcciones allí exige comparar los archivos reales, sin sobrescribir los cambios pendientes. El [milestone técnico 18](18_diagnostico_fisico.md) conserva el desglose de verificaciones, limitaciones y estado sin commit.
+
+## 13. Iteración del 23 de octubre de 2026 — integridad de estudios JSON de V.5
+
+### PYTHON — tres niveles de comprobación
+
+**Forma:** `isinstance(estudio, dict)` y comprobar que están presentes dos
+modelos, cuatro temperaturas, cuatro presiones, cuatro entropías y dos
+componentes. Es distinto de comprobar sólo que un texto es JSON válido:
+`{"modelos": {}}` es JSON válido, pero no describe nuestro estudio.
+
+**Tipo y dominio:** `type(x) in (int, float)` excluye `True`, aunque en Python
+`isinstance(True, int)` sea verdadero. `math.isfinite` excluye NaN e infinitos.
+Para una temperatura se exige además `x > 0` [K]. Un dato opcional ausente
+puede ser legítimo en otros contextos; un estado necesario para reutilizar
+Segunda Ley no lo es.
+
+**Coherencia numérica:** a diferencia de la forma, compara números y
+ecuaciones. `math.isclose(x, referencia, rel_tol=1e-9, abs_tol=...)`
+permite redondeo de coma flotante, no desviaciones arbitrarias. La validación
+contrasta T/p con los nueve parámetros de entrada, calcula las entropías
+relativas del gas perfecto y reconstruye generaciones adiabáticas y
+`eD=T0·sgen` guardadas. El piso `abs_tol=1e-10` se limita a las magnitudes
+entrópicas y derivadas; para T/p se emplea comparación relativa. Las bandas
+de admisión del punto motor y de generación de entropía son independientes
+de esa tolerancia informática.
+
+### Flujo seguro y ejemplo
+
+```python
+anterior = estudio_conservado(nombre, parametros)
+# Un JSON inválido produce None; el HTML histórico no cambia.
+ejecutar_segunda_ley(carpeta, parametros, 300.0, anterior)
+```
+
+`web_app.estudio_conservado(nombre, parametros)` compara la ruta y las entradas,
+luego llama a `segunda_ley.validar_estudio_reutilizable(estudio, parametros)`.
+Esta función devuelve un `bool`, nunca repara o reescribe el estudio:
+comprueba listas, diccionarios, números y balances, capturando errores
+esperables del dato conservado. `ejecutar_segunda_ley` repite la barrera para
+llamadas directas. Sólo un estudio válido pasa a `actualizar_T0`, que
+conserva estados y entropías usando `deepcopy` y cambia las eD.
+
+Para los metadatos externos dañados, `dashboard.separar_presentacion` devuelve
+`None`: el historial muestra que no pueden recuperarse estructuradamente y
+la vista devuelve HTTP 422, ofreciendo descargar el HTML original sin
+modificarlo. El HTML antiguo sin bloque de metadatos sigue abriéndose como
+antes. La consulta de un estudio de Segunda Ley internamente inconsistente
+lleva una advertencia y no habilita su reutilización física.
+
+**Funciones nuevas y modificadas:**
+
+- `validar_estudio_reutilizable(estudio, parametros) -> bool`: nuevo control
+  sin unidades de retorno; consume T [K], p [kPa], s [kJ/(kg·K)] y eD
+  [kJ/kg]. Usa `isclose`, `cambio_entropia`, `generacion_adiabatica` y
+  constantes de clasificación; lo llaman Flask y el ejecutor. Retorna
+  `False` para errores de forma, tipos o incoherencias, no lanza una excepción
+  física por un simple JSON roto. Ejemplo: `validar_estudio_reutilizable(e,p)`.
+- `web_app.estudio_conservado(nombre, parametros) -> dict | None`: mismo
+  contrato externo, ahora valida el estudio antes de devolverlo. El
+  ejecutor también descarta estudios no confiables, recalculando desde
+  los nueve parámetros válidos. `dashboard.separar_presentacion(contenido)`
+  mantiene su firma y añade validaciones del contenedor necesario para
+  reconstruir la vista.
+- `web_app.listar_informes() -> list[dict]` y
+  `web_app.ver_informe(nombre) -> Response`: gestionan metadatos inválidos
+  sin sobrescribir ni interpretar como motor/no motor; la descarga del archivo
+  completo sigue siendo exacta.
+
+### Evidencia y límites
+
+Base de esta iteración: `d6b3741d6c5834e5657e35a3deac4c0cfd036728`
+en `mejoras/verificacion-numerica`, copia independiente, **sin commit**.
+Se ejecutaron **12/12 métodos focalizados** de `test_integridad_json_v5.py`
+con Flask y dependencias del proyecto instaladas, con autorización, sólo
+en un entorno temporal. Se ejecutaron además **78/78 regresiones relacionadas**
+de integración web, Segunda Ley, Flask, dashboard, reporting e integración del
+diagnóstico: **90/90 pruebas distintas correctas**. Un primer intento con
+un intérprete sin Flask falló al importar, antes de ejecutar los métodos;
+no era un fallo del código. Previamente se habían pasado siete comprobaciones
+numéricas aisladas usando un sustituto de `viabilidad`; no se cuentan de nuevo
+como pruebas `unittest`. No se ha repetido la batería anterior de 144 pruebas.
+
+La validez interna no demuestra autenticidad criptográfica ni concordancia
+experimental. Un atacante capaz de alterar de forma matemáticamente coherente
+todos los campos podría eludir estas comprobaciones; sin firma o hash de
+confianza externo no se puede afirmar que un archivo no fue modificado.
+Los estudios clasificados como límites numéricos o inconsistencias sin estados
+completos se recalculan en vez de reutilizar una estructura no verificable.
+La suite general completa y una auditoría de ficheros hostiles arbitrarios
+siguen fuera de alcance. La publicación exige todavía revisión y autorización
+explícita del usuario; aquí no se creó ningún commit.

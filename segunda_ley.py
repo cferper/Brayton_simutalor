@@ -1,6 +1,6 @@
 """Segunda ley sobre estados existentes. s relativa [kJ/(kg K)], eD [kJ/kg]."""
 from copy import deepcopy
-from math import isfinite, log
+from math import isclose, isfinite, log
 
 from viabilidad import ErrorNumerico
 
@@ -84,6 +84,105 @@ def analizar_segunda_ley(estados, cp, gamma, T0=288.15):
     return resultado
 
 
+def validar_estudio_reutilizable(estudio, parametros):
+    """Contrasta forma y coherencia de un JSON antes de reutilizar sus estados.
+
+    No demuestra autoría ni autenticidad: un estudio adulterado de forma
+    matemáticamente coherente podría superar estas comprobaciones.
+    """
+    def numero(valor, positivo=False):
+        return (type(valor) in (int, float) and isfinite(valor)
+                and (not positivo or valor > 0))
+
+    def coincide(valor, esperado, *, entropia=False):
+        return (numero(valor) and numero(esperado)
+                and isclose(valor, esperado, rel_tol=1e-9,
+                            abs_tol=1e-10 if entropia else 0.))
+
+    try:
+        if not isinstance(estudio, dict) or not isinstance(parametros, dict):
+            return False
+        T0, cp, gamma = (estudio[k] for k in ('T0', 'cp', 'gamma'))
+        if not all(numero(x, positivo=True) for x in (T0, cp)) or not numero(gamma) or gamma <= 1:
+            return False
+        if not coincide(cp, parametros['cp']) or not coincide(gamma, parametros['gamma']):
+            return False
+        T1, T3, p1, rp = (parametros[k] for k in ('T1', 'T3', 'p1', 'relacion_presiones'))
+        eta_c, eta_t, delta = (parametros[k] for k in ('eta_c', 'eta_t', 'perdida_presion_combustor'))
+        if (not all(numero(x, positivo=True) for x in (T1, T3, p1, rp, eta_c, eta_t))
+                or not numero(delta) or not T3 > T1 or rp <= 1 or not 0 <= delta < 1
+                or not 0 < eta_c <= 1 or not 0 < eta_t <= 1):
+            return False
+        modelos = estudio['modelos']
+        if not isinstance(modelos, dict) or set(modelos) != {'ideal', 'noideal'}:
+            return False
+        a = (gamma - 1) / gamma
+        for nombre in ('ideal', 'noideal'):
+            datos = modelos[nombre]
+            if not isinstance(datos, dict) or datos.get('estado') not in ('motor', 'diagnostico_no_motor'):
+                # Sin cuatro estados completos no es posible verificar un estudio
+                # numéricamente limitado o inconsistente: se recalcula.
+                return False
+            ec, et, perdida = ((1., 1., 0.) if nombre == 'ideal' else (eta_c, eta_t, delta))
+            p2, p3 = p1 * rp, p1 * rp * (1 - perdida)
+            T2s, T4s = T1 * rp**a, T3 * (p1 / p3)**a
+            temperaturas_esperadas = (T1, T1 + (T2s - T1) / ec, T3, T3 - et * (T3 - T4s))
+            presiones_esperadas = (p1, p2, p3, p1)
+            temperaturas, presiones, entropias = (datos[k] for k in ('temperaturas', 'presiones', 'entropias'))
+            if not all(isinstance(v, (tuple, list)) and len(v) == 4
+                       for v in (temperaturas, presiones, entropias)):
+                return False
+            if not all(numero(x, positivo=True) and coincide(x, y)
+                       for v, ref in ((temperaturas, temperaturas_esperadas), (presiones, presiones_esperadas))
+                       for x, y in zip(v, ref)):
+                return False
+            if not all(coincide(s, cambio_entropia(T1, p1, t, p, cp, gamma)['total'], entropia=True)
+                       for s, t, p in zip(entropias, temperaturas, presiones)):
+                return False
+
+            viable, motivos = datos['viable'], datos['motivos']
+            if type(viable) is not bool or not isinstance(motivos, (list, tuple)):
+                return False
+            from viabilidad import TOL_REL
+            wc, wt = cp * (temperaturas[1] - T1) / 1000, cp * (T3 - temperaturas[3]) / 1000
+            qin = cp * (T3 - temperaturas[1]) / 1000
+            escala = max(abs(wc), abs(wt), cp / 1000 * max(T1, T3))
+            margenes = (rp - 1, p3 - p1, qin, wt - wc)
+            tolerancias = (TOL_REL * max(rp, 1), TOL_REL * max(p3, p1),
+                           TOL_REL * escala, TOL_REL * escala)
+            esperados = [clave for clave, m, tol in zip(
+                ('compresion', 'expansion', 'calor_aportado', 'trabajo_neto'), margenes, tolerancias)
+                         if m <= tol]
+            if (list(motivos) != esperados or viable != (not esperados)
+                    or datos['estado'] != ('motor' if viable else 'diagnostico_no_motor')):
+                return False
+
+            componentes = datos['componentes']
+            if not isinstance(componentes, dict) or set(componentes) != {'compresor', 'turbina'}:
+                return False
+            suma = 0.
+            for equipo, i, j in (('compresor', 0, 1), ('turbina', 2, 3)):
+                esperado = generacion_adiabatica(entropias[i], entropias[j], cp / 1000)
+                c = componentes[equipo]
+                if not isinstance(c, dict) or not all(coincide(c[k], esperado[k], entropia=True)
+                                                      for k in ('valor', 'bruto', 'tolerancia')):
+                    return False
+                ed = T0 * esperado['valor']
+                if not coincide(c['exergia_destruida'], ed, entropia=True):
+                    return False
+                suma += ed
+            if not coincide(datos['suma_componentes'], suma, entropia=True):
+                return False
+            camara = datos['camara']
+            referencia = cambio_entropia(temperaturas[1], presiones[1], temperaturas[2], presiones[2], cp, gamma)
+            if not isinstance(camara, dict) or not all(coincide(camara[k], referencia[k], entropia=True)
+                                                        for k in ('termica', 'presion', 'total')):
+                return False
+        return True
+    except (KeyError, TypeError, ValueError, OverflowError, ZeroDivisionError, ErrorNumerico):
+        return False
+
+
 def actualizar_T0(estudio, T0):
     """Copia el estudio y cambia sólo T0/eD, sin evaluar estados ni entropías."""
     T0 = validar_referencia(T0)
@@ -152,6 +251,9 @@ def ejecutar_segunda_ley(carpeta_salida, parametros, T0=288.15, estudio_previo=N
     from viabilidad import evaluar_punto
     from reporting import crear_informe_segunda_ley_html, guardar_informe_html, obtener_version_git
     T0 = validar_referencia(T0)
+    # Segunda barrera para llamadas directas ajenas al formulario web.
+    if estudio_previo is not None and not validar_estudio_reutilizable(estudio_previo, parametros):
+        estudio_previo = None
     if estudio_previo is not None:
         estudio = actualizar_T0(estudio_previo, T0)
     else:
