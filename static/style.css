@@ -68,3 +68,46 @@ details{min-width:0}details.card{padding:0}details.card>summary{padding:16px 20p
 .edu-theory p{max-width:105ch}
 @media(max-width:760px){.edu-tab{flex:1;padding:9px 10px;font-size:12px}.edu-theory{padding:16px}}
 @media print{.edu-tabbar{display:none!important}.js .edu-tab-pane[hidden]{display:block!important}}
+
+/* Diagnóstico calculado: estados explícitos y tablas que se adaptan a móvil. */
+.diagnostico-panel{margin-top:20px;overflow-wrap:anywhere}
+.diagnostico-panel h3{color:var(--primary);margin-bottom:9px}
+.diagnostico-intro,.diagnostico-alcance{font-size:12px;color:#52677e;max-width:110ch;margin-bottom:12px}
+.diagnostico-resumen{display:flex;flex-wrap:wrap;gap:8px;list-style:none;padding:0;margin:13px 0}
+.diagnostico-estado{display:inline-block;border:1px solid transparent;border-radius:5px;padding:3px 7px;font:600 11px/1.5 'IBM Plex Sans','Segoe UI',sans-serif;white-space:normal}
+.diagnostico-resumen .diagnostico-estado{padding:5px 10px}
+.diagnostico-resumen strong{font-family:'IBM Plex Mono',Consolas,monospace;margin-right:3px}
+.diagnostico-cumple{background:#e9f5ee;color:#205c3d;border-color:#b8dac5}
+.diagnostico-atencion{background:#fff4dc;color:#7a4d0c;border-color:#e7ce95}
+.diagnostico-no_evaluable{background:#edf1f5;color:#41566b;border-color:#ccd6df}
+.diagnostico-grupo{border:1px solid var(--border);border-radius:6px;margin-top:11px;min-width:0;overflow:hidden}
+.diagnostico-grupo>summary{padding:11px 13px;background:#f6f9fc;color:var(--primary);cursor:pointer;font-weight:600;list-style-position:inside}
+.diagnostico-numero{font-size:11px;font-weight:400;color:#52677e}
+.diagnostico-grupo-resumen{display:inline-flex;flex-wrap:wrap;gap:5px;margin-left:9px;vertical-align:middle}
+.diagnostico-tabla{table-layout:fixed;width:100%;margin:0;border-collapse:collapse;font-size:11px}
+.diagnostico-tabla th,.diagnostico-tabla td{padding:11px 9px;vertical-align:top;text-align:left;border-bottom:1px solid var(--border);white-space:normal;overflow-wrap:anywhere}
+.diagnostico-tabla th{font-size:10px;background:#fff;color:#52677e}
+.diagnostico-tabla th:nth-child(1){width:33%}.diagnostico-tabla th:nth-child(2){width:25%}
+.diagnostico-tabla th:nth-child(3),.diagnostico-tabla th:nth-child(4){width:14%}.diagnostico-tabla th:nth-child(5){width:14%}
+.diagnostico-tabla tbody tr:last-child td{border-bottom:0}
+.diagnostico-tabla td:first-child{font-family:'IBM Plex Sans','Segoe UI',sans-serif;font-size:12px}
+.diagnostico-valor{display:block}.diagnostico-unidad{font-size:10px;color:#52677e}
+.diagnostico-referencia,.diagnostico-conteo{display:block;font-size:10px;line-height:1.6;color:#52677e;margin-top:5px}
+.diagnostico-explicacion{margin-top:8px;font-size:11px;line-height:1.6}
+.diagnostico-explicacion>summary{cursor:pointer;color:var(--interactive);font-size:11px;list-style-position:inside}
+.diagnostico-explicacion dl{margin:9px 0 0;padding:9px;background:#f6f9fc;border-radius:4px}
+.diagnostico-explicacion dt{font-weight:600;color:#314c63;margin-top:8px}
+.diagnostico-explicacion dt:first-child{margin-top:0}.diagnostico-explicacion dd{margin:2px 0 0;color:#41566b;white-space:pre-wrap;overflow-wrap:anywhere}
+@media(max-width:760px){
+ .diagnostico-panel{padding:15px}.diagnostico-resumen{gap:6px}
+ .diagnostico-grupo-resumen{display:flex;margin:7px 0 0}
+ .diagnostico-tabla,.diagnostico-tabla tbody,.diagnostico-tabla tr,.diagnostico-tabla td{display:block;width:100%;min-width:0}
+ .diagnostico-tabla thead{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+ .diagnostico-tabla tbody tr{padding:10px 12px;border-bottom:1px solid var(--border)}
+ .diagnostico-tabla tbody tr:last-child{border-bottom:0}
+ .diagnostico-tabla td{padding:5px 0;border:0;min-height:0}
+ .diagnostico-tabla td::before{content:attr(data-label);display:block;font:600 10px/1.5 'IBM Plex Sans','Segoe UI',sans-serif;color:#52677e;margin-bottom:2px}
+ .diagnostico-tabla td:first-child{padding-bottom:9px}
+ .diagnostico-explicacion dl{max-width:100%}
+}
+@media print{.diagnostico-grupo{break-inside:auto}.diagnostico-tabla tr{break-inside:avoid}.diagnostico-estado{border-color:#65768a}}

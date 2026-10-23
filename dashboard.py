@@ -211,13 +211,16 @@ def visor_graficas(legado, imagenes, sensibilidad=False):
 
 def terminar_informe(legado, parametros, imagenes, fecha, version, *, noideal=None,
                      barrido=None, optimizaciones=None, estudio_rendimiento=None,
-                     comparacion=None, sensibilidad=None, segunda_ley=None):
+                     comparacion=None, sensibilidad=None, segunda_ley=None, diagnosticos=None):
     """Convierte presentación heredada a dashboard conservando datos/PNG sin recalcular."""
     from reporting import MARCA_INICIO, MARCA_FINAL, seccion_segunda_ley_html
+    from diagnostico_html import renderizar_diagnostico
     visor, detalles, cabecera = visor_graficas(legado, imagenes, sensibilidad is not None)
     paneles = {k: "" for k in ("resultados", "optimizacion", "sensibilidad")}
     metadata = {"dashboard": 1, "tipo": "sensibilidad" if sensibilidad is not None else "normal",
                 "parametros": parametros, "fecha": fecha.isoformat(), "git": version}
+    if diagnosticos is not None:
+        metadata['diagnosticos'] = diagnosticos
     valores = parametros.copy()
     valores["perdida_presion_combustor"] *= 100
     if segunda_ley is not None:
@@ -310,6 +313,12 @@ def terminar_informe(legado, parametros, imagenes, fecha, version, *, noideal=No
         paneles["optimizacion"] = (bloque_educativo('¿Qué intentamos optimizar?', TEXTO_OPTIMIZACION)
             + bloque_educativo('Máximo, supremo y dominio vacío', TEXTO_DISPONIBILIDAD)
             + f'<div class="two-columns">{"".join(decisiones)}</div><div class="card tradeoff"><h3>Compromiso entre objetivos</h3>{compromiso}<a href="#resultados/compromiso">Ver gráfica de compromiso</a></div>')
+    for clave, diagnostico in (diagnosticos or {}).items():
+        fragmento = renderizar_diagnostico(diagnostico, clave)
+        if clave in ('resultados', 'sensibilidad') and visor in paneles.get(clave, ''):
+            paneles[clave] = paneles[clave].replace(visor, fragmento + visor, 1)
+        else:
+            paneles[clave] = paneles.get(clave, '') + fragmento
     info = '<div class="card metadata">' + cabecera.replace("<h1>", "<h3>").replace("</h1>", "</h3>") + '</div>'
     pagina = renderizar_dashboard(valores, contenidos=paneles, metadata=metadata,
                                   modo_local=False, informe_actual=info,

@@ -1,12 +1,12 @@
 # Guía educativa de Brayton Simulator
 
-Guía del estado actual, actualizada el 22 de octubre de 2026. El simulador identifica los dominios motores, optimiza trabajo específico y rendimiento térmico y compara ambos criterios con intervalos recalculados por ejecución. Se mantienen los nueve parámetros, Flask local, siete gráficas por simulación normal o tres por estudio OFAT, metadatos Git y retención compartida de cuatro informes. La Fase 4 permite variar T1, T3, eta_c, eta_t o delta y comparar R/A/B. El nuevo Plan de Mejoras añade verificaciones **sólo en pruebas** del ciclo ideal (§4.45), raíces y fronteras (§4.46), comparación opcional con SciPy (§4.47), convergencia (§4.48) y balances e invariantes físicos (§4.49). La Etapa 6 documenta el cierre reproducible y su suite completa (§4.50); V.1 verifica Sensibilidad (§4.51), V.2 contrasta independientemente el Mapa de Diseño (§4.52) y V.3 verifica Segunda Ley y Exergía (§4.53), sin cambiar física ni interfaz.
+Guía del estado actual, actualizada el 23 de octubre de 2026. El simulador identifica los dominios motores, optimiza trabajo específico y rendimiento térmico y compara ambos criterios con intervalos recalculados por ejecución. Se mantienen los nueve parámetros, Flask local, siete gráficas por simulación normal o tres por estudio OFAT, metadatos Git y retención compartida de cuatro informes. La Fase 4 permite variar T1, T3, eta_c, eta_t o delta y comparar R/A/B. Las verificaciones históricas del modelo y la integración se explican en §§4.45–4.55. El panel **Diagnóstico y coherencia física** (§4.56) calcula controles sobre los resultados de cada informe; no ejecuta las pruebas históricas V.1–V.5 ni equivale a validación experimental.
 
 **Lectura por fases:** la [guía de aprendizaje de Fase 1](docs/milestones/03_dominio_viable_APRENDIZAJE.md) explica sus novedades respecto al commit de partida. La [guía de aprendizaje de Fase 2](docs/milestones/04_optimizacion_noideal_APRENDIZAJE.md) desarrolla la optimización y los intervalos dinámicos. La [guía de aprendizaje de Fase 3](docs/milestones/05_optimizacion_rendimiento_APRENDIZAJE.md) explica su física, algoritmos, integración y verificación de cierre. Este manual describe todo el código actual; `Evolution of the project` resume los grandes hitos, sin historial acumulativo de iteraciones.
 
 Verificación previa de Fase 2, del 20 de octubre de 2026: **55 pruebas superadas** con `python -B -m unittest discover -s tests -v` (40.481 s en esta ejecución).
 
-Hay once módulos (`main.py`, `viabilidad.py`, `optimizacion.py`, `optimizacion_rendimiento.py`, `sensibilidad.py`, `mapa_diseno.py`, `segunda_ley.py`, `guias_educativas.py`, `reporting.py`, `dashboard.py`, `web_app.py`) y veinte archivos `test_*.py` en esta copia, incluidos los cinco archivos de las Tareas 1.1–1.5 y las verificaciones posteriores V.1 y V.2 (publicadas) y V.3 (pendiente de revisión). `.venv` contiene dependencias, no código propio. Se distinguen dominio físico, ventana numérica y ventana visual (§14). La suite completa más reciente **ejecutada** en la Etapa 6 fue **215/215 correcta** en Linux (§4.50); las posteriores verificaciones V.1, V.2 y V.3 sólo ejecutaron conjuntos focalizados (37, 30 y 31 métodos distintos, respectivamente). La verificación interna no constituye validación experimental de un motor.
+Los módulos se enumeran en §2; los tres dedicados al diagnóstico separan controles, selección/agregación y HTML. `.venv` contiene dependencias, no código propio. Se distinguen dominio físico, ventana numérica y ventana visual (§14). Los resultados históricos de las pruebas conservan sus entornos y fechas en §§4.45–4.55; las comprobaciones realizadas para el panel se registran en §4.56 y en su [milestone técnico](docs/milestones/18_diagnostico_fisico.md). Una prueba histórica satisfactoria no se presenta como un control ejecutado al generar cada informe.
 
 La verificación de esta fase se realiza con informes en carpetas temporales; los seis PNG históricos permanecen intactos. No se crean commits automáticamente. La base verificada de Fase 2 es `f9f9a0495c4231a4d48399fba4bccdcc0f6bcf6f` en `feature/fase-2-optimizacion-noideal`; la implementación de Fase 2 está registrada en el commit `c2f4bff84a173f3b354a5d0f76c2b7bd2ee1fa21` (`Implement non-ideal Brayton work optimization with dynamic intervals`).
 
@@ -29,7 +29,7 @@ El programa estudia un ciclo Brayton ideal y otro no ideal simplificado. Usa gas
 
 **INTERPRETACIÓN FÍSICA.** Los procesos ideales son dos isentrópicas y dos isóbaras. El no ideal incorpora eficiencias de compresor y turbina y pérdida de presión del combustor. Se calculan los máximos de trabajo de ambos modelos y, por separado, el máximo de rendimiento no ideal cuando hay pérdidas y dominio motor. El ideal/reversible tiene sólo un supremo no alcanzado de rendimiento; no se crea un punto B ficticio.
 
-**PYTHON.** Los nueve parámetros predeterminados están en `PARAMETROS_PREDETERMINADOS`. `main()` copia esa configuración y admite cambios por argumento. Flask convierte el formulario y llama a esa misma función para la simulación normal, a `ejecutar_sensibilidad` para OFAT o a `ejecutar_mapa` para el estudio rp–T3; `dashboard.py` organiza sus resultados en ocho secciones y visores de pestañas; las funciones numéricas calculan; Matplotlib dibuja en buffers `BytesIO`; `reporting.py` compone HTML con CSS e imágenes Base64 y publica un archivo completo en `outputs/`. No se genera un TXT intermedio. La terminal muestra tres líneas de éxito; los detalles van al informe.
+**PYTHON.** Los nueve parámetros predeterminados están en `PARAMETROS_PREDETERMINADOS`. `main()` copia esa configuración y admite cambios por argumento. Flask convierte el formulario y llama a esa misma función para la simulación normal, a `ejecutar_sensibilidad` para OFAT, a `ejecutar_mapa` para el estudio rp–T3 o a `ejecutar_segunda_ley`; `dashboard.py` organiza sus resultados en ocho secciones y visores de pestañas; las funciones numéricas calculan; Matplotlib dibuja en buffers `BytesIO`; `reporting.py` incorpora el diagnóstico de esos datos, compone HTML con CSS e imágenes Base64 y publica un archivo completo en `outputs/`. §4.56 explica el camino resultados → controles → agrupación → panel. No se genera un TXT intermedio. La terminal muestra tres líneas de éxito; los detalles van al informe.
 
 ```text
 Imports y definiciones
@@ -50,7 +50,7 @@ Ciclo no ideal y límite reversible
 ↓
 Siete gráficas nuevas en memoria; puntos excluidos interrumpen curvas con NaN
 ↓
-Tablas + CSS + imágenes Base64 → HTML en memoria
+Resultados existentes → diagnóstico actual y agrupación → tablas + CSS + imágenes Base64 → HTML en memoria
 ↓
 Escritura temporal → publicación del HTML completo
 ↓
@@ -86,6 +86,9 @@ Brayton_Simulator/
 ├── sensibilidad.py             OFAT, derivadas locales y tres gráficas independientes
 ├── mapa_diseno.py              mapa rp–T3, máscaras, trayectorias y cortes
 ├── segunda_ley.py              entropías, generación adiabática y destrucción parcial de exergía
+├── diagnostico.py              controles científicos sobre resultados existentes
+├── diagnostico_informe.py      alcance por modalidad y agrupación de los controles
+├── diagnostico_html.py         presentación del diagnóstico, sin ecuaciones del ciclo
 ├── guias_educativas.py         resúmenes y fundamentos estáticos para cada sección
 ├── reporting.py                tablas técnicas y conservación de informes
 ├── dashboard.py                presentación compartida local/autónoma, sin física
@@ -115,10 +118,12 @@ Brayton_Simulator/
 ├── tests/test_verificacion_sensibilidad.py referencias independientes OFAT R/A/B
 ├── tests/test_verificacion_mapa_diseno.py  referencias independientes del mapa rp–T3 (V.2)
 ├── tests/test_verificacion_segunda_ley.py  referencias independientes de entropía/exergía (V.3)
+├── tests/test_verificacion_simulacion.py  referencias, gráficas e informes (V.4)
+├── tests/test_verificacion_integracion_web.py  formularios, historial y descarga (V.5)
 ├── README.md                   instalación y uso
 ├── requirements.txt            numpy, matplotlib y Flask
 ├── .gitignore
-├── docs/milestones/            informes técnicos, guías, cierre 12 y verificaciones 13/14/15
+├── docs/milestones/            informes técnicos, guías, verificaciones 13–17 y diagnóstico 18
 ├── outputs/                    informes generados, excluidos de Git
 └── *.png                       seis imágenes históricas conservadas
 ```
@@ -134,6 +139,7 @@ Brayton_Simulator/
 | `main.py`: funciones `guardar_*` y `marcar_dominio` | Siete PNG en memoria; bandas/fronteras, compromiso y NaN en curvas de rp |
 | `main.py`: `main` y punto de entrada | Copia de parámetros, coordinación y ejecución directa protegida |
 | `reporting.py` | Git, tablas/Base64, dominio, documento completo y publicación/retención |
+| `diagnostico.py`, `diagnostico_informe.py`, `diagnostico_html.py` | Controles sobre datos calculados, alcance/agregación por modalidad y panel HTML; contratos en §4.56 |
 | `web_app.py` | Formulario, entradas, errores diferenciados, vista/descarga y servidor local |
 | `templates/index.html`, `static/style.css` | Plantilla Jinja y presentación adaptable |
 | `tests/test_*.py` | Referencia, dominio físico, verificación analítica del ideal, integración CLI/HTTP, informes y fallos |
@@ -1094,7 +1100,7 @@ Los contratos físicos de parámetros/ciclos son los ya explicados. Estas funcio
 - **`plegable(titulo, contenido)`** recibe título str y HTML técnico ya escapado; devuelve details/summary cerrado. La llama `terminar_informe`; sin otras llamadas propias ni física. Ejemplo: `plegable('Estados',tabla_html(('T [K]',),[(300,)]))`. El contenido se conserva completo, no se elimina al plegar.
 - **`separar_presentacion(contenido)`** recibe HTML str y retorna `(metadata,paneles)` o None si es histórico, JSON inválido o faltan marcadores. Busca script inerte `brayton-metadata` con esquema `dashboard=1` y tres bloques heredados delimitados por comentarios, más los paneles mapa/segunda ley opcionales cuando existen, sin ejecutar código. La llaman `ver_informe`, `listar_informes` y pruebas. No llama funciones propias; errores de tipo fuera de contrato propagan. Ejemplo: `separar_presentacion(html_guardado)`. La recuperación no recalcula ni modifica el archivo.
 - **`visor_graficas(legado, imagenes, sensibilidad=False)`** recibe HTML técnico heredado y dict de bytes PNG existentes, bool OFAT; devuelve tupla `(visor,detalles,cabecera)`. Asocia cada figure a su PNG Base64 y grupo, sin volver a dibujar ni cambiar bytes. Exige conservar exactamente el número de imágenes; ValueError si no se conserva, errores de contrato si faltan asociaciones. La llama `terminar_informe`; no llama otras funciones propias. Ejemplo interno: `visor_graficas(legado,imagenes)` produce cinco botones y siete figure únicos; en OFAT, tres botones y tres figure. Se retiran sólo las figuras de la copia de detalles para evitar duplicados; sus tablas y textos se mantienen, convirtiendo section heredadas en div técnicos.
-- **`terminar_informe(legado, parametros, imagenes, fecha, version, *, noideal=None, barrido=None, optimizaciones=None, estudio_rendimiento=None, comparacion=None, sensibilidad=None, segunda_ley=None)`** recibe datos calculados por main o estudio OFAT, datetime y versión Git; retorna HTML str con las mismas marcas de informe completo. Llama visor, KPI, plegables y renderizador; la llaman los dos creadores de reporting. No llama evaluadores físicos. Construye KPI/A/B y elasticidades desde los diccionarios, nunca desde constantes de ejemplo. Convierte pérdida a % sólo para campos de formulario, conserva fracción en metadata. Errores de presentación/contrato propagan. Ejemplo de uso: ejecutar `main(carpeta_de_prueba)` lleva los resultados a esta función antes de guardar.
+- **`terminar_informe(legado, parametros, imagenes, fecha, version, *, noideal=None, barrido=None, optimizaciones=None, estudio_rendimiento=None, comparacion=None, sensibilidad=None, segunda_ley=None, diagnosticos=None)`** recibe datos calculados por main o estudio OFAT, datetime y versión Git; retorna HTML str con las mismas marcas de informe completo. `diagnosticos` es `dict` de panel→diagnóstico o `None`; guarda esos registros en metadata y añade su HTML con `renderizar_diagnostico` (§4.56). Llama visor, KPI, plegables y renderizador; la llaman los creadores normal y OFAT de reporting. No llama evaluadores físicos. Construye KPI/A/B y elasticidades desde los diccionarios, nunca desde constantes de ejemplo. Convierte pérdida a % sólo para campos de formulario, conserva fracción en metadata. Errores de presentación/contrato propagan. Ejemplo de uso: ejecutar `main(carpeta_de_prueba)` lleva los resultados a esta función antes de guardar.
 - **`listar_informes()`** — web_app: sin argumentos; lee `app.config['OUTPUTS_DIR']` y devuelve lista de dict `nombre/tipo/resumen/fecha/commit/mtime`, de más reciente a antiguo. Filtra patrón, archivos regulares no simbólicos, UTF-8 y marcas completas. Llama `separar_presentacion`; la llaman index, vista y manejador de errores. No elimina, escribe ni recalcula. Datos históricos no disponibles se identifican como tales; no se atribuyen parámetros/fechas inventados. Carpeta inexistente da lista vacía. Errores inesperados de E/S propagan; archivos desaparecidos durante lectura se omiten. Ejemplo: `listar_informes()` dentro de la configuración de pruebas.
 - **`ver_documentacion(nombre)`** — web_app: recibe str y devuelve Response text/plain de README.md o CODE_WALKTHROUGH.md; cualquier otro nombre da 404. Flask la llama por `/documentacion/<nombre>`; sin otras funciones propias ni física. No ofrece rutas arbitrarias. Ejemplo HTTP: GET `/documentacion/README.md`.
 
@@ -1609,6 +1615,124 @@ sin afirmar robustez ante todo fichero corrupto. La verificación
 de software no implica validación experimental de un turbomotor.
 Los métodos, datos, rechazos y límites se desglosan en el
 [milestone 17](docs/milestones/17_verificacion_integracion_web.md).
+
+### 4.56. Diagnóstico y coherencia física del informe actual
+
+**INTERPRETACIÓN FÍSICA / INGENIERÍA.** El diagnóstico consume los resultados de la ejecución y contrasta sus relaciones, restricciones y disponibilidad. No ejecuta las pruebas V.1–V.5 ni sustituye su evidencia histórica. Un estado **Cumple** significa que se satisface esa relación y su tolerancia con los datos indicados; **Atención** identifica una discrepancia, una restricción incumplida o un límite registrado; **No evaluable** identifica datos ausentes o una ecuación inaplicable. Ninguno constituye validación experimental. Las ecuaciones y los optimizadores de producción permanecen iguales.
+
+#### Arquitectura, recorrido de datos y modalidades
+
+```text
+main / sensibilidad / mapa / segunda_ley → resultados existentes
+    → reporting: elige paneles y llama diagnostico_informe
+    → diagnostico: registros científicos por ciclo u óptimo
+    → diagnostico_informe: resumen y, en estudios, agrupación
+    → diagnostico_html: HTML escapado
+    → dashboard: paneles guardados + metadata → vista local / autónomo
+```
+
+`diagnostico.py` contiene las relaciones científicas; `diagnostico_informe.py` conoce la estructura de los estudios; `diagnostico_html.py` sólo presenta. El motor utiliza las bandas motoras guardadas si son completas; cuando faltan y existen las energías, llama a `evaluar_punto` para recuperar **las bandas vigentes**. Los márgenes se calculan con los valores recibidos, y las magnitudes ausentes no se reemplazan por las que pudiera recalcular el evaluador. No se vuelve a ejecutar ninguna optimización.
+
+| Modalidad / panel | Datos inspeccionados y alcance |
+|---|---|
+| Simulación / Resultados | Ciclos ideal y no ideal del caso actual; Segunda Ley si se proporcionó. |
+| Optimización | Estudios A/B ideal y no ideal, naturaleza del resultado, candidatos guardados y contraste analítico/numérico sólo si consta. El supremo reversible no recibe un ciclo ficticio. |
+| Sensibilidad | Todos los registros R/A/B del barrido y la referencia local existente; no se limita a los índices que tenían contraste independiente. La ausencia de ese contraste se indica como no evaluable. |
+| Mapa de diseño | Todas las celdas guardadas de la malla, óptimos A/B por T3 y cortes adicionales cuya T3 no coincide con una fila de la malla. Una fila compartida no se cuenta dos veces. |
+| Segunda Ley | Estados y análisis guardados de ambos modelos. Este estudio no conserva trabajos/calores: sus controles energéticos permanecen no evaluables, aunque haya temperaturas. |
+
+En OFAT y mapa se evalúan todos los registros disponibles y después se agrupa por `(grupo, id)`. Los contadores superiores suman **controles individuales**, no filas HTML ni sólo muestras viables. Una fila agrupada conserva `conteos` por estado, `muestras` y los valores de **un ejemplo localizado**; prioriza Atención, después No evaluable y, en igualdades del mismo estado, el mayor `abs(residuo)/tolerancia`. Las desigualdades no se ordenan como si su margen fuese un error de igualdad. La tolerancia expuesta pertenece a ese ejemplo, no a todas las muestras de la fila. Las muestras excluidas no se eliminan para mejorar artificialmente el resumen.
+
+#### Registro, residuos y criterio de tolerancia
+
+**PYTHON.** Cada control es un `dict`: `id`, `nombre`, `grupo`, `relacion`, `valor`, `referencia`, `residuo`, `residuo_relativo`, `tolerancia`, `unidad`, `estado`, `explicacion`, `motivo`, `criterio`, `naturaleza` y `comparacion`. El orquestador puede añadir `contexto`, `conteos` y `muestras`. `None` expresa ausencia, nunca un cero. Los estados internos son `cumple`, `atencion` y `no_evaluable`; el presentador los traduce. `naturaleza` distingue identidad, contraste de rutas del mismo modelo y restricción; `comparacion` identifica igualdad, desigualdad o clasificación para interpretarlas correctamente al agrupar.
+
+Para una igualdad se guarda el residuo **absoluto** `abs(valor−referencia)` y, si la escala es positiva, el relativo `residuo/escala`. Se acepta
+
+\[
+ |v-v_{ref}|\leq\max(\mathrm{atol},\mathrm{rtol}\,S).
+\]
+
+`S` tiene la misma unidad que la magnitud; `rtol` no tiene dimensión. Sin escala explícita se usa `max(abs(v),abs(vref))`. El piso absoluto permite contrastar números próximos a cero sin dividir por un valor minúsculo. La escala térmica `SE=(cp/1000)·max(T1,T2,T3,T4)` evita que una cancelación en trabajo neto establezca una tolerancia físicamente desproporcionada respecto a las energías restadas. No es una estimación de incertidumbre de un motor real.
+
+Las desigualdades conservan el valor del margen, la frontera de referencia y su banda. No se interpreta el tamaño del margen como error de igualdad: para `valor>limite` el déficit es `max(0,limite−valor)`; para no negatividad se muestra `max(0,−valor)` y se compara `valor>=−limite`. En igualdad exacta con una frontera estricta puede haber déficit cero y aun así Atención, pues la desigualdad es abierta. Las condiciones estrictas excluyen frontera y banda; la no negatividad de Segunda Ley admite exclusivamente el pequeño negativo de redondeo justificado por su escala.
+
+| Comprobación y ecuación | Unidad / tolerancia | Significado y limitación |
+|---|---|---|
+| Cuatro T y cuatro p positivas y finitas | K / kPa; positividad estricta | Un dato negativo no se acepta por tolerancia. |
+| `wc=cp(T2−T1)/1000`, `wt=cp(T3−T4)/1000`, `qin=cp(T3−T2)/1000` | kJ/kg; `max(1e−10,1e−9·SE)` | Coherencia de estados, signos y conversión J→kJ; comparte las ecuaciones de construcción. |
+| `wn=wt−wc`; `wn=qin−qout`, `qout=cp(T4−T1)/1000` | kJ/kg; `max(1e−10,1e−9·SE)` | Identidades energéticas internas; no son dos pruebas físicas independientes. `qout` se reconstruye expresamente de los estados. |
+| `η=wn/qin`; `BWR=wc/wt` | Adimensional; `max(1e−12,1e−9·S)` | Sólo con interior motor y denominador positivo. Rango `(0,1)` estricto y signo `qout>0` por separado. |
+| `T1/T3` contra entradas; `p=(p1,p1·rp,p1·rp·(1−δ),p1)` | K / kPa; `max(1e−10,1e−9·S)` | Contraste de datos transmitidos; el ideal usa `δ=0`. Órdenes de T de los cuatro procesos se comprueban con margen estrictamente positivo. |
+| `T2s=T1(p2/p1)^a`, `T4s=T3(p4/p3)^a`; `a=(γ−1)/γ` | K; `max(1e−10,1e−9·S)` | Se usan logaritmos y exponenciales para reducir desbordamientos de cocientes intermedios. Sólo el ideal exige que T2/T4 reales sean isentrópicas. |
+| `ηc·(T2−T1)=T2s−T1`, `T3−T4=ηt·(T3−T4s)` | K; `max(1e−10,1e−9·max(T))` | Forma multiplicada de las eficiencias para no dividir por saltos casi nulos. La referencia se reconstruye desde presiones; sin saltos positivos, no evaluable. Ideal: ambas eficiencias igual a 1. |
+| Ideal: `η=1−rp^(−a)` | Adimensional; `max(1e−12,1e−9·S)` | Otra ruta de implementación del mismo modelo; sólo en motor. |
+| Motor: `rp−1`, `p3−p4`, `qin`, `wn` mayores que sus bandas | Adimensional, kPa, kJ/kg; bandas originales `1e−10·escala` | Reutiliza `evaluar_punto`; un residuo energético pequeño no demuestra viabilidad. Si el ciclo conserva `viable`, sólo se compara cuando es `bool`: `None` → No evaluable; texto o número → Atención, sin coerción a verdadero/falso. |
+| `si−s1=(cp/1000)[ln(Ti/T1)−a·ln(pi/p1)]` | kJ/(kg·K); `max(1e−12,1e−9·max(abs(si),cp/1000))` | Contraste de las cuatro entropías relativas guardadas. La elección `s1=0` no es entropía absoluta ni generación. |
+| Equipo adiabático: `sgen,bruta=(cp/1000)[ln(Tj/Ti)−a·ln(pj/pi)]` | kJ/(kg·K); `max(1e−12,1e−9·Ss)` | Contrasta generación bruta guardada con estados; `Ss=max(abs(si),abs(sj),cp/1000)`. |
+| `sgen,bruta≥−1e−10·Ss`; `sgen=max(0,sgen,bruta)` sólo dentro de banda | kJ/(kg·K); banda de generación y tolerancia de igualdad anteriores | La corrección de redondeo no oculta un negativo significativo. Se mantienen valor bruto y cuantificado. |
+| `eD=T0·sgen`; `eD≥−T0·banda_s` | kJ/kg; igualdad `max(1e−10,1e−9·abs(T0)·Ss)` | Gouy–Stodola es identidad de construcción; requiere T0 positiva. |
+| `Δψ=cp·ΔT/1000−T0·Δs`; `eD,c=wc−(ψ2−ψ1)`, `eD,t=(ψ3−ψ4)−wt` | kJ/kg; `max(1e−10,1e−9·max(abs(w),abs(Δψ),abs(T0·sgen)))` | Balance alternativo de equipos adiabáticos, sin energía cinética/potencial; necesita el trabajo guardado. Comparte el modelo físico; no es referencia experimental independiente. |
+| `eD,parcial=eD,c+eD,t` | kJ/kg; `max(1e−10,1e−9·S)` | Suma parcial; no es destrucción global ni `W_ideal−W_noideal`. Cámara/balance global quedan no evaluables. |
+| Óptimo: rp dentro del intervalo abierto y ciclo motor; analítico frente a numérico | rp y η adimensionales; W en kJ/kg; tolerancias guardadas por el coordinador | Admisión no prueba optimalidad. El contraste sólo se declara si están sus dos resultados y tolerancia; no se inventa una búsqueda ausente. |
+| Supremo reversible: `sup η=1−T1/T3`, no alcanzado | Adimensional; `max(1e−12,1e−9·S)` | Frontera excluida, sin candidato ni máximo numérico motor ficticio. |
+
+Las tolerancias son de diagnóstico con `float`, adaptadas por magnitud. Una alerta señala una discrepancia para investigar; no corrige los datos ni cambia su valor. Si faltan trabajos en un informe de Segunda Ley, las filas de balance no se convierten en positivas por reconstruir las energías en silencio. La advertencia V.5 sobre JSON semánticamente manipulado de §4.55 permanece vigente.
+
+#### Contratos completos del motor — `diagnostico.py`
+
+Entradas físicas comunes: `parametros: dict` con las nueve claves de §5; `ciclo: dict | None` con resultados existentes; T [K], p [kPa], cp [J/(kg·K)], energías [kJ/kg], entropía [kJ/(kg·K)] y cocientes sin dimensión. Los números son escalares reales. Los prefijos `_` indican funciones de apoyo internas, no una sintaxis que las haga inaccesibles. Las funciones no escriben archivos y no modifican resultados recibidos; errores de contrato inesperados se propagan. Los nombres de funciones en la columna de relaciones son llamadas, no copias del cálculo.
+
+| Firma completa | Argumentos, retorno, validaciones y relaciones; ejemplo |
+|---|---|
+| `_finito(valor)` | `valor: object` → `bool`: acepta `int`/`float` finitos, excluye `bool`, `None` y otros tipos. Sin unidades ni cálculo físico; usa `isinstance` y `math.isfinite`, sin llamadas propias. Lo llaman comparadores y diagnosticadores. Ejemplo: `_finito(None)` → `False`. |
+| `_registro(identificador, nombre, grupo, relacion, unidad, explicacion, naturaleza="identidad", **datos)` | Siete textos más campos por nombre → `dict` uniforme inicialmente no evaluable; `**datos` reemplaza los valores predeterminados. Los escalares no finitos recibidos se convierten a texto para preservar una alerta serializable en JSON; no se convierten en éxito. Unidad descrita por `unidad`, sin conversión. Lo llaman `_comparar`, `_margen`, `diagnosticar_ciclo`, `_diagnosticar_segunda_ley` y `diagnosticar_optimizacion`; no llama funciones propias. Contratos de texto se presuponen. Ejemplo: `_registro('x','Balance','Caso','wn=wt−wc','kJ/kg','Consistencia')`. |
+| `_comparar(identificador, nombre, grupo, relacion, valor, referencia, unidad, explicacion, *, atol=1e-12, rtol=1e-9, escala=None, naturaleza="identidad")` | Textos, `valor/referencia: float | None`, tolerancia absoluta en la unidad, relativa adimensional y escala opcional en esa unidad → un registro. Llama `_registro`/`_finito`; lo llaman los diagnosticadores. Calcula residuos y umbral de la tabla; ausencia → no evaluable, no finito o escala inválida → atención. `*` obliga a nombrar las opciones. Ejemplo: `_comparar('x','Balance','Caso','x=ref',2.,2.,'kJ/kg','Identidad',atol=1e-10)`. |
+| `_margen(identificador, nombre, grupo, relacion, valor, limite, unidad, explicacion, *, estricto=True)` | Textos, `valor/limite: float | None` en la misma unidad, `estricto: bool` → registro de restricción. Llama `_registro`/`_finito`; lo llaman ciclo y Segunda Ley. Ausencia → no evaluable; margen/banda no representables o banda negativa → atención. Comprueba `valor>limite` o `valor>=−limite`. Ejemplo: `_margen('m','Calor','Caso','qin>banda',10.,1e-7,'kJ/kg','Interior motor')`. |
+| `diagnosticar_ciclo(parametros, ciclo, modelo="noideal", contexto="Caso actual", segunda_ley=None, T0=None)` | Parámetros/ciclo anteriores, `modelo/contexto: str`, `segunda_ley: dict | None` **de un solo modelo** y `T0: float | None` [K] → `list[dict]` de controles. Llama helpers, `evaluar_punto` para bandas y `_diagnosticar_segunda_ley`. Lo llaman los coordinadores de `diagnostico_informe` y pruebas. `modelo` ajeno a ideal/noideal → `ValueError`; estados ausentes → controles no evaluables; `viable` sólo se compara como booleano auténtico, sin aceptar textos ni 0/1 como clasificación; límites físicos/numericos previstos al recuperar bandas se registran, errores inesperados propagan. Ejemplo: `diagnosticar_ciclo(PARAMETROS_PREDETERMINADOS, ciclo, modelo='ideal')`. |
+| `_diagnosticar_segunda_ley(grupo, estudio, T0, cp, gamma, ciclo)` | `grupo: str`, `estudio: dict | None` de un modelo, `T0: float | None` [K], cp/gamma anteriores y `ciclo: dict` con trabajos si existen → `list[dict]` de entropías relativas, generación, signos, Gouy–Stodola, balance alternativo, suma parcial y límites globales. Llama `_registro`, `_comparar`, `_margen`, `_finito` y `math.log`; sólo lo llama `diagnosticar_ciclo`. Datos insuficientes → no evaluable; estado de límite/inconsistencia disponible → alerta; contrato estructural incorrecto propaga. Ejemplo interno: `_diagnosticar_segunda_ley('Ideal',estudio['modelos']['ideal'],288.15,1005.,1.4,ciclo_ideal)`. |
+| `diagnosticar_optimizacion(parametros, estudio, modelo="noideal", objetivo="trabajo", contexto="")` | `parametros: dict`, `estudio: dict | None`, tres textos → `list[dict]` con clasificación y concordancia de resultados existentes. rp/η sin dimensión y W en kJ/kg. Llama `_registro`, `_comparar`, `_finito`; lo llaman `diagnostico_optimos` y `_items_muestra`. Modelo/objetivo desconocido → `ValueError`; datos de búsqueda ausentes → no evaluable, frontera/candidato inadmisible → atención. No llama optimizadores. Ejemplo: `diagnosticar_optimizacion(p, optimizaciones['noideal'],objetivo='trabajo')`. |
+
+#### Contratos del alcance y agrupación — `diagnostico_informe.py`
+
+Estas funciones conocen diccionarios y secuencias ya descritos en §§4.35–4.44, sin introducir ecuaciones ni cambiar sus unidades. Los errores de claves/tipos incorrectos se propagan; no se convierten en inviabilidad termodinámica. Las entradas se recorren o se copian; no se completan con datos de otra simulación.
+
+| Firma completa | Argumentos, salida, llamadas, errores y ejemplo |
+|---|---|
+| `resumir_diagnosticos(items, alcance, agrupar=False)` | `items: iterable[dict]`, `alcance: str`, `agrupar: bool` → `dict` con `items: list`, `resumen: dict` de los tres estados y `alcance: str`. Sin unidades propias; conserva las de cada control. Copia registros, cuenta estados y agrupa por tupla `(grupo,id)`; usa `isfinite`, sin funciones propias. Lo llaman los cuatro coordinadores. Estado desconocido → `KeyError`; contratos numéricos de agrupación se presuponen. Ejemplo: `resumir_diagnosticos([], 'Sin datos')` devuelve tres contadores cero. |
+| `diagnostico_simulacion(parametros, ideal, noideal, segunda_ley=None)` | Tres diccionarios y Segunda Ley opcional → resumen de los dos ciclos actuales. Extrae el bloque de cada modelo y T0; llama dos veces `diagnosticar_ciclo` y luego `resumir_diagnosticos`. Lo llama `crear_informe_html`. Ejemplo: `diagnostico_simulacion(p,ideal,noideal,estudio_sl)`. |
+| `diagnostico_optimos(parametros, optimizaciones=None, estudio_rendimiento=None)` | Parámetros y dos estudios opcionales, todos `dict` → resumen de óptimos ideal/no ideal A/B y ciclos analíticos guardados. Llama `diagnosticar_optimizacion`, `diagnosticar_ciclo` si hay candidato y `resumir_diagnosticos`; lo llama `crear_informe_html`. Copia parámetros para usar la rp del candidato. Ejemplo: `diagnostico_optimos(p, optimizaciones, rendimientos)`. |
+| `diagnostico_segunda_ley(parametros, estudio)` | Dos `dict`; estudio con T0/modelos → resumen de ambos modelos. Llama `diagnosticar_ciclo` sobre estados guardados y `resumir_diagnosticos`; lo llaman creadores normal y de Segunda Ley. Un trabajo ausente sigue ausente. Ejemplo: `diagnostico_segunda_ley(p,estudio_sl)`. |
+| `_items_muestra(muestra, escenarios, ubicacion)` | `muestra: dict`, `escenarios: iterable[str]` R/A/B y `ubicacion: str` → **generador** que produce registros uno a uno, no lista. Llama diagnosticadores de ciclo/óptimo; lo llama `recorrer`. Mantiene parámetros/rp propios y contexto; R sin ciclo registra disponibilidad/motivos, sin inventar energías. Escenario/clave inválidos → `KeyError`. Ejemplo interno: `list(_items_muestra(muestra,'AB','T3=1600 K'))`. |
+| `diagnostico_estudio(estudio, tipo)` | `estudio: dict`, `tipo: str` sensibilidad/mapa → resumen agrupado de todos los datos indicados en la tabla de modalidades. Llama el generador local `recorrer()` y `resumir_diagnosticos(...,agrupar=True)`; lo llaman los creadores OFAT/mapa. Otro tipo → `ValueError`. Ejemplo: `diagnostico_estudio(estudio_ofat,'sensibilidad')`. |
+| `recorrer()` — local a `diagnostico_estudio` | Sin argumentos; captura `estudio`/`tipo` de su función contenedora → generador de registros. Recorre muestras o filas, evita repetir cortes con la misma T3 y usa `yield from _items_muestra(...)` / `diagnosticar_ciclo`. Sólo lo invoca el resumen al consumir su iterable; errores del estudio se propagan durante ese consumo. Ejemplo real de uso: `resumir_diagnosticos(recorrer(),alcance,agrupar=True)`. |
+
+**PYTHON: `yield` y tuplas de agrupación.** Una función con `yield` produce un generador: entrega un elemento y conserva el punto del bucle para continuar cuando se pide otro. `yield from` entrega sucesivamente los elementos de otro generador. Así no hace falta acumular primero todos los controles del mapa para resumirlos. La tupla `(grupo,id)` es una clave de diccionario: agrupa la misma relación y contexto, sin confundir modelos. `{**parametros,'relacion_presiones':rp}` crea una copia con una clave sustituida; no cambia las entradas originales.
+
+#### Presentación y funciones existentes que cambian
+
+`renderizar_diagnostico(diagnostico, clave="actual")` recibe el `dict` agregado anterior y una `clave: str`; devuelve HTML `str` con resumen, grupos, tabla de cinco columnas y explicaciones nativas. No calcula física ni modifica el diccionario. Lo llaman los creadores de `reporting`; usa los helpers locales siguientes y `urllib.parse.quote` para prefijar identificadores únicos. Contratos de tipos mal formados propagan sus errores. Ejemplo mínimo:
+
+```python
+from diagnostico_html import renderizar_diagnostico
+html = renderizar_diagnostico({
+    'items': [],
+    'resumen': {'cumple': 0, 'atencion': 0, 'no_evaluable': 0},
+    'alcance': 'No hay resultados guardados en este contexto.'
+})
+```
+
+Los tres helpers son funciones **locales** a ese renderizador y sólo están disponibles durante su ejecución: `texto(valor)` recibe cualquier valor representable y devuelve `html.escape(str(valor),quote=True)`; lo llaman el renderizador, `numero` y `magnitud`. `numero(valor)` recibe escalar/texto/`None` y devuelve `str` escapado; `None` se muestra como «No disponible», real no finito como «No disponible (no finito)» y real finito con `.6g`; llama `texto` e `isfinite`. `magnitud(valor, unidad)` recibe valor y unidad `str`, llama `numero`/`texto` y devuelve texto con unidad entre corchetes. No convierten unidades, no validan física ni tienen retorno numérico. Ejemplos internos: `texto('<T>')` → `&lt;T&gt;`, `numero(None)` → `No disponible`, `magnitud(1.5,'kJ/kg')` incorpora `1.5` y esa unidad. Una conversión `str` inválida o un contrato ajeno se propaga; el formato no redondea los datos empleados por el motor.
+
+Los creadores `crear_informe_html`, `crear_informe_sensibilidad_html`, `crear_informe_mapa_html` y `crear_informe_segunda_ley_html` mantienen sus firmas públicas. Antes reunían los datos técnicos; ahora además llaman los coordinadores adecuados y el renderizador. La lista `comprobaciones` conserva los mensajes de controles previos de `main`: no se usa como fuente de residuos inventados ni como representación de V.1–V.5. Las tablas científicas nuevas provienen de los registros del motor.
+
+`terminar_informe` añade el argumento de sólo nombre `diagnosticos=None`, un `dict` de panel→diagnóstico. Su firma completa actual figura en §4.41. Antes organizaba contenidos/KPI; ahora también conserva la información del panel en el HTML y metadata. `separar_presentacion` recupera esos bloques igual que los demás contenidos, sin ejecutar el motor al consultar el historial. El camino de descarga sigue devolviendo los bytes guardados. No se atribuyen controles nuevos a un informe antiguo sin ese bloque. La autonomía utiliza el CSS ya incrustado por `renderizar_dashboard`, sin recursos de red ni dependencia nueva.
+
+Las filas tienen texto de estado además de color; los encabezados de tabla usan `scope="col"`. Todos los grupos y explicaciones comienzan plegados. El resumen visible de cada grupo muestra número de relaciones y los tres recuentos individuales; cuando las filas están agrupadas suma sus `conteos`, no confunde filas con muestras. Cada explicación muestra ecuación, interpretación, naturaleza, criterio, motivo, alcance y localización del ejemplo. Por debajo de 760 px la tabla se presenta como tarjetas con etiquetas por celda y el encabezado permanece en el DOM. `details`/`summary` funcionan sin JavaScript adicional; las gráficas y sus controles conservan su flujo.
+
+#### Verificación y ejemplos reproducibles
+
+Las comprobaciones ejecutadas para esta funcionalidad y sus límites se registran en el [milestone 18](docs/milestones/18_diagnostico_fisico.md) y en [§12 de la guía de aprendizaje activa](docs/milestones/11_verificacion_numerica_APRENDIZAJE.md). El **23/10/2026**, tras importar la copia ZIP sobre el commit remoto verificado en un directorio Linux independiente, el caso de integración antes pendiente pasó. El cierre focalizado obtuvo **20/20 pruebas físicas, 11/11 de integración, 101/101 regresiones relacionadas y 12/12 pruebas de contratos V.5**: **144 métodos distintos correctos**. Se corrigió exclusivamente la coerción de clasificaciones `viable` ausentes o de tipo incorrecto en el diagnóstico. El análisis estructural de HTML comprobó etiquetas `details`, identificadores/referencias accesibles y CSS móvil integrado; **no equivale a una inspección visual de escritorio o teléfono**. No se ha ejecutado la suite completa ni se ha podido acceder al directorio Windows. Los recuentos de V.1–V.5 anteriores mantienen su fecha/entorno y no se suman como si se hubieran vuelto a ejecutar en cada informe. El panel no corrige la limitación V.5 sobre JSON manipulado, no estima incertidumbre experimental y no introduce modelos de combustión o destrucción global de exergía.
 
 ## 5. Variables principales
 
@@ -2569,7 +2693,7 @@ Estos son ejercicios propuestos, **sin aplicar cambios al programa**. Practícal
 5. **Extraer información de un diccionario.** Obtén temperaturas y trabajo del ciclo ideal usando su función agrupadora. Imprime `T2` sin recalcularlo por separado y explica las dos indexaciones necesarias.
 6. **Expandir una comprensión.** Reescribe en tu copia la construcción de `mascara` en `construir_barrido` mediante lista vacía, `for` y `append`, seguida de `np.array`. Comprueba que las curvas no cambian.
 7. **Construir una tabla con `zip`.** Prepara cuatro filas de estado, T y p; pásalas a `tabla_html` e indica unidades. Verifica que las secuencias tengan cuatro elementos.
-8. **Revisar unidades y energía.** Calcula en una función nueva de práctica el calor rechazado `cp*(T4−T1)/1000`, como magnitud positiva. Contrasta `qin−qout` con el trabajo neto del balance utilizando tolerancias. Esta magnitud sería una ampliación: el código actual no la devuelve.
+8. **Revisar unidades y energía.** Calcula en una función nueva de práctica el calor rechazado `cp*(T4−T1)/1000`, como magnitud positiva. Contrasta `qin−qout` con el trabajo neto del balance utilizando tolerancias. Las funciones de ciclo no devuelven una clave `qout`; el diagnóstico ya lo reconstruye expresamente de las temperaturas para su fila de Primera Ley (§4.56).
 9. **Explorar resolución numérica.** Llama a `buscar_maximo_numerico(288.15,1600,1.4,1005,100,.85,.9,.05,muestras=129)` y después con 257. Compara `paso_log_inicial`, `evaluaciones`, error en rp y trabajo frente al analítico. Mantén las tolerancias: más muestras iniciales no garantizan más dígitos fiables en un máximo plano.
 10. **Separar cálculo y dibujo en un experimento pequeño.** Escribe una función que devuelva únicamente relaciones y trabajos de un barrido corto, sin imprimir ni guardar. Otra función de práctica debe representarlos con `figura,ejes`. Decide cómo se manejará un punto que no sea un ciclo motor y documenta esa decisión antes de programarla.
 
@@ -2626,3 +2750,5 @@ Estos hitos resumen capacidades ya implementadas en la versión analizada, sin a
 - **Verificación V.2 del Mapa de Diseño (publicada, `d6f9dc9`).** Ingeniería: reconstrucción independiente de estados, energía, discriminante y fronteras abiertas del plano rp–T3; máximos continuos A/B, bandas numéricas, primeras leyes y errores de discretización. Python: testigos por celda, mallas anidadas, máscaras `np.ma`, inspección focalizada de datos entregados a Matplotlib y SciPy opcional. Nueve pruebas nuevas y 21 regresiones del mapa correctas en Linux; véase [milestone técnico 14](docs/milestones/14_verificacion_mapa_diseno.md).
 
 - **Verificación V.3 de Segunda Ley y Exergía (pendiente de revisión).** Ingeniería: referencias decimales de entropía, balances exergéticos alternativos de compresor/turbina, cámara sin atribución de generación, invariantes y límites de representabilidad. Python: `Decimal.ln`, `subTest`, aserciones con errores absolutos e intercepción temporal de trazas Matplotlib. Nueve pruebas nuevas y 22 regresiones pertinentes correctas en Linux; véase [documento técnico 15](docs/milestones/15_verificacion_segunda_ley.md).
+
+- **Diagnóstico y coherencia física en cada informe (revisión focalizada completada; sin commit).** Ingeniería: residuos y tolerancias por magnitud, distinción entre identidades, contrastes del mismo modelo y restricciones, disponibilidad de Segunda Ley y naturaleza de los óptimos. Python: registros homogéneos, generadores y agregación de estudios completos, separación entre motor/orquestación/HTML y persistencia del panel. Pertenece a la fase vigente de verificación, sin cambiar el modelo ni ejecutar V.1–V.5 por informe; queda pendiente la inspección visual real y cotejar la copia con Windows. Véanse [milestone 18](docs/milestones/18_diagnostico_fisico.md) y [aprendizaje §12](docs/milestones/11_verificacion_numerica_APRENDIZAJE.md).

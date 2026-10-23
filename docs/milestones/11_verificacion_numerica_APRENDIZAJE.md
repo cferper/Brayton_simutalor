@@ -1,6 +1,6 @@
 # Nuevo Plan de Mejoras — Fase 1: verificación numérica
 
-Documento educativo del **22 de octubre de 2026**. No debe confundirse esta **nueva Fase 1 de verificación numérica y comparación de modelos** con la **antigua Fase 1 de dominio físicamente viable** ([milestone 03](03_dominio_viable.md)).
+Documento educativo iniciado el **22 de octubre de 2026**, con la iteración de diagnóstico del **23/10/2026** en §12. No debe confundirse esta **nueva Fase 1 de verificación numérica y comparación de modelos** con la **antigua Fase 1 de dominio físicamente viable** ([milestone 03](03_dominio_viable.md)). Las afirmaciones de las iteraciones anteriores conservan su contexto histórico; §12 distingue la nueva funcionalidad y las comprobaciones de esta tarea.
 
 **Base histórica de la fase:** `27d4519094d5eb74f5009a1889a1e74dc8dddb94` (rama `main` al iniciar la Tarea 1.1). Las cinco tareas se publicaron en `mejoras/verificacion-numerica`: 1.1 en `275e7558b7d05322054f89ecd672ed5563c59469`, 1.2 en `143d10fd25ebd23ddb897722b7843bddabfd16a5`, 1.3 en `8ecbc1bf75e7e68fc3377cbf97017f8480d32553`, 1.4 en `c3b4bfea12cf6faa1dc90c8f8fb16fb9e8fe7131` y **1.5 en `57da73db01882ab32bd5d92d14bdbe739c272b79`**. La **Etapa 6 de cierre**, que documenta la ejecución completa, se prepara sobre ese último commit y sigue **pendiente de revisión y publicación**.
 
@@ -490,3 +490,77 @@ Se recalcularon desde las funciones del commit de partida `57da73d` un ciclo ide
 Las cifras se imprimen con un número finito de decimales; un `float` representa aproximaciones binarias. **Error de raíz, residuo de una ecuación y tolerancia de parada son conceptos distintos**, y comparar números redondeados como si fueran idénticos puede ocultar un margen pequeño. La matriz reúne umbrales realmente utilizados en 1.1–1.5: absolutos cuando la referencia se aproxima a cero, relativos cuando la escala importa y mayores márgenes de posición cuando el máximo es plano. Los mayores errores anteriores **no se transforman en garantías universales** mediante el cierre.
 
 **Lo aprendido:** una suite verde y referencias analíticas/SciPy verifican el comportamiento del **software para el modelo planteado**, no que un motor real respete `cp`, `gamma`, eficiencias y pérdidas constantes. La **validación física** necesitaría mediciones o referencias externas independientes. También quedan por investigar casos casi degenerados, límite de representación y modelos de componentes más realistas. Tras revisión del usuario, la fase **puede proponerse como cerrada en el alcance Linux comprobado**, manteniendo explícita la ausencia de ejecución nativa Windows y sin comenzar aún otra fase ni publicar la Etapa 6.
+
+## 12. Iteración del 23 de octubre de 2026 — diagnóstico científico en los informes
+
+### Base comprobada, alcance y estado de Git
+
+Esta iteración se mantiene dentro de la **fase de verificación**: amplía la explicación de resultados ya calculados, sin introducir un nuevo modelo termodinámico. El informe previo situó los cambios sin commit en Windows y mencionó el documento personal `docs/PLAN_MEJORAS_BRAYTON_SIMULATOR.md`. En esta revisión se ha comprobado **por separado** la rama remota `mejoras/verificacion-numerica` y su commit `12c3dc27397789faa61ad49c7e80faa4e8ef3791`, pero **no se ha accedido al repositorio Windows** ni al documento personal. Los archivos del ZIP se cotejaron con una copia Linux limpia del commit remoto, normalizando finales de línea, antes de reproducir allí los once cambios. El hash es la base, no un commit del panel. No se han creado commits, publicaciones ni otra fase.
+
+Antes existían cálculos, clasificadores físicos y mensajes en `comprobaciones`, más verificaciones históricas V.1–V.5. Faltaba explicar uniformemente, para **cada informe**, los valores contrastados, residuos, unidades, tolerancias y magnitudes no disponibles. La solución incorpora el panel sin sustituir resultados, KPI o gráficas y sin ejecutar V.1–V.5 al generar un informe.
+
+### INGENIERÍA — qué demuestra cada comprobación
+
+Con trabajo específico de compresor consumido positivo y turbina producido positivo,
+
+\[
+w_n=w_t-w_c,\qquad q_{out}=\frac{c_p(T_4-T_1)}{1000},\qquad
+R_E=(q_{in}-q_{out})-w_n.
+\]
+
+Las energías se expresan en **kJ/kg**, mientras `cp` entra en **J/(kg·K)**. El factor 1000 expresa una conversión de unidad, no un ajuste empírico. `qout` reconstruido de las temperaturas permite comprobar la coherencia de los valores guardados; si todas las magnitudes proceden de expresiones algebraicamente equivalentes, un residuo pequeño **no constituye una referencia física independiente**. Los contrastes contra ecuaciones de estado escritas en el diagnóstico son otra implementación del mismo modelo, no mediciones de un motor real.
+
+En el ideal, con `a=(gamma−1)/gamma`, las temperaturas de referencia son `T2=T1·rp**a` y `T4=T3/rp**a`. En el no ideal se usan las presiones reales y las eficiencias: `T2=T1+(T2s−T1)/eta_c`, `T4=T3−eta_t·(T3−T4s)`, con `p3=p2·(1−delta)`. Aplicar la isentrópica ideal a la temperatura real de una máquina no ideal daría una advertencia falsa. El diagnóstico identifica el modelo y no exige una igualdad que no le corresponde.
+
+La viabilidad exige expansión efectiva, aporte de calor y trabajo neto positivos por encima de las bandas numéricas del clasificador. Es posible que un punto no motor conserve la primera ley; la conservación no demuestra que el punto pueda entregar trabajo como motor. Tampoco se inventa un rendimiento operativo cuando falta admisión o el denominador no permite calcularlo.
+
+Para equipos adiabáticos se interpreta `sgen=s_salida−s_entrada`; Gouy–Stodola es `eD=T0·sgen`, con `T0` en K, `sgen` en kJ/(kg·K) y `eD` en kJ/kg. La cámara sólo proporciona un cambio de entropía del fluido: sin caracterizar la transferencia de calor, no se deduce de él su generación. Por ello la suma compresor+turbina sigue siendo **parcial**. Si el informe carece de datos de Segunda Ley se muestra **No evaluable**, con motivo, y no se inventan entropías.
+
+### PYTHON — separar dato, decisión y HTML
+
+`diagnostico.py` crea registros de control; `diagnostico_informe.py` selecciona los resultados existentes de cada modalidad y resume los controles; `diagnostico_html.py` convierte esos registros en HTML. `reporting.py` conecta estas capas y `dashboard.py` conserva el panel entre el informe autónomo y su vista local. Esta separación permite comprobar ecuaciones sin depender del navegador y modificar el diseño sin cambiar la física.
+
+Un **registro uniforme** es un diccionario cuyas claves tienen siempre el mismo significado: identificación, magnitud, resultado/referencia, residuo, tolerancia, unidad, estado y explicación. `None` indica información que no existe o no procede; no debe sustituirse por `0`. Una **agrupación** resume muchos registros equivalentes por comprobación y contexto, conserva cuántos cumplen/advierten/no son evaluables y selecciona un ejemplo útil para estudiar una discrepancia. Así una malla densa no obliga a leer una tabla con miles de filas.
+
+La clasificación `viable` ilustra una distinción importante de tipos: `bool("False")` es `True` en Python porque una cadena no vacía es verdadera; también `bool(None)` y `bool(0)` son `False`. Por ello comparar `float(bool(ciclo["viable"]))` podía declarar **Cumple** sin haber recibido un booleano válido. El diagnóstico actualizado acepta sólo `True`/`False` como dato clasificatorio: con `None` muestra **No evaluable**, y con una cadena o un número registra **Atención**. Se ha añadido una prueba de regresión específica sin alterar el clasificador `evaluar_punto`.
+
+Los argumentos de sólo nombre que siguen a `*` expresan opciones que conviene identificar al llamar. Los generadores y `for` recorren muestras sin recalcularlas. `html.escape` convierte caracteres como `<` en texto seguro. `details`/`summary` permiten abrir la ecuación, la causa y el criterio de tolerancia sin JavaScript adicional. El manual actual [§4.56](../../CODE_WALKTHROUGH.md) contiene las firmas completas, entradas/salidas, llamadas y ejemplos de las funciones nuevas; este documento desarrolla sus novedades sin copiar el resto del simulador.
+
+### Funciones nuevas y relación con el flujo anterior
+
+En esta tabla, `p` es el diccionario de nueve entradas; `ciclo` conserva T [K], p [kPa], energía [kJ/kg] y cocientes adimensionales. `estudio_sl` contiene entropías [kJ/(kg·K)], exergías [kJ/kg] y T0 [K]. Las funciones de apoyo no cambian unidades. Errores estructurales inesperados se propagan para distinguirlos de inviabilidad; los datos ausentes y las ecuaciones inaplicables producen registros no evaluables.
+
+| Firma completa | Argumentos, retorno, propósito, llamadas y ejemplo |
+|---|---|
+| `diagnosticar_ciclo(parametros, ciclo, modelo="noideal", contexto="Caso actual", segunda_ley=None, T0=None)` | `parametros/ciclo: dict`, `modelo/contexto: str`, Segunda Ley de **un modelo** opcional y T0 opcional [K] → `list[dict]`. Reúne controles de estados, energía, motor y Segunda Ley. Usa comparadores/helpers y bandas guardadas o `evaluar_punto`; lo llaman coordinadores. Modelo desconocido → `ValueError`. Ejemplo: `diagnosticar_ciclo(p,ciclo,modelo='ideal')`. |
+| `diagnosticar_optimizacion(parametros, estudio, modelo="noideal", objetivo="trabajo", contexto="")` | Dos diccionarios y tres textos → lista de controles de clasificación/concordancia, sin buscar otro óptimo. Usa `_registro`/`_comparar`/`_finito`; lo llaman coordinador A/B y muestras OFAT/mapa. Modelo/objetivo desconocido → `ValueError`; contraste ausente → no evaluable. Ejemplo: `diagnosticar_optimizacion(p,optimizaciones['noideal'])`. |
+| `resumir_diagnosticos(items, alcance, agrupar=False)` | Iterable de registros, texto y booleano → `dict(items,resumen,alcance)`. Copia y cuenta todos los controles; opcionalmente agrupa por `(grupo,id)`. Usa `isfinite`; lo llaman los cuatro coordinadores. Estado desconocido → `KeyError`. Ejemplo: `resumir_diagnosticos([], 'Sin datos')`. |
+| `diagnostico_simulacion(parametros, ideal, noideal, segunda_ley=None)` | Diccionarios de entradas/ciclos y Segunda Ley opcional → resumen de ambos modelos. Llama `diagnosticar_ciclo` y `resumir_diagnosticos`; lo llama `crear_informe_html`. Ejemplo: `diagnostico_simulacion(p,ideal,noideal,estudio_sl)`. |
+| `diagnostico_optimos(parametros, optimizaciones=None, estudio_rendimiento=None)` | Entradas y estudios A/B opcionales → resumen de óptimos y ciclos candidatos guardados. Llama diagnosticadores de ciclo/óptimo y resumen; lo llama `crear_informe_html`. Copia parámetros para cada rp. Ejemplo: `diagnostico_optimos(p,trabajo,rendimiento)`. |
+| `diagnostico_segunda_ley(parametros, estudio)` | Entradas y estudio Segunda Ley → resumen de estados/análisis; las energías no guardadas siguen ausentes. Llama diagnóstico de ciclo y resumen; lo llaman creadores normal/Segunda Ley. Ejemplo: `diagnostico_segunda_ley(p,estudio_sl)`. |
+| `diagnostico_estudio(estudio, tipo)` | Estudio `dict` y texto sensibilidad/mapa → resumen agrupado completo, sin submuestrear los controles. Llama el generador local `recorrer()` y resumen; lo llaman creadores OFAT/mapa. Tipo desconocido → `ValueError`. Ejemplo: `diagnostico_estudio(ofat,'sensibilidad')`. |
+| `renderizar_diagnostico(diagnostico, clave="actual")` | Resumen `dict` y clave `str` → HTML `str` seguro y con identificadores distintos. Llama helpers locales de texto/número/unidad y `quote`; lo llaman reporting y dashboard. No tiene ecuaciones ni valida física. Ejemplo: `renderizar_diagnostico(resumen,'resultados')`. |
+
+Las funciones internas son `_finito(valor)` (objeto→bool), `_registro(identificador, nombre, grupo, relacion, unidad, explicacion, naturaleza="identidad", **datos)` (textos/campos→registro), `_comparar(identificador, nombre, grupo, relacion, valor, referencia, unidad, explicacion, *, atol=1e-12, rtol=1e-9, escala=None, naturaleza="identidad")` (magnitudes/tolerancias en su unidad→registro de igualdad), `_margen(identificador, nombre, grupo, relacion, valor, limite, unidad, explicacion, *, estricto=True)` (margen/banda→registro de desigualdad) y `_diagnosticar_segunda_ley(grupo, estudio, T0, cp, gamma, ciclo)` (datos de un modelo→lista de controles de entropía/exergía). Los diagnosticadores llaman estos apoyos; la última sólo se llama desde `diagnosticar_ciclo`. Sus validaciones, errores y ejemplos detallados están en el contrato del motor de §4.56.
+
+`_items_muestra(muestra, escenarios, ubicacion)` recibe diccionario, letras R/A/B y texto, y **produce** controles mediante `yield`; lo llama `recorrer()`, función local sin argumentos que captura el estudio/tipo y se consume en `resumir_diagnosticos`. Llama a los diagnosticadores y no resuelve otro ciclo. Ejemplo: `list(_items_muestra(muestra,'AB','T3=1600 K'))`. Una clave de escenario incorrecta propaga `KeyError`. Los apoyos locales `texto(valor)`, `numero(valor)` y `magnitud(valor, unidad)` devuelven cadenas escapadas dentro de `renderizar_diagnostico`; `numero`/`magnitud` usan `texto`, y `magnitud` usa `numero`. Sus ejemplos y tratamiento de `None`/no finitos se explican en el mismo contrato HTML del manual.
+
+Antes, `terminar_informe` sólo organizaba resultados/KPI; ahora añade `diagnosticos=None` como opción por nombre, conserva los registros en metadata y llama al presentador para cada panel. Los cuatro creadores públicos de informes mantienen sus firmas: añaden las llamadas de diagnóstico antes de guardar. El historial recupera ese HTML sin llamar al motor de diagnóstico. Por ello estudiar o descargar un informe no altera el resultado que se calculó originalmente.
+
+### Experimentos de aprendizaje y límites conservados
+
+1. Genera el caso predeterminado y compara el balance de trabajo con el de calor. Identifica cuáles utilizan las mismas temperaturas y por qué no son experimentos independientes.
+2. Compara ideal/no ideal: conserva T1, T3, cp y rp, pero interpreta las eficiencias y la pérdida de presión con su ecuación correspondiente. Explica qué unidad tiene cada residuo.
+3. En una prueba aislada, altera una energía del diccionario resultante y observa una advertencia; no cambies las ecuaciones de producción para fabricar el caso.
+4. Consulta un informe sólo de Segunda Ley. Explica por qué disponer de temperaturas y entropías no equivale a disponer del balance energético guardado.
+5. Abre un informe anterior desde el historial y descarga uno actual. La consulta debe conservar el diagnóstico guardado, sin ejecutar el modelo de nuevo.
+
+Son prácticas propuestas, **no una afirmación de que el lector ya las haya ejecutado**. La evidencia ejecutada en esta tarea se identifica separadamente en el [milestone 18](18_diagnostico_fisico.md). Permanece la limitación V.5: la reutilización no inspecciona exhaustivamente la semántica de un bloque `segunda_ley` de JSON manipulado. El panel no se presenta como una corrección de ese comportamiento ni como validación experimental; tampoco cambia `cp`, `gamma`, las hipótesis de equipos o los optimizadores.
+
+### Evidencia inicial y resultado de la revisión del 23/10/2026
+
+En la sesión inicial constaban **19/19 métodos físicos** correctos; integración **9/10** por una expectativa sobre `rp=1`, rechazado por el formulario. Se cambió aquel escenario a `T3=400 K` sin modificar producción, pero aún no constaba la nueva ejecución. En esta revisión **el caso focalizado ha pasado**.
+
+Sobre la copia independiente se ejecutaron **20/20 pruebas físicas**, **11/11 de integración del diagnóstico**, **101/101 regresiones de reporting/dashboard/Flask/Segunda Ley/sensibilidad/mapa** y **12/12 pruebas de contratos web V.5**: **144 métodos distintos correctos**. Se añadieron dos pruebas: una detecta la coerción indebida de `viable` y otra comprueba en el HTML autónomo identificadores, referencias de accesibilidad, pares `details` y presencia de CSS adaptativo. Una primera invocación de las regresiones carecía de `tests` en `PYTHONPATH`: dio cuatro errores de importación del ejecutor, corregidos al repetir esos 101 métodos. No hay resultado documental de la suite general iniciada en la sesión anterior y **no se ha ejecutado la suite completa** en esta revisión.
+
+La sesión anterior pudo arrancar Flask, pero el navegador no conectó. Esta revisión ha contrastado las respuestas HTTP de generación, historial y descarga con el cliente Flask, además de la estructura HTML y las reglas CSS. **No se han visto ni accionado manualmente el panel en escritorio/móvil**; falta esa comprobación visual antes de dar el acabado por definitivamente cerrado. La copia no es el repositorio Windows: trasladar las correcciones allí exige comparar los archivos reales, sin sobrescribir los cambios pendientes. El [milestone técnico 18](18_diagnostico_fisico.md) conserva el desglose de verificaciones, limitaciones y estado sin commit.

@@ -11,6 +11,9 @@ from time import perf_counter
 
 from dashboard import (terminar_informe, EXPLICACIONES_GRAFICAS, bloque_educativo,
                        conclusiones_html, TEXTO_OPTIMIZACION, TEXTO_DISPONIBILIDAD)
+from diagnostico_informe import (diagnostico_simulacion, diagnostico_optimos,
+                                diagnostico_segunda_ley, diagnostico_estudio)
+from diagnostico_html import renderizar_diagnostico
 
 
 MARCA_INICIO = "<!-- Brayton Simulator report v1 -->"
@@ -106,7 +109,8 @@ Gas ideal, cp/gamma constantes, equipos adiabáticos y pérdida relativa fija po
 Sin química, caudal, potencia, empuje ni mapa bidimensional. Tolerancias y redondeo limitan máximos degenerados.
 Verificación de código y consistencia interna; no validación con datos experimentales externos.</p></section>
 </main></body></html>''' + MARCA_FINAL)
-    return terminar_informe(legado, estudio["referencia"], imagenes, fecha, version_git, sensibilidad=estudio)
+    return terminar_informe(legado, estudio["referencia"], imagenes, fecha, version_git, sensibilidad=estudio,
+        diagnosticos={'sensibilidad': diagnostico_estudio(estudio, 'sensibilidad')})
 
 
 def crear_informe_mapa_html(estudio, imagenes, fecha, version_git):
@@ -175,7 +179,10 @@ def crear_informe_mapa_html(estudio, imagenes, fecha, version_git):
     valores = estudio['referencia'].copy(); valores['perdida_presion_combustor'] *= 100
     valores.update({'mapa_' + k: v for k, v in c.items() if k != 'cortes'})
     valores['mapa_cortes'] = ', '.join(str(t) for t in c['cortes'])
-    metadata = dict(dashboard=1, tipo='mapa', parametros=estudio['referencia'], mapa=c, fecha=fecha.isoformat(), git=version_git)
+    diagnostico = diagnostico_estudio(estudio, 'mapa')
+    contenido += renderizar_diagnostico(diagnostico, 'mapa')
+    metadata = dict(dashboard=1, tipo='mapa', parametros=estudio['referencia'], mapa=c, fecha=fecha.isoformat(), git=version_git,
+                    diagnosticos={'mapa': diagnostico})
     pagina = renderizar_dashboard(valores, contenidos=dict(resultados='', optimizacion='', sensibilidad='', mapa=contenido),
         metadata=metadata, modo_local=False, informe_actual=info, seccion_inicial='mapa')
     estudio['segundos_html'] = perf_counter() - inicio
@@ -228,9 +235,11 @@ def crear_informe_segunda_ley_html(parametros, estudio, fecha, version):
     """Informe diagnóstico o de actualización T0; sin simulación normal adicional."""
     from dashboard import renderizar_dashboard, parametros_fijos_texto
     paneles = dict(resultados='', optimizacion='', sensibilidad='', segunda_ley=bloque_educativo('Parámetros del caso', parametros_fijos_texto(parametros, ())) + seccion_segunda_ley_html(estudio))
+    diagnostico = diagnostico_segunda_ley(parametros, estudio)
+    paneles['segunda_ley'] += renderizar_diagnostico(diagnostico, 'segunda_ley')
     valores = parametros.copy(); valores['perdida_presion_combustor'] *= 100; valores['T0'] = estudio['T0']
     metadata = dict(dashboard=1, tipo='segunda_ley', parametros=parametros, segunda_ley=estudio,
-                    fecha=fecha.isoformat(), git=version)
+                    fecha=fecha.isoformat(), git=version, diagnosticos={'segunda_ley': diagnostico})
     aviso = {True:'Cambios locales sin confirmar', False:'Árbol de trabajo limpio', None:'Estado Git no disponible'}[version['modificado']]
     info = f'<div class="card"><p>{escape(fecha.isoformat())} · Commit Git: {escape(version.get("commit") or "No disponible")} · {aviso}</p></div>'
     return MARCA_INICIO + renderizar_dashboard(valores, contenidos=paneles, metadata=metadata,
@@ -600,13 +609,17 @@ footer {{ padding: 24px 0; font-size: .85rem; color: #475969; }}
 {imagen_html(imagenes['comparacion_ideal_noideal.png'], 'Rendimiento térmico · comparación ideal / no ideal')}
 {imagen_html(imagenes['trabajo_neto_ideal_noideal.png'], 'Trabajo específico neto · comparación ideal / no ideal')}</section>
 <section><h2>Comprobaciones ejecutadas</h2><ul>{lista_comprobaciones}</ul>
+<p class="note">Registro de controles de esta ejecución. Los residuos del caso se presentan en Diagnóstico y coherencia física. Las baterías históricas V.1–V.5 no se ejecutan al generar este informe.</p>
 <p class="note">Estas comprobaciones verifican coherencia del código y del modelo; no constituyen validación frente a datos experimentales externos.</p></section>
 <footer>Informe autocontenido: HTML, CSS y {len(imagenes)} imágenes PNG Base64. No necesita Internet ni archivos de imagen externos. Las energías son específicas (kJ/kg), no potencias.</footer>
 </main></body></html>
 {MARCA_FINAL}"""
     return terminar_informe(legado, parametros, imagenes, fecha, version, noideal=noideal,
         barrido=barrido, optimizaciones=optimizaciones, estudio_rendimiento=estudio_rendimiento,
-        comparacion=comparacion_criterios, segunda_ley=segunda_ley)
+        comparacion=comparacion_criterios, segunda_ley=segunda_ley,
+        diagnosticos={'resultados': diagnostico_simulacion(parametros, ideal, noideal, segunda_ley),
+                      'optimizacion': diagnostico_optimos(parametros, optimizaciones, estudio_rendimiento),
+                      **({'segunda_ley': diagnostico_segunda_ley(parametros, segunda_ley)} if segunda_ley else {})})
 
 
 def guardar_informe_html(contenido, carpeta, fecha):
