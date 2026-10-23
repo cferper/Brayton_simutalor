@@ -678,9 +678,9 @@ def index():
 
 - **Propósito:** atender GET/POST de `/`. No recibe argumentos posicionales; obtiene método y formulario del contexto HTTP.
 - **Retorno:** para GET, pareja `(HTML, 200)`; ante entradas inválidas/modelo rechazado, `(HTML, 400)`; con éxito, respuesta de redirección HTTP 303 al informe recién creado.
-- **Llama:** `valores_formulario`, `leer_parametros`, `validar_configuracion`, `listar_informes`, `renderizar_dashboard` y, según el botón, `main` o `ejecutar_sensibilidad`. Flask la llama por el decorador de ruta; las pruebas lo hacen mediante `test_client`.
+- **Llama:** `valores_formulario`, `leer_parametros`, `validar_configuracion` para sensibilidad, `validar_mapa`, `validar_referencia`, `estudio_conservado`, `listar_informes`, `renderizar_dashboard` y, según el botón, uno de `main`, `ejecutar_sensibilidad`, `ejecutar_mapa` o `ejecutar_segunda_ley`. Flask la llama por el decorador de ruta; las pruebas lo hacen mediante `test_client`.
 - **Unidades:** respeta el contrato de `leer_parametros`; no calcula ecuaciones.
-- **Validación/errores:** no ejecuta cálculos si hay errores de campos. Sólo para OFAT convierte mínimo/máximo a float y muestras a int, valida rangos y exige referencia T3>T1. Las muestras del barrido sí pueden tener T3<=T1 y se registran sin abortar. Los controles OFAT no se validan en simulaciones normales. Captura `ErrorModelo` y `ErrorNumerico` con mensajes distintos durante la ejecución; conserva `request.form.to_dict()` para volver a mostrar valores. Otros errores llegan al tratamiento de HTTP 500 de Flask.
+- **Validación/errores:** no ejecuta cálculos si hay errores de campos. Para OFAT convierte mínimo/máximo a `float` y muestras a `int`, valida rangos y exige referencia `T3>T1`; las muestras del barrido sí pueden ser no motoras. Para mapa convierte límites/cortes a `float`, resoluciones a `int` y valida la configuración, sólo si esa acción está activa. Para normal y Segunda Ley exige `T0` positivo y finito; para mapa y OFAT ignora `T0`. Segunda Ley valida además entradas físicas y admite reutilizar un estudio previo sólo si el informe y los nueve parámetros coinciden. Los controles exclusivos de una acción no se validan en las demás. Captura `ErrorModelo` y `ErrorNumerico` con mensajes distintos durante la ejecución; conserva `request.form.to_dict()` para volver a mostrar valores. Otros errores llegan al tratamiento HTTP 500 de Flask.
 - **PYTHON:** decorador `@app.route("/", methods=["GET", "POST"])`, condicionales y `try/except/else`. Ese `else` se ejecuta solo si la llamada no lanzó una excepción.
 - **Ejemplo:** `client.get("/")` muestra el formulario; `client.post("/", data=datos)` simula un envío en una prueba. Fuera de una petición no se llama manualmente a `index()`.
 
@@ -1492,6 +1492,123 @@ Los ocho métodos públicos `test_*(self)`, sin argumentos adicionales y sin ret
 **Resultados reales:** los 8 métodos nuevos pasaron en **3.572 s** y las **61** regresiones relacionadas de `test_reporting`, `test_dashboard`, `test_integracion_rendimiento`, `test_web_app` y `test_explicaciones` pasaron en **46.146 s**: **69 distintos correctos**, cero fallos, errores u omisiones. Después de ampliar las comprobaciones de KPI A/B y los estados del estudio de Segunda Ley se repitió **sólo ese método** (1/1 correcto, 3.611 s), sin ejecutar la suite completa. En los dos perfiles y ambos modelos, la diferencia máxima observada entre el oráculo `float` y los estados/balances de producción fue **0 a resolución de `float`**; al ser fórmulas equivalentes, esto no constituye una garantía general. Se aplicaron tolerancias numéricas `atol=3e−10` y `rtol=3e−13` a estados y hasta `4e−10` en series de energía, según la prueba; los HTML redondean de otra forma (2, 3 o 6 decimales). La matriz de gráficas, cifras, procedimiento y limitaciones se detallan en el milestone 16.
 
 La **verificación de software** afirma que, dentro de los casos y tolerancias estudiados, el programa calcula, transmite y representa correctamente *las ecuaciones implementadas*. **Validación experimental** exigiría comparar esas ecuaciones con medidas reales o un modelo externo independiente de mayor fidelidad, lo cual no se ha hecho. La ejecución fue en Linux/Python 3.12.14 con dependencias declaradas; no se probó Windows. No se modifica producción ni se inicia una nueva etapa.
+
+### 4.55. Verificación V.5 de integración web — `tests/test_verificacion_integracion_web.py`
+
+**Estado.** La [verificación V.5](docs/milestones/17_verificacion_integracion_web.md)
+se preparó el **23/10/2026**, desde `mejoras/verificacion-numerica` en el commit
+`eae71fecab71ba6cd5877e0e81f4dd396c08cb43`, en una copia temporal
+independiente. **Pendiente de revisión, sin commit ni push.** Contiene sólo
+12 métodos nuevos de prueba, el documento 17 y esta actualización didáctica.
+No añade rutas, funciones ni dependencias a producción; V.1–V.4 siguen
+siendo responsables de la verificación de los modelos matemáticos.
+
+**INTERPRETACIÓN FÍSICA / INGENIERÍA — qué se conserva al cruzar la web.**
+Las nueve entradas se introducen como texto y `web_app.leer_parametros`
+las convierte a `float`; las temperaturas son K, `p1` kPa, `cp`
+J/(kg·K), `gamma`, `rp` y eficiencias son adimensionales. Sólo
+`perdida_presion_combustor` cambia de convención: `7.5 %` visible
+se entrega como fracción `0.075`. Esa conversión no significa añadir
+o retirar una pérdida energética: se trata del mismo parámetro. La temperatura
+`T0` [K] se usa en normal/Segunda Ley para exergía, **no** se usa en
+sensibilidad OFAT ni mapa de diseño. En Segunda Ley,
+`e_D=T0·s_gen` para los dos equipos adiabáticos estudiados; variar
+`T0` con estados físicos idénticos puede actualizar la exergía destruida
+sin resolver el ciclo otra vez. Si cambia una de las nueve entradas, el
+estudio anterior no es compatible. Esta lógica es de **transporte y
+reutilización de resultados**, no un nuevo modelo termodinámico.
+
+**PYTHON / HTTP — el flujo completo:**
+
+1. `Flask.test_client()` devuelve un cliente de pruebas sin abrir una
+   conexión real. `client.post("/", data=datos)` construye el formulario;
+   `request.form` contiene cadenas y el servidor usa un `dict` para
+   las entradas. El campo `accion` elige `main`, `ejecutar_sensibilidad`,
+   `ejecutar_mapa` o `ejecutar_segunda_ley` sin mezclar sus controles.
+2. Antes de calcular, el servidor valida campos y configuración del modo.
+   Un error esperado devuelve HTTP **400** con los mismos valores escritos
+   y sin informe. El éxito devuelve HTTP **303**, redirigiendo a
+   `/informes/<nombre>`; **303 no contiene en sí mismo el informe**.
+   Una excepción inesperada se registra y devuelve **500** genérico,
+   sin atribuirla equivocadamente a imposibilidad física.
+3. `guardar_informe_html` escribe un documento con nombre y marcas
+   propios, y el índice conserva un máximo de cuatro. `listar_informes`
+   recupera información de fecha, parámetros y versión Git si existe
+   metadata moderna, sin falsificarla en informes antiguos. No lee rutas
+   arbitrarias ni sigue enlaces simbólicos.
+4. `ver_informe` rehidrata en el dashboard los nueve campos, OFAT, mapa
+   y `T0` guardados, sin ejecutar otra simulación. La ruta de descarga
+   `?descargar=1` devuelve el **HTML original byte a byte**.
+   Los informes anteriores pueden tener un enlace añadido **sólo a la
+   respuesta en memoria**, nunca a su archivo guardado.
+5. `estudio_conservado` comprueba nombre/ubicación/marcas,
+   metadata y equivalencia de las nueve entradas. En una prueba real,
+   `actualizar_T0` recibió un estudio completo guardado, conservó
+   temperaturas/entropías y aplicó `e_D(310.5)=310.5·s_gen`.
+   Las tuplas de Python se almacenan como listas en JSON: deben
+   compararse como estructuras serializadas, sin confundir esa
+   representación con un cambio físico.
+
+**PYTHON — clases y auxiliares nuevos, exclusivos de pruebas:**
+
+- `FormularioParser(HTMLParser)` guarda `campos: dict` a partir de
+  controles HTML. `handle_starttag(self, tag, attrs)` recibe nombre
+  del elemento y lista de pares atributo/valor, y registra los `input`
+  y `select` con nombre, incluida la opción marcada `selected`.
+  `handle_endtag(self, tag)` borra la selección en curso al cerrar
+  un `select`. Ambos son callbacks de `html.parser` y no devuelven
+  un valor útil; el parser **no interpreta JavaScript**. Ejemplo:
+  `p = FormularioParser(); p.feed(html); p.campos["T1"]["value"]`
+  obtiene el texto conservado por la plantilla.
+- `VerificacionIntegracionWebV5.setUp(self)` no recibe entradas ajenas
+  ni devuelve datos: crea `TemporaryDirectory`, cliente Flask,
+  nueve parámetros de prueba y ajustes OFAT/mapa. Usa
+  `patch.dict(app.config, ...)` y `addCleanup` para restaurar
+  configuración y borrar sólo sus temporales, incluso si falla
+  una aserción. No afecta `outputs/` real.
+- `VerificacionIntegracionWebV5._informe(self, tipo, *, parametros=None,
+  segunda_ley=None)`: recibe `tipo: str`, un diccionario opcional de
+  nueve parámetros y un estudio opcional; devuelve
+  `(ruta: Path, contenido: str, metadata: dict)`.
+  Construye un informe **sintético marcado** para probar el índice,
+  la rehidratación y la compatibilidad antigua, no para demostrar
+  las ecuaciones. En el test de reutilización, el estudio asociado
+  sí se calcula con `analizar_segunda_ley` sobre estados reales
+  antes de insertarlo en el informe.
+- Los doce métodos `test_*(self)`, sin retorno útil, comprueban:
+  cuatro despachos/argumentos, rechazos y preservación de datos,
+  cuatro ejecuciones reales, historial y formato anterior, recuperación
+  y descarga sin recálculo, reutilización de T0, rutas malformadas,
+  error inesperado y estructura de las ocho secciones.
+  `self.subTest(...)` distingue los siete casos inválidos y las
+  variantes sin multiplicar artificialmente el número de métodos.
+  `patch.object` intercepta sólo durante el bloque `with` los
+  ejecutores cuya llamada se quiere comprobar; después recuperan
+  sus implementaciones normales.
+
+**Resultados ejecutados en Linux, 23/10/2026.** Los **12 métodos nuevos**
+pasaron en **4,442 s**. Una selección de **14 regresiones** (web 4,
+dashboard 5, guías 3, Segunda Ley 1 y mapa 1) terminó correctamente
+en **4,725 s** de tiempos `unittest` sumados; total **26 métodos
+distintos correctos, cero fallos, errores u omisiones finales**.
+Una expectativa del test sobre pestañas de Informes/Ayuda y otra
+sobre tuplas convertidas en listas JSON se corrigieron durante
+la preparación; tampoco los nombres mal escritos de dos clases
+en una primera invocación de regresiones constituyen un fallo de
+producción. No se ejecutaron las 69 pruebas completas de V.4 ni
+la suite histórica. Se utilizó el entorno aislado preexistente con
+Flask 3.1.3/Python 3.12.14, sin instalar dependencias.
+
+**Límites.** `test_client` no prueba los controles JavaScript en navegador,
+compatibilidad Windows, concurrencia, ni seguridad exhaustiva;
+los informes sintéticos sólo verifican contratos de representación.
+La función `estudio_conservado` no valida exhaustivamente el
+esquema interno `segunda_ley` de un JSON manipulado; V.5 ensaya
+uno físicamente completo y fuentes incompatibles por entradas,
+sin afirmar robustez ante todo fichero corrupto. La verificación
+de software no implica validación experimental de un turbomotor.
+Los métodos, datos, rechazos y límites se desglosan en el
+[milestone 17](docs/milestones/17_verificacion_integracion_web.md).
 
 ## 5. Variables principales
 
