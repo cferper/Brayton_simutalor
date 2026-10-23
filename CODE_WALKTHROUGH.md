@@ -1,6 +1,6 @@
 # Guía educativa de Brayton Simulator
 
-Guía del estado actual, actualizada el 23 de octubre de 2026. El simulador identifica los dominios motores, optimiza trabajo específico y rendimiento térmico y compara ambos criterios con intervalos recalculados por ejecución. Se mantienen los nueve parámetros, Flask local, siete gráficas por simulación normal o tres por estudio OFAT, metadatos Git y retención compartida de cuatro informes. La Fase 4 permite variar T1, T3, eta_c, eta_t o delta y comparar R/A/B. Las verificaciones históricas del modelo y la integración se explican en §§4.45–4.55. El panel **Diagnóstico y coherencia física** (§4.56) calcula controles sobre los resultados de cada informe; no ejecuta las pruebas históricas V.1–V.5 ni equivale a validación experimental. La nueva **Fase 2A del plan de propiedades variables** (§4.57) incorpora un módulo independiente para aire ideal con `cp(T)`; todavía **no** participa en el cálculo Brayton, las gráficas ni el HTML, que continúan usando propiedades constantes.
+Guía del estado actual, actualizada el 23 de octubre de 2026. El simulador identifica los dominios motores, optimiza trabajo específico y rendimiento térmico y compara ambos criterios con intervalos recalculados por ejecución. Se mantienen los nueve parámetros, Flask local, siete gráficas por simulación normal o tres por estudio OFAT, metadatos Git y retención compartida de cuatro informes. La Fase 4 permite variar T1, T3, eta_c, eta_t o delta y comparar R/A/B. Las verificaciones históricas del modelo y la integración se explican en §§4.45–4.55. El panel **Diagnóstico y coherencia física** (§4.56) calcula controles sobre los resultados de cada informe; no ejecuta las pruebas históricas V.1–V.5 ni equivale a validación experimental. La **Fase 2A** (§4.57) añadió propiedades `cp(T)`; la **Fase 2B** (§4.58) incorpora un solucionador Brayton independiente basado en ellas. El flujo histórico de Flask, optimización, gráficas e informes HTML **sigue usando propiedades constantes**; el nuevo solucionador sólo se invoca directamente desde Python.
 
 **Lectura por fases:** la [guía de aprendizaje de Fase 1](docs/milestones/03_dominio_viable_APRENDIZAJE.md) explica sus novedades respecto al commit de partida. La [guía de aprendizaje de Fase 2](docs/milestones/04_optimizacion_noideal_APRENDIZAJE.md) desarrolla la optimización y los intervalos dinámicos. La [guía de aprendizaje de Fase 3](docs/milestones/05_optimizacion_rendimiento_APRENDIZAJE.md) explica su física, algoritmos, integración y verificación de cierre. Este manual describe todo el código actual; `Evolution of the project` resume los grandes hitos, sin historial acumulativo de iteraciones.
 
@@ -20,7 +20,7 @@ La ejecución normal no lee ni sobrescribe los PNG históricos. Los ejemplos que
 
 El programa estudia un ciclo Brayton ideal y otro no ideal simplificado. Usa gas ideal con `cp` y `gamma` constantes, equipos adiabáticos en régimen estacionario y cambios despreciables de energía cinética y potencial. No calcula caudal másico, potencia, combustible, empuje ni mapas de máquinas.
 
-Por separado, `propiedades_aire.py` calcula propiedades térmicas variables de una mezcla ideal fija (N₂/O₂/Ar) entre 200 y 2000 K. Su API puede probarse desde Python, pero ningún flujo del simulador la importa aún. Los resultados actuales del ciclo no han cambiado.
+Por separado, `propiedades_aire.py` calcula propiedades térmicas variables de una mezcla ideal fija (N₂/O₂/Ar) entre 200 y 2000 K. `ciclo_cp_variable.py` reutiliza esa API para resolver estados y balances Brayton por entalpía y entropía. Ninguno de los dos módulos participa aún en el flujo anterior de `main.py`, `viabilidad.py`, optimización o web; sus resultados históricos no han cambiado.
 
 | Estado | Lugar físico |
 |---|---|
@@ -84,6 +84,7 @@ Brayton_Simulator/
 ├── main.py                     modelo, gráficas y coordinación
 ├── viabilidad.py               estados comunes, clasificación, fronteras y barridos
 ├── propiedades_aire.py          aire ideal de cp(T), h(T), s(T,p), gamma(T) e inversión; aislado
+├── ciclo_cp_variable.py         nuevo solucionador Brayton por entalpía/entropía, sin interfaz
 ├── optimizacion.py             candidatos, búsqueda interior y contraste de máximos
 ├── optimizacion_rendimiento.py rendimiento y comparación A/B
 ├── sensibilidad.py             OFAT, derivadas locales y tres gráficas independientes
@@ -104,6 +105,7 @@ Brayton_Simulator/
 ├── static/images/              esquema original del motor y licencia CC0
 ├── tests/test_viabilidad.py    pruebas de dominio, fronteras, máscaras y regresión HTTP
 ├── tests/test_propiedades_aire.py  NIST, integrales, tramos, inversión y errores de entrada
+├── tests/test_ciclo_cp_variable.py estados, balances, fronteras y referencias independientes
 ├── tests/test_optimizacion.py  máximos, intervalos dinámicos y regresión Flask
 ├── tests/test_optimizacion_rendimiento.py  pruebas unitarias de rendimiento
 ├── tests/test_integracion_rendimiento.py  gráficas, informe, recálculo Flask y criterios
@@ -127,7 +129,7 @@ Brayton_Simulator/
 ├── README.md                   instalación y uso
 ├── requirements.txt            numpy, matplotlib y Flask
 ├── .gitignore
-├── docs/milestones/            informes técnicos, guías y fase 2A: milestone 19
+├── docs/milestones/            informes técnicos, guías y fases 2A/2B: milestones 19/20
 ├── outputs/                    informes generados, excluidos de Git
 └── *.png                       seis imágenes históricas conservadas
 ```
@@ -137,7 +139,8 @@ Brayton_Simulator/
 | Archivo/bloque | Responsabilidad actual |
 |---|---|
 | `viabilidad.py` | Validación, ecuaciones de estados/energías compartidas, clasificación sin excepciones físicas, bisección y barridos |
-| `propiedades_aire.py` | Propiedades termodinámicas de aire seco cp(T) para futura integración; sólo biblioteca estándar, sin invocaciones desde el ciclo actual (§4.57) |
+| `propiedades_aire.py` | Propiedades termodinámicas de aire seco cp(T); invocado por el solucionador independiente de Fase 2B, no por el ciclo histórico (§4.57) |
+| `ciclo_cp_variable.py` | Estados, energías, entropía y clasificación Brayton cp(T); sólo importado directamente y por sus pruebas, sin consumidores Flask/HTML (§4.58) |
 | `optimizacion.py` | Máximo analítico y numérico de trabajo; reutiliza estados y dominio de Fase 1 |
 | `optimizacion_rendimiento.py` | Supremo ideal, máximo de rendimiento y comparación A/B integrados en main |
 | `main.py`: funciones de ciclo | API estricta de cálculo motor, comprobaciones, entropía/P-v y óptimo ideal |
@@ -1747,7 +1750,7 @@ Las comprobaciones ejecutadas para esta funcionalidad y sus límites se registra
 
 ### 4.57. Propiedades caloríficas variables del aire — `propiedades_aire.py` (Fase 2A)
 
-**Alcance exacto.** Es un módulo autónomo sin importaciones desde `main.py`, `viabilidad.py`, `segunda_ley.py`, Flask o el dashboard. Su existencia no reemplaza el modelo de `cp=1005 J/(kg·K)` y `gamma=1.4` del motor actual. Las pruebas nuevas tampoco validan un motor real. El [milestone técnico 19](docs/milestones/19_cp_variable_aire.md) y la [guía de aprendizaje independiente](docs/milestones/19_cp_variable_aire_APRENDIZAJE.md) desarrollan las hipótesis y los casos de prueba.
+**Alcance exacto.** Es un módulo autónomo sin importaciones desde `main.py`, `viabilidad.py`, `segunda_ley.py`, Flask o el dashboard; desde Fase 2B lo importa **únicamente** el nuevo `ciclo_cp_variable.py` y las pruebas. No reemplaza el modelo de `cp=1005 J/(kg·K)` y `gamma=1.4` del flujo histórico. Las pruebas tampoco validan un motor real. El [milestone técnico 19](docs/milestones/19_cp_variable_aire.md) y la [guía de aprendizaje independiente](docs/milestones/19_cp_variable_aire_APRENDIZAJE.md) desarrollan las hipótesis y los casos de prueba.
 
 **INTERPRETACIÓN FÍSICA.** Aire seco de composición molar constante `0.78 N₂ + 0.21 O₂ + 0.01 Ar`, sin disociación ni cambio de especies; masa molar de mezcla `M=0.02896968 kg/mol`, constante específica `R_u/M≈287.005677 J/(kg·K)` y presión de referencia `p_ref=100 kPa=1 bar`. N₂ y O₂ emplean los coeficientes Shomate de NIST WebBook (N₂: 200–500 y 500–2000 K; O₂: 200–700 y 700–2000 K); argón monoatómico usa `cp,m=5 R_u/2`. NIST tabula `t=T/1000`, `cp,m=A+Bt+Ct²+Dt³+E/t²`, la primitiva de entalpía en kJ/mol y la de entropía en J/(mol·K). Las fracciones son **molares**, no másicas: primero se suma `Σ y_i propiedad_molar_i` y después se divide por `M` (y por `1000` si el retorno está en kJ/kg).
 
@@ -1789,7 +1792,58 @@ print(s(1000, 200))               # incluye el término de presión respecto a 1
 print(T_desde_h(h(1000)))         # vuelve a 1000 K
 ```
 
-**Verificación frente a validación.** `tests/test_propiedades_aire.py` contrasta cp en temperaturas representativas con valores fijados a partir de NIST, deriva numéricamente h y s0, integra por cuadratura independiente, inspecciona ambos empalmes, extremos, inversión y rechazo de errores. Son pruebas de fórmulas y consistencia del **modelo elegido**, no datos de rendimiento de un motor. La función `s0` no incluye una entropía absoluta de mezcla: sólo diferencias respecto al estado de referencia. La integración en balances, estados, optimizadores y HTML queda **pendiente de Fase 2B**.
+**Verificación frente a validación.** `tests/test_propiedades_aire.py` contrasta cp en temperaturas representativas con valores fijados a partir de NIST, deriva numéricamente h y s0, integra por cuadratura independiente, inspecciona ambos empalmes, extremos, inversión y rechazo de errores. Son pruebas de fórmulas y consistencia del **modelo elegido**, no datos de rendimiento de un motor. La función `s0` no incluye una entropía absoluta de mezcla: sólo diferencias respecto al estado de referencia. Los estados y balances ya se calculan mediante un **solucionador independiente** (§4.58); su integración con optimizadores, sensibilidad, segunda ley histórica y HTML continúa pendiente.
+
+### 4.58. Solucionador Brayton con cp(T) — `ciclo_cp_variable.py` (Fase 2B)
+
+**Alcance y punto de entrada.** El nuevo `resolver_ciclo(T1, T3, rp, p1, eta_c=1.0, eta_t=1.0, delta=0.0, tolerancia=1e-10)` recibe dos temperaturas en K, relación de presión adimensional `rp=p2/p1`, presión en kPa, eficiencias `0<eta<=1`, pérdida fraccional `0<=delta<1` y tolerancia relativa. Devuelve un **diccionario** de números/tuplas y diagnósticos: no genera imágenes, no publica informes, no modifica `main.py` ni se llama desde Flask. Los parámetros históricos `cp` y `gamma` no aparecen en su firma ni en sus ecuaciones. Véanse [milestone técnico 20](docs/milestones/20_ciclo_cp_variable.md) y [aprendizaje 2B](docs/milestones/20_ciclo_cp_variable_APRENDIZAJE.md).
+
+**INTERPRETACIÓN FÍSICA.** Aire seco ideal de composición molar **fija** según §4.57. Se ignoran cambios cinéticos/potenciales; compresor y turbina son adiabáticos; el «combustor» es sólo un aporte externo de calor al mismo aire. Para `R_kJ=R_AIRE/1000`, las presiones son `p2=rp·p1`, `p3=p2·(1-delta)`, `p4=p1`. En cada equipo se invierte una **diferencia de entropía térmica** para hallar la referencia isentrópica:
+
+```text
+s0(T2s) = s0(T1) + R_kJ · ln(rp)
+s0(T4s) = s0(T3) + R_kJ · [ln(p4) − ln(p3)]
+h2 = h1 + [h(T2s) − h1]/eta_c
+h4 = h3 − eta_t · [h3 − h(T4s)]
+T2 = T_desde_h(h2) ; T4 = T_desde_h(h4)
+wc=h2−h1 ; wt=h3−h4 ; wn=wt−wc
+qin=h3−h2 ; qout=h4−h1 ; residuo=wn−(qin−qout)
+eta_th=wn/qin  (sólo motor válido)
+```
+
+Las diferencias de h están en kJ/kg; las de s en kJ/(kg·K). Las eficiencias usan **saltos de entalpía**, no cocientes de saltos de temperatura. Como `cp(T)` varía, la igualdad con `T2s=T1·rp^((gamma−1)/gamma)` o su equivalente para turbina **ya no es exacta**, y evaluar `gamma(T)` en una temperatura elegida no la arregla. El software reevalúa `h` en las temperaturas recuperadas para permitir inspeccionar residuos de inversión. `residuo_isentropico_compresor`, `residuo_isentropico_turbina` y `residuo_primera_ley` permiten verificar cada ecuación sin limitarse a mostrar trabajo neto.
+
+**Segunda ley y no motores.** `entropias` es `(s1,s2,s3,s4)` calculado con cada `(Ti,pi)`. Para equipos adiabáticos `generacion_entropia_compresor=s2−s1` y `generacion_entropia_turbina=s4−s3`; en compresión/expansión normales deben ser no negativas (con tolerancia numérica). **No** son la generación total de la instalación ni un balance del aporte de calor. `viable=True` sólo si hay compresión (`rp>1`), expansión (`p3>p4`), `qin>0`, `wn>0` y ningún resultado de generación significativamente negativo; los umbrales usan `tolerancia` para presión/energía y un suelo `1e−11 kJ/(kg·K)` para redondeos entrópicos. La lista `motivos` identifica las restricciones incumplidas; `rendimiento` y `back_work_ratio` son `None` fuera del régimen motor. **No** se recortan valores calculados ni se convierte un trabajo negativo en cero. Con relaciones de presión opuestas a la dirección nominal, las fórmulas de eficiencia pueden incluso dar entropía generada negativa: se registra `segunda_ley_compresor`/`segunda_ley_turbina` como motivo y **no** se presenta ese ciclo como físicamente válido.
+
+**Distinguir errores.** Las entradas no finitas, booleanas, no reales, relaciones/presiones no positivas, eficiencias o pérdidas fuera de límites, temperaturas de entrada fuera de `[200,2000]` y tolerancias inválidas producen `ValueError` **antes de calcular**. `EstadoFueraDeRango(ValueError)` señala que **las entradas son admisibles pero** algún estado isentrópico o real exigiría una temperatura fuera de 200–2000 K; no se extrapola Shomate. `ErrorNumericoCiclo(ArithmeticError)` indica presiones/entalpías intermedias no representables o ausencia de convergencia, sin etiquetar el caso de «no motor». Un ciclo que puede calcularse pero no entrega trabajo motor devuelve normalmente su diccionario con `viable=False` y sus motivos, no una excepción.
+
+**PYTHON — funciones reales y llamadas.** Las dos clases de excepción nuevas no cambian las del motor histórico. La API del módulo tiene cinco funciones:
+
+| Firma completa | Entrada, retorno y papel | Llamadas, límites y errores |
+|---|---|---|
+| `_numero_finito(valor)` | Objeto → `bool`; filtro sin unidades | `numbers.Real`, `math.isfinite`; rechaza `bool` y `OverflowError`; llamada por `_validar_entradas`. Ej.: `_numero_finito(True)==False`. |
+| `_validar_entradas(T1, T3, rp, p1, eta_c, eta_t, delta, tolerancia)` | Escalares reales en K, kPa y adimensionales → `None` | Llama a `_numero_finito`; `ValueError` si falla cualquier dominio. Invocada por `resolver_ciclo`. Ej.: `_validar_entradas(300,1600,10,100,.85,.9,.05,1e-10)` no devuelve datos. |
+| `_temperatura_desde_s0(objetivo)` | Entropía térmica relativa en kJ/(kg·K) → temperatura `float` en K | `s0(200)`, `s0(2000)`, `s0(medio)`; bisección acotada (máx. 80, anchura `1e−10 K`). `EstadoFueraDeRango` sin raíz, `ErrorNumericoCiclo` al no converger. La llama `resolver_ciclo`. Ej.: `_temperatura_desde_s0(s0(500))≈500`. |
+| `_temperatura_desde_h_acotada(entalpia)` | Entalpía relativa kJ/kg → temperatura `float` K | `h(200)`, `h(2000)`, `T_desde_h`; convierte una meta fuera de rango en `EstadoFueraDeRango`. La llama `resolver_ciclo`. Ej.: `_temperatura_desde_h_acotada(h(1000))≈1000`. |
+| `resolver_ciclo(T1, T3, rp, p1, eta_c=1.0, eta_t=1.0, delta=0.0, tolerancia=1e-10)` | K, K, –, kPa, –, –, –, – → `dict` con cuatro estados, referencias isentrópicas, h, s, trabajos, calores, residuos, viabilidad y motivos | Llama a todos los validadores/inversores y a `h`, `s0`, `s`, `T_desde_h` de Fase 2A, `math.log`; la invocan las pruebas o el usuario en Python. No recibe cp/gamma. Puede devolver `viable=False` o elevar los errores diferenciados anteriores. |
+
+El `dict` contiene las tuplas `temperaturas=(T1,T2,T3,T4)` K, `presiones=(p1,p2,p3,p4)` kPa, `entalpias=(h1,h2,h3,h4)` kJ/kg, `entalpias_isentropicas=(h2s,h4s)` kJ/kg, `entropias=(s1,s2,s3,s4)` kJ/(kg·K), `T2s`/`T4s` K; seis magnitudes energéticas (`trabajo_compresor`, `trabajo_turbina`, `trabajo_neto`, `calor_aportado`, `calor_rechazado`, `residuo_primera_ley`); `rendimiento` y `back_work_ratio` como fracciones adimensionales o `None`; generación/residuos entrópicos en kJ/(kg·K); `motivos` como tupla de códigos; `margenes` y `tolerancias` como diccionarios para auditar la clasificación.
+
+El código `for _ in range(80)` representa un bucle de búsqueda donde el índice no importa. `raise EstadoFueraDeRango(...)` distingue la imposibilidad de permanecer en el dominio NIST de una inviabilidad motora. `tuple(clave for clave, margen in margenes.items() if ...)` es una **expresión generadora** consumida por `tuple`, que recoge todos los motivos simultáneos sin ocultar sus valores. La condición `wnet/qin if viable else None` evita dividir en un punto no motor. Las presiones se logaritman como diferencias `log(p4)-log(p3)` sin dividir presiones extremas, y las temperaturas se devuelven como `float`, no listas de NumPy.
+
+Ejemplo directo, desde la raíz del repositorio:
+
+```python
+from ciclo_cp_variable import resolver_ciclo
+punto = resolver_ciclo(288.15, 1600, 10, 100, .85, .9, .05)
+print(punto["temperaturas"])  # 288.15, 597.692837, 1600, 993.581041 K
+print(punto["trabajo_neto"])  # 402.070798 kJ/kg
+print(punto["rendimiento"])    # 0.348934281, NO porcentaje
+```
+
+**Comparación de referencia a `rp=10`.** Con `eta_c=.85`, `eta_t=.9`, `delta=.05`, el modelo variable entrega `wn≈402.070798 kJ/kg` y `eta≈34.893428 %`; el modelo histórico con `cp=1005`, `gamma=1.4` entrega `wn≈369.476301 kJ/kg` y `eta≈36.898732 %`. En condiciones reversibles sin pérdida (`eta_c=eta_t=1`, `delta=0`), los valores respectivos son `542.818426 kJ/kg; 45.245515 %` y `505.619018 kJ/kg; 48.205253 %`. Estas diferencias se deben a **modelos térmicos distintos**, no a un cambio de los resultados HTML.
+
+**Verificación.** `tests/test_ciclo_cp_variable.py` comprueba isentrópicas también con cuadratura independiente de `cp(T)/T` y bisección propia del test (sin llamar a `s0`), reproduce saltos de h por integración independiente de `cp`, revisa eficiencias, balances, entropías, reversibilidad, viabilidad y límites. No compara prestaciones con mediciones de turbinas reales. El registro de ejecución y las limitaciones del entorno quedan en los documentos de milestone y aprendizaje de Fase 2B.
 
 ## 5. Variables principales
 
@@ -2654,7 +2708,7 @@ HTML básico se aprende con tablas pequeñas; la dificultad principal es coordin
 
 ## 17. Posibles mejoras del código, sin aplicarlas
 
-El módulo independiente de propiedades variables ya existe (Fase 2A, §4.57); **integrarlo** en los procesos Brayton y sustituir las hipótesis caloríficas constantes es trabajo posterior. Esta sección describe únicamente mejoras todavía pendientes.
+Los módulos independientes de propiedades variables (Fase 2A, §4.57) y solucionador de cuatro estados (Fase 2B, §4.58) ya existen; **integrarlos en los optimizadores, análisis, informes y ejecución histórica** es trabajo posterior. Esta sección describe únicamente mejoras todavía pendientes.
 
 ### PROBLEMA REAL: límites con consecuencias concretas
 
@@ -2814,3 +2868,5 @@ Estos hitos resumen capacidades ya implementadas en la versión analizada, sin a
 - **Diagnóstico y coherencia física en cada informe (revisión focalizada completada; sin commit).** Ingeniería: residuos y tolerancias por magnitud, distinción entre identidades, contrastes del mismo modelo y restricciones, disponibilidad de Segunda Ley y naturaleza de los óptimos. Python: registros homogéneos, generadores y agregación de estudios completos, separación entre motor/orquestación/HTML y persistencia del panel. Pertenece a la fase vigente de verificación, sin cambiar el modelo ni ejecutar V.1–V.5 por informe; queda pendiente la inspección visual real y cotejar la copia con Windows. Véanse [milestone 18](docs/milestones/18_diagnostico_fisico.md) y [aprendizaje §12](docs/milestones/11_verificacion_numerica_APRENDIZAJE.md).
 
 - **Fase 2A del nuevo plan: propiedades caloríficas variables del aire.** Ingeniería: mezcla molar ideal N₂/O₂/Ar, correlaciones Shomate contrastadas con NIST, h y s0 continuas por integración y referencia a 298,15 K/1 bar, cp y gamma dependientes de T; el ciclo histórico sigue intacto. Python: módulo independiente sin dependencias externas, tablas de coeficientes, funciones internas, validación estricta y bisección monótona de entalpía. Véanse [milestone técnico 19](docs/milestones/19_cp_variable_aire.md) y [guía de aprendizaje de Fase 2A](docs/milestones/19_cp_variable_aire_APRENDIZAJE.md).
+
+- **Fase 2B del nuevo plan: solucionador independiente con cp(T).** Ingeniería: estados por raíces de entropía isentrópica, eficiencias por saltos de entalpía, balances de primera ley y generación de entropía adiabática, clasificación de puntos no motores y límite térmico 200–2000 K. Python: retorno estructurado, bisección acotada, excepciones específicas y pruebas con cuadratura independiente; aún sin integración de interfaz, optimizaciones o estudios anteriores. Véanse [milestone técnico 20](docs/milestones/20_ciclo_cp_variable.md) y [guía de aprendizaje de Fase 2B](docs/milestones/20_ciclo_cp_variable_APRENDIZAJE.md).
