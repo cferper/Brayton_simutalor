@@ -115,12 +115,17 @@ details{min-width:0}details.card{padding:0}details.card>summary{padding:16px 20p
 @media print{.diagnostico-grupo{break-inside:auto}.diagnostico-tabla tr{break-inside:avoid}.diagnostico-estado{border-color:#65768a}}
 
 /* Revisión educativa cp(T): se amplía el contenido sin modificar el diseño base. */
-.edu-deep-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin:0 0 20px}
-.edu-deep-block{margin:0;padding:19px 21px;line-height:1.65}
-.edu-deep-block h3{color:var(--primary);font-size:14px;margin-bottom:11px}
-.edu-deep-block p,.edu-deep-block li{font-size:13px;color:#41566b}
-.edu-deep-block ol,.edu-deep-block ul{padding-left:20px}
-.edu-deep-block:nth-child(3){grid-column:1/-1}
+.edu-deep-grid{display:grid;grid-template-columns:minmax(0,1fr);gap:18px;max-width:960px;margin:0 0 24px}
+.edu-deep-grid .edu-deep-block{padding:24px 28px}
+.edu-deep-block{margin:0;padding:19px 21px;line-height:1.7}
+.edu-deep-block h3{color:var(--primary);font-size:17px;line-height:1.4;margin-bottom:15px}
+.edu-deep-block p,.edu-deep-block li{font-size:14px;line-height:1.75;color:#41566b}
+.edu-deep-block p{max-width:82ch;margin:0 0 13px}
+.edu-deep-block p:last-child{margin-bottom:0}
+.edu-deep-block ol,.edu-deep-block ul{padding-left:23px;max-width:85ch;margin:0 0 13px}
+.edu-deep-block li{padding-left:3px;margin-bottom:9px}
+.edu-deep-block .edu-equation{max-width:100%;background:#f1f6fa;border:1px solid #dbe5ef;border-left:3px solid var(--primary);border-radius:5px;padding:12px 15px;margin:15px 0;color:#183c56;overflow-wrap:anywhere;font-family:'IBM Plex Sans','Segoe UI',sans-serif;font-size:14px;font-weight:600;line-height:1.8}
+.edu-deep-block .edu-insight{display:block;max-width:82ch;background:#eef5fb;color:#315471;border-left:3px solid #78a4c6;padding:13px 16px;border-radius:4px;margin:13px 0;font-size:13px;line-height:1.7}
 .edu-learning{border-left:3px solid var(--primary);background:#fafdff}
 .edu-learning h3{color:var(--primary)}
 .cp-gallery{margin:0 0 20px}
@@ -135,7 +140,9 @@ details{min-width:0}details.card{padding:0}details.card>summary{padding:16px 20p
 .chart-dialog .chart-vector svg{display:block;max-width:100%;max-height:75vh;height:auto;width:auto;min-width:0}
 @media(max-width:760px){
  .edu-deep-grid,.cp-gallery .plot-grid{grid-template-columns:minmax(0,1fr)}
- .edu-deep-block:nth-child(3){grid-column:auto}
+ .edu-deep-grid .edu-deep-block{padding:19px 16px}
+ .edu-deep-block h3{font-size:15px}
+ .edu-deep-block p,.edu-deep-block li{font-size:13px}
  .cp-figure .cp-plot svg{max-height:360px}
 }
-@media print{.cp-gallery .plot-grid{grid-template-columns:1fr}.edu-deep-grid{grid-template-columns:1fr}.edu-deep-block:nth-child(3){grid-column:auto}}
+@media print{.cp-gallery .plot-grid{grid-template-columns:1fr}.edu-deep-grid{grid-template-columns:1fr}}

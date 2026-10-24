@@ -8,6 +8,7 @@ on:
       - validacion/fase-2f-cp
       - validacion/fase-2g-cp
       - validacion/revision-educativa-cp
+      - validacion/fundamentos-extensos-cp
       - mejoras/cp-variable
 permissions:
   contents: read

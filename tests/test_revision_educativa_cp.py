@@ -1,7 +1,8 @@
-"""Revisión educativa de interfaz cp(T), sin modificar física ni cálculos."""
+"""Verifica presentación educativa cp(T) sin recalcular ni cambiar física."""
 
 import re
 import unittest
+from html import unescape
 from pathlib import Path
 
 from ciclo_cp_variable import resolver_ciclo
@@ -35,17 +36,34 @@ class RevisionEducativaCP(unittest.TestCase):
         self.assertEqual(html.count('Qué vamos a hacer'), 8)
         self.assertEqual(html.count('edu-deep-grid'), 8)
 
-    def test_contenidos_fisicos_especificos_y_cinco_bloques(self):
+    def test_contenidos_extensos_con_ocho_bloques_cientificos(self):
         datos = construir_educacion_cp()
         self.assertEqual(set(datos), set(SECCIONES))
         for nombre, bloques in CONTENIDOS.items():
             with self.subTest(seccion=nombre):
-                self.assertEqual(len(bloques['fundamentos']), 5)
-                self.assertEqual(datos[nombre]['fundamentos'].count('edu-deep-block'), 5)
-                self.assertTrue(all(len(texto) > 45 for _, texto in bloques['fundamentos']))
-        self.assertIn('h2−h1', CONTENIDOS['resultados']['fundamentos'][2][1])
-        self.assertIn('Gouy–Stodola', CONTENIDOS['segunda_ley']['fundamentos'][2][1])
-        self.assertIn('supremo', CONTENIDOS['optimizacion']['fundamentos'][2][1])
+                cientifico = nombre not in ('informes', 'ayuda')
+                esperados = 8 if cientifico else 5
+                self.assertEqual(len(bloques['fundamentos']), esperados)
+                self.assertEqual(datos[nombre]['fundamentos'].count('edu-deep-block'), esperados)
+                texto = unescape(re.sub(r'<[^>]*>', ' ',
+                                       ' '.join(t for _, t in bloques['fundamentos'])))
+                palabras = len(re.findall(r'\w+', texto))
+                self.assertGreaterEqual(palabras, 400 if cientifico else 200)
+                self.assertLessEqual(len(re.findall(r'\w+', re.sub(r'<[^>]*>', ' ', bloques['uso']))), 120)
+                self.assertGreaterEqual(datos[nombre]['fundamentos'].count('<p'),
+                                        6 if cientifico else 4)
+        self.assertIn('h₂−h₁', CONTENIDOS['resultados']['fundamentos'][2][1])
+        self.assertIn('Gouy–Stodola', CONTENIDOS['segunda_ley']['fundamentos'][4][1])
+        self.assertIn('supremo', CONTENIDOS['optimizacion']['fundamentos'][5][1])
+
+    def test_teoria_ampliada_aparece_en_html_sin_cargar_uso(self):
+        html = self.client.get('/').get_data(as_text=True)
+        for texto in ('Qué es un ciclo Brayton', 'Balances de las turbomáquinas',
+                      'Gouy–Stodola', 'sensibilidad normalizada', 'malla bidimensional',
+                      'estado muerto', 'validación'):
+            self.assertIn(texto.lower(), html.lower())
+        self.assertGreaterEqual(html.count('class="edu-equation"'), 6)
+        self.assertEqual(html.count('class="edu-deep-grid"'), 8)
 
     def test_siete_ayudas_y_seis_mapa_sin_repetir_modelos(self):
         html = self.client.get('/').get_data(as_text=True)
@@ -122,6 +140,8 @@ class RevisionEducativaCP(unittest.TestCase):
         self.assertRegex(css, r'@media\(max-width:760px\)[\s\S]*\.cp-gallery \.plot-grid\{grid-template-columns:minmax\(0,1fr\)\}')
         self.assertIn('.chart-dialog .chart-vector svg', css)
         self.assertIn('.cp-figure .cp-plot svg', css)
+        self.assertIn('.edu-deep-grid{display:grid;grid-template-columns:minmax(0,1fr)', css)
+        self.assertIn('.edu-deep-block .edu-equation', css)
 
     def test_una_sola_plantilla_principal(self):
         self.assertEqual([p.name for p in (ROOT / 'templates').glob('*.html')], ['index.html'])
