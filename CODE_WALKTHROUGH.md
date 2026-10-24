@@ -1516,7 +1516,16 @@ Los ocho métodos públicos `test_*(self)`, sin argumentos adicionales y sin ret
 
 La **verificación de software** afirma que, dentro de los casos y tolerancias estudiados, el programa calcula, transmite y representa correctamente *las ecuaciones implementadas*. **Validación experimental** exigiría comparar esas ecuaciones con medidas reales o un modelo externo independiente de mayor fidelidad, lo cual no se ha hecho. La ejecución fue en Linux/Python 3.12.14 con dependencias declaradas; no se probó Windows. No se modifica producción ni se inicia una nueva etapa.
 
-### 4.55. Verificación V.5 de integración web — `tests/test_verificacion_integracion_web.py`
+### 4.55. Verificación V.5 de integración web — contrato histórico conservado
+
+**Situación vigente desde el milestone 30:** el archivo de esta etapa se
+conserva íntegramente en `legacy_tests/test_verificacion_integracion_web.py`.
+El siguiente relato describe **la antigua fachada Flask de nueve parámetros**,
+no la interfaz cp(T) actualmente conectada a `/`. El dashboard actual tiene
+siete parámetros, devuelve HTTP 200 con los resultados y no crea informes
+nuevos; su compatibilidad de lectura de los informes anteriores se comprueba
+con `tests/test_web_app.py` y `tests/test_integridad_historica_actual.py`.
+La organización y el comando de pruebas vigentes se explican en §4.68.
 
 **Estado.** La [verificación V.5](docs/milestones/17_verificacion_integracion_web.md)
 se preparó el **23/10/2026**, desde `mejoras/verificacion-numerica` en el commit
@@ -2993,11 +3002,102 @@ Los ejemplos introducidos son explícitamente **ilustrativos**: presiones p1/rp/
 
 **Entrada, control de flujo, vista HTML y ejemplo.** `web_app.index()` sigue recibiendo siete parámetros y dos acciones `normal/optimizar`; no cambia el servidor, la navegación ni las otras secciones. `cp_variable_web.preparar_resultados` ejecuta 2B una vez, 2C una vez, calcula las cuatro propiedades y llama a `graficas_resultados`; después pasa el único barrido `curvas_optimizacion(entradas,estudio)` a `graficas_optimizacion`. Ya no genera el SVG dual obsoleto `svg_optimizacion` ni claves `ts/grafica`. Jinja hace un `for titulo,svg,explicacion in ...` para cada galería y reutiliza la macro `grafica_cp`, la cuadrícula responsive y el botón «Ampliar»; los SVG no contienen JavaScript. Ejemplo: `datos=preparar_resultados(DEFAULTS)`, `len(datos['graficas_resultados']) == 6` y `len(datos['graficas_optimizacion']) == 3` para el caso base. Sus nueve imágenes se conservan en memoria; no se crean PNG ni archivos de informe.
 
-**Verificación y límites.** `tests/test_graficas_cp_variable.py` compara los valores de los SVG (atributos `data-x`/`data-y`/`data-valor`) contra las salidas de 2A–2C; comprueba conversión de Pa/kPa, ideal versus configurado, máscaras por `None`, máximos interiores versus supremos y funcionamiento Flask/visor. La suite web vigente de esta iteración suma **110/110 pruebas correctas**, incluyendo doce nuevas. La ejecución histórica de todos los tests sigue teniendo **18 fallos y 62 errores anteriores**: se reprodujeron con igual conteo sobre el commit base (427 métodos) y tras esta iteración (439 métodos), debido a contratos de interfaz Flask ya sustituidos. El workflow de GitHub Actions mantiene las regresiones de las otras secciones web. Esta verificación comprueba coherencia **interna**, no validación experimental. Se inspeccionaron seis SVG rasterizados, pero la legibilidad real en diferentes navegadores/tamaños debe revisarse en Windows. Véanse [milestone técnico 29](docs/milestones/29_graficas_resultados_optimizacion_cp.md) y [aprendizaje 29](docs/milestones/29_graficas_resultados_optimizacion_cp_APRENDIZAJE.md).
+**Verificación y límites.** `tests/test_graficas_cp_variable.py` compara los valores de los SVG (atributos `data-x`/`data-y`/`data-valor`) contra las salidas de 2A–2C; comprueba conversión de Pa/kPa, ideal versus configurado, máscaras por `None`, máximos interiores versus supremos y funcionamiento Flask/visor. La suite web vigente de esta iteración sumó **110/110 pruebas correctas**, incluyendo doce nuevas. En aquel momento el descubrimiento histórico de 439 métodos producía 18 fallos y 62 errores **anteriores** por contratos Flask sustituidos. El milestone 30 separa los contratos antiguos y explica cómo se mantiene la suite completa actual (§4.68). Esta verificación comprueba coherencia **interna**, no validación experimental. Se inspeccionaron seis SVG rasterizados, pero la legibilidad real en diferentes navegadores/tamaños debe revisarse en Windows. Véanse [milestone técnico 29](docs/milestones/29_graficas_resultados_optimizacion_cp.md) y [aprendizaje 29](docs/milestones/29_graficas_resultados_optimizacion_cp_APRENDIZAJE.md).
+
+### 4.68. Suite vigente y pruebas históricas — milestone 30
+
+**PYTHON — qué hace `unittest`.** `python -m unittest discover -s tests -q`
+importa los módulos `test_*.py`, descubre las clases derivadas de
+`unittest.TestCase` y ejecuta sus métodos `test_*`. Cada comprobación usa
+aserciones: `FAIL` significa aserción falsa; `ERROR`, excepción inesperada;
+`skipped`, omisión explícita, como las comparaciones opcionales con SciPy.
+El método `subTest` repite casos dentro de una misma prueba, por lo que un
+solo método puede generar varias incidencias. Una **regresión** sería perder
+un requisito todavía vigente, no dejar de ejecutar una ruta Flask eliminada
+intencionadamente en favor de cp(T).
+
+**Estado y organización.** Antes de esta intervención se descubrieron 439
+métodos: 394 correctos, 37 métodos afectados por 18 fallos y 62 errores,
+y ocho omisiones justificadas por SciPy opcional. Los once archivos de pruebas
+que mezclaban física todavía válida con contratos de la web antigua se
+conservan completos en `legacy_tests/`. Su contenido coincide con el
+repositorio congelado `Brayton_simutalor-gas_perfecto`; allí son válidos los
+303 de redirección, los nueve parámetros y la creación de HTML. En la
+aplicación cp(T), los 37 métodos Flask incompatibles se enumeran por nombre
+en `tests/test_compatibilidad_historica.py`, mientras **los otros 127 métodos
+de estos archivos siguen ejecutándose** en el perfil vigente. No se
+introducen `skip` ni tolerancias mayores para ocultar problemas.
+
+**Firmas y flujo del módulo de compatibilidad:**
+
+- `_casos(suite)`: recibe `unittest.TestSuite`, produce con `yield` instancias
+  `TestCase` de sus suites anidadas; devuelve un generador, sin unidades
+  físicas. Su recursión con `yield from` simplifica el filtrado; no evalúa
+  un ciclo. Un `suite` no iterable produciría `TypeError`. La llama
+  `load_tests`; no la invoca el simulador.
+- `load_tests(loader, tests, pattern)`: función de protocolo reconocida por
+  `unittest` al descubrir el módulo; recibe un `TestLoader`, una `TestSuite`
+  preexistente y un patrón de descubrimiento (`str | None`), y devuelve una
+  `TestSuite` de los 127 tests históricos aún vigentes. `importlib.util`
+  carga cada archivo de `legacy_tests` mediante su ruta `Path`, sin alterar
+  imports de producción. `loader.loadTestsFromModule` enumera los métodos y
+  `_casos` los aplana. Si falta alguno de los 37 nombres del manifiesto o
+  cambia su total, lanza `AssertionError` durante el descubrimiento. No hay
+  parámetros termodinámicos ni unidades: es infraestructura de calidad.
+
+**Conservación de JSON heredado.** Los ocho métodos de
+`tests/test_integridad_historica_actual.py` son pruebas de la **aplicación
+actual**, no de las antiguas redirecciones. Parten de un estudio legítimo de
+gas perfecto, lo serializan en `TemporaryDirectory`, alteran de forma
+controlada estructuras, tipos, temperaturas, presiones, entropías y exergía,
+y usan `segunda_ley.validar_estudio_reutilizable(estudio,parametros)` para
+rechazar incoherencias. También prueban HTTP 422 ante metadatos ilegibles,
+aviso ante Segunda Ley no verificable, descarga idéntica a los bytes
+originales y ausencia de reutilización de un informe histórico como si fuera
+un cálculo cp(T). Estas pruebas **no** vuelven a introducir las ecuaciones
+antiguas en el nuevo solucionador.
+
+**Ingeniería y criterio de calidad.** Las verificaciones científicas activas
+de 2A–2G siguen comprobando conservación energética, dominios físicos,
+entropía/exergía y máximos interiores frente a supremos. Las pruebas del gas
+perfecto verifican su modelo **histórico**; la integridad de un informe no
+demuestra su autoría, y todas estas comprobaciones son **verificación interna
+del software**, nunca validación experimental de un motor real. El workflow
+`.github/workflows/verificacion_web_cp_variable.yml` mantiene las 110 pruebas
+web focalizadas y añade el descubrimiento completo actual para que un fallo
+vigente haga fallar GitHub Actions.
+
+**Uso reproducible** (desde la raíz, tras instalar `requirements.txt`):
+
+```bash
+python -m unittest discover -s tests -q
+python -m unittest discover -s tests -p 'test_integridad_historica_actual.py' -v
+```
+
+**Resultado local comprobado:** 410 métodos descubiertos, 402 correctos,
+cero fallos, cero errores y ocho omisiones opcionales de SciPy en 46.623 s,
+Linux/Python 3.12 con dependencias declaradas. Las ocho pruebas nuevas
+también pasaron por separado. Queda comprobar el commit de validación en
+GitHub Actions antes de publicarlo en la rama de desarrollo.
+
+En Windows, usar `.venv\Scripts\python.exe` si no existe el alias global
+`python`. Las pruebas no se ejecutan al arrancar Flask. El histórico completo
+se ejecuta en el repositorio separado de gas perfecto, sin modificarlo.
+Véanse [milestone técnico 30](docs/milestones/30_saneamiento_suite_historica.md)
+y [aprendizaje 30](docs/milestones/30_saneamiento_suite_historica_APRENDIZAJE.md).
 
 ## Evolution of the project
 
 Estos hitos resumen capacidades ya implementadas en la versión analizada, sin atribuirles fechas ni reconstruir un historial de commits. Los detalles del funcionamiento actual se explican en las secciones anteriores.
+
+- **Mantenimiento de la suite histórica tras la migración cp(T).** Ingeniería:
+  se conservan los contrastes físicos del gas perfecto sin confundirlos con
+  las comprobaciones del aire de propiedades variables; la integridad de
+  metadatos heredados se verifica en lectura, sin recalcular un ciclo
+  distinto. Python: `unittest.load_tests`, `TestSuite`, manifiesto explícito
+  de contratos obsoletos, importación dinámica y GitHub Actions sobre el
+  perfil vigente completo. Véanse [milestone 30](docs/milestones/30_saneamiento_suite_historica.md)
+  y [guía educativa 30](docs/milestones/30_saneamiento_suite_historica_APRENDIZAJE.md).
 
 - **Modelo Brayton ideal y balance energético.** Ingeniería: relaciones isentrópicas, rendimiento y trabajos específicos con unidades y signos coherentes. Python: funciones, parámetros, retornos, tuplas, diccionarios y validación de entradas.
 - **Estados y diagramas termodinámicos ideales.** Ingeniería: entropía relativa, ecuación del gas ideal, isóbaras e isentrópicas en T-s y P-v. Python: arrays, operaciones vectorizadas, objetos de Matplotlib y rutas de guardado con `Path`.
