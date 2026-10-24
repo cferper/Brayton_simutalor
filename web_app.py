@@ -16,6 +16,8 @@ from segunda_ley import ejecutar_segunda_ley, validar_estudio_reutilizable, vali
 
 
 app = Flask(__name__)
+from cp_variable_web import cp_variable_bp
+app.register_blueprint(cp_variable_bp)
 app.config["OUTPUTS_DIR"] = Path(__file__).resolve().parent / "outputs"
 app.config["MAX_CONTENT_LENGTH"] = 16 * 1024
 
