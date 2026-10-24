@@ -1,62 +1,26 @@
-"""Formulario local Flask que reutiliza el simulador y sus informes."""
+"""Dashboard Flask cp(T) y consulta de informes históricos de solo lectura."""
 
-from math import isfinite
 from html import escape
 from pathlib import Path
 
 from flask import Flask, Response, abort, redirect, request, url_for
 
-from viabilidad import ErrorNumerico
-from main import ErrorModelo, PARAMETROS_PREDETERMINADOS, main
 from reporting import MARCA_FINAL, MARCA_INICIO, PATRON_INFORME
-from sensibilidad import PARAMETROS_ESTUDIO, ejecutar_sensibilidad, validar_configuracion
-from dashboard import CAMPOS, GRUPOS, renderizar_dashboard, separar_presentacion
-from mapa_diseno import ejecutar_mapa, validar_configuracion as validar_mapa
-from segunda_ley import ejecutar_segunda_ley, validar_estudio_reutilizable, validar_referencia
+from dashboard import renderizar_dashboard, separar_presentacion
+from segunda_ley import validar_estudio_reutilizable
+from ciclo_cp_variable import EstadoFueraDeRango, ErrorNumericoCiclo
+from cp_variable_web import DEFAULTS, FIELDS, leer_entradas, preparar_resultados
 
 
 app = Flask(__name__)
-from cp_variable_web import cp_variable_bp
-app.register_blueprint(cp_variable_bp)
 app.config["OUTPUTS_DIR"] = Path(__file__).resolve().parent / "outputs"
 app.config["MAX_CONTENT_LENGTH"] = 16 * 1024
 
 
 
 def valores_formulario():
-    """Valores para GET; solo en la interfaz la pérdida se expresa en porcentaje."""
-    valores = PARAMETROS_PREDETERMINADOS.copy()
-    valores["perdida_presion_combustor"] *= 100
-    return valores
-
-
-def leer_parametros(formulario):
-    """Convierte y valida los nueve campos; devuelve parámetros y errores por campo."""
-    parametros = {}
-    errores = {}
-    for nombre in CAMPOS:
-        texto = formulario.get(nombre, "").strip()
-        if not texto:
-            errores[nombre] = "Este campo es obligatorio."
-            continue
-        try:
-            valor = float(texto)
-        except ValueError:
-            errores[nombre] = "Introduce un número válido."
-            continue
-        if not isfinite(valor):
-            errores[nombre] = "El valor debe ser finito: no se admiten NaN ni infinitos."
-        elif nombre in ("T1", "T3", "p1", "cp") and valor <= 0:
-            errores[nombre] = "El valor debe ser estrictamente mayor que 0."
-        elif nombre in ("gamma", "relacion_presiones") and valor <= 1:
-            errores[nombre] = "El valor debe ser estrictamente mayor que 1."
-        elif nombre in ("eta_c", "eta_t") and not 0 < valor <= 1:
-            errores[nombre] = "La eficiencia debe cumplir 0 < eta ≤ 1."
-        elif nombre == "perdida_presion_combustor" and not 0 <= valor < 100:
-            errores[nombre] = "La pérdida debe cumplir 0 % ≤ pérdida < 100 %."
-        else:
-            parametros[nombre] = valor / 100 if nombre == "perdida_presion_combustor" else valor
-    return parametros, errores
+    """Las siete entradas del modelo cp(T), sin cp ni gamma constantes."""
+    return DEFAULTS.copy()
 
 
 def listar_informes():
@@ -103,91 +67,34 @@ def ver_documentacion(nombre):
     return Response(ruta.read_text(encoding="utf-8"), mimetype="text/plain")
 
 
-def estudio_conservado(nombre, parametros):
-    """Reutiliza sólo un informe propio completo con las mismas nueve entradas."""
-    if not PATRON_INFORME.fullmatch(nombre):
-        return None
-    carpeta = Path(app.config['OUTPUTS_DIR']).resolve()
-    ruta = carpeta / nombre
-    if ruta.is_symlink() or not ruta.is_file() or ruta.resolve().parent != carpeta:
-        return None
-    try:
-        texto = ruta.read_text(encoding='utf-8')
-    except (OSError, UnicodeError):
-        return None
-    if not texto.startswith(MARCA_INICIO) or not texto.endswith(MARCA_FINAL):
-        return None
-    presentacion = separar_presentacion(texto)
-    if presentacion and presentacion[0].get('parametros') == parametros:
-        estudio = presentacion[0].get('segunda_ley')
-        if validar_estudio_reutilizable(estudio, parametros):
-            return estudio
-    return None
-
-
 @app.route("/", methods=["GET", "POST"])
 def index():
-    valores = valores_formulario() if request.method == "GET" else request.form.to_dict()
-    errores = {}
+    """Único formulario activo: calcula exclusivamente con cp(T)."""
+    valores = valores_formulario() if request.method == "GET" else {
+        clave: request.form.get(clave, "") for clave in DEFAULTS
+    }
+    errores, datos = {}, {}
     if request.method == "POST":
-        parametros, errores = leer_parametros(request.form)
-        accion = request.form.get('accion')
-        T0 = 288.15
-        if accion not in ('sensibilidad', 'mapa'):
+        if request.form.get("accion") not in ("normal", "optimizar"):
+            errores["modelo"] = "Este estudio aún no está adaptado al modelo cp(T)."
+        else:
             try:
-                T0 = validar_referencia(float(request.form.get('T0', '288.15')))
-            except ValueError as error:
-                errores['T0'] = str(error)
-        if accion == 'segunda_ley' and not errores:
-            from viabilidad import validar_parametros
-            from sensibilidad import argumentos_fisicos
-            try:
-                validar_parametros(*argumentos_fisicos(parametros))
-            except ValueError as error:
-                errores['modelo'] = str(error)
-        configuracion = None
-        configuracion_mapa = None
-        if request.form.get('accion') == 'mapa' and not errores:
-            try:
-                configuracion_mapa = validar_mapa(parametros,
-                    **{k: float(request.form.get('mapa_' + k, valor)) for k, valor in
-                       (('rp_min', 1), ('rp_max', 100), ('T3_min', 600), ('T3_max', 2000))},
-                    **{k: int(request.form.get('mapa_' + k, valor)) for k, valor in (('n_rp', 100), ('n_T3', 80))},
-                    escala=request.form.get('mapa_escala', 'log'),
-                    cortes=tuple(float(t.strip()) for t in request.form.get('mapa_cortes', '').split(',') if t.strip()))
-            except ValueError as error:
-                errores['mapa'] = f'Configuración del mapa inválida: {error}'
-        if request.form.get("accion") == "sensibilidad":
-            try:
-                configuracion = validar_configuracion(
-                    request.form.get("sens_parametro", "T3"),
-                    float(request.form.get("sens_minimo", "800")),
-                    float(request.form.get("sens_maximo", "2000")),
-                    int(request.form.get("sens_muestras", "41")))
-            except ValueError as error:
-                errores["sensibilidad"] = f"Configuración de sensibilidad inválida: {error}"
-        if not errores:
-            try:
-                if accion == 'segunda_ley':
-                    anterior = estudio_conservado(request.form.get('informe_origen', ''), parametros)
-                    ruta = ejecutar_segunda_ley(app.config['OUTPUTS_DIR'], parametros, T0, anterior)
-                elif configuracion_mapa is not None:
-                    ruta = ejecutar_mapa(app.config['OUTPUTS_DIR'], parametros, **configuracion_mapa)
-                elif configuracion is None:
-                    ruta = main(app.config["OUTPUTS_DIR"], parametros=parametros, T0=T0)
-                else:
-                    if parametros["T3"] <= parametros["T1"]:
-                        raise ErrorModelo("La referencia debe cumplir T3 > T1; el barrido sí admite muestras no motoras.")
-                    ruta = ejecutar_sensibilidad(app.config["OUTPUTS_DIR"], parametros,
-                        **{k: configuracion[k] for k in ("parametro", "minimo", "maximo", "muestras")})
-            except ErrorModelo as error:
-                errores["modelo"] = str(error)
-            except ErrorNumerico as error:
-                errores["modelo"] = f"Límite numérico del cálculo: {error} No implica por sí mismo inviabilidad física."
-            else:
-                return redirect(url_for("ver_informe", nombre=ruta.name), code=303)
-    return renderizar_dashboard(valores, errores=errores, informes=listar_informes(),
-        seccion_inicial=request.form.get('accion') if request.form.get('accion') in ('sensibilidad', 'mapa', 'segunda_ley') else 'simulacion'), 400 if errores else 200
+                entradas = leer_entradas(request.form)
+                datos = preparar_resultados(entradas)
+            except EstadoFueraDeRango as exc:
+                errores["modelo"] = f"Estado fuera de 200–2000 K: {exc}"
+            except ErrorNumericoCiclo:
+                errores["modelo"] = "El solucionador numérico no ha convergido."
+            except ValueError as exc:
+                errores["modelo"] = f"Entrada no válida: {exc}"
+            except ArithmeticError:
+                errores["modelo"] = "No ha convergido la búsqueda numérica."
+    seccion = ("optimizacion" if request.form.get("accion") == "optimizar"
+               else "resultados" if datos else "simulacion")
+    pagina = renderizar_dashboard(
+        valores, errores=errores, informes=listar_informes(),
+        seccion_inicial=seccion, modo_cp=True, cp_datos=datos, campos_cp=FIELDS)
+    return pagina, (400 if errores else 200)
 
 
 @app.route("/informes/<nombre>")
@@ -262,6 +169,7 @@ def error_interno(error):
         request.form.to_dict() if request.method == "POST" else valores_formulario(),
         informes=listar_informes(),
         errores={"servidor": "Se ha producido un error interno. Consulta la terminal para ver el detalle; no es un rechazo físico de los parámetros."},
+        modo_cp=True, campos_cp=FIELDS,
     ), 500
 
 

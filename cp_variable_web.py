@@ -1,18 +1,12 @@
-"""Capa web aislada para el aire con cp(T); no implementa ecuaciones térmicas.
+"""Presentadores y preparación de resultados cp(T) para el dashboard principal.
 
-Se registra en web_app.py mediante app.register_blueprint(cp_variable_bp).
-No persiste informes ni altera el historial del modelo constante.
+No implementa ecuaciones térmicas ni altera los módulos científicos.
 """
 from math import exp, isfinite, log
-from numbers import Real
-
-from flask import Blueprint, render_template, request
 
 from ciclo_cp_variable import EstadoFueraDeRango, ErrorNumericoCiclo, resolver_ciclo
 from optimizacion_cp_variable import estudiar_cp_variable
 from propiedades_aire import cp, gamma
-
-cp_variable_bp = Blueprint('cp_variable', __name__)
 
 DEFAULTS = {'T1': 288.15, 'T3': 1600.0, 'rp': 10.0, 'p1': 100.0,
             'eta_c': .85, 'eta_t': .90, 'delta': .05}
@@ -124,29 +118,20 @@ def svg_optimizacion(curva, estudio):
             f'{paths}</svg>')
 
 
-@cp_variable_bp.route('/modelo-cp-variable', methods=['GET','POST'])
-def modelo_cp_variable():
-    """Página separada; GET no ejecuta cálculos. POST simula y optimiza."""
-    valores={k:str(v) for k,v in DEFAULTS.items()}
-    ciclo=None; optimizacion=None; estados=[]; ts=None; grafica=None; error=None
-    if request.method=='POST':
-        valores={key:request.form.get(key,'') for key in DEFAULTS}
-        try:
-            p=leer_entradas(request.form)
-            ciclo=resolver_ciclo(**p)
-            estados=propiedades_estados(ciclo)
-            ts=svg_ts(ciclo)
-            optimizacion=estudiar_cp_variable(p['T1'],p['T3'],p['p1'],
-                                                p['eta_c'],p['eta_t'],p['delta'])
-            grafica=svg_optimizacion(curvas_optimizacion(p,optimizacion),optimizacion)
-        except EstadoFueraDeRango as exc:
-            error='Estado fuera de 200–2000 K: '+str(exc)
-        except ErrorNumericoCiclo:
-            error='No se ha podido completar la operación numérica. Revisa los parámetros.'
-        except ValueError as exc:
-            error='Entrada no válida: '+str(exc)
-        except ArithmeticError:
-            error='No ha convergido el cálculo numérico.'
-    return render_template('cp_variable.html',campos=FIELDS,valores=valores,
-                           ciclo=ciclo,optimizacion=optimizacion,estados=estados,
-                           ts=ts,grafica=grafica,error=error), (400 if error else 200)
+def preparar_resultados(entradas):
+    """Reúne estados, propiedades, curvas y óptimos ya resueltos por 2B/2C.
+
+    `entradas` es el diccionario validado de siete escalares; el resultado
+    se usa para presentar el caso sin mezclarlo con el modelo histórico.
+    Propaga los errores físicos y numéricos al controlador Flask.
+    """
+    ciclo = resolver_ciclo(**entradas)
+    estudio = estudiar_cp_variable(entradas['T1'], entradas['T3'], entradas['p1'],
+                                  entradas['eta_c'], entradas['eta_t'], entradas['delta'])
+    return {
+        'ciclo': ciclo,
+        'estados': propiedades_estados(ciclo),
+        'ts': svg_ts(ciclo),
+        'optimizacion': estudio,
+        'grafica': svg_optimizacion(curvas_optimizacion(entradas, estudio), estudio),
+    }

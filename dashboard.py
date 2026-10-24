@@ -110,8 +110,9 @@ def json_seguro(datos):
 
 
 def renderizar_dashboard(valores, *, contenidos=None, metadata=None, informes=(), errores=None,
-                         modo_local=True, informe_actual="", seccion_inicial="simulacion"):
-    """HTML de seis secciones; recursos locales o incrustados, sin cálculo físico."""
+                         modo_local=True, informe_actual="", seccion_inicial="simulacion",
+                         modo_cp=False, cp_datos=None, campos_cp=()):
+    """Una sola plantilla; modo cp(T) local o informes históricos autónomos."""
     css = (RAIZ / "static/style.css").read_text(encoding="utf-8")
     js = (RAIZ / "static/dashboard.js").read_text(encoding="utf-8")
     if modo_local:
@@ -132,7 +133,8 @@ def renderizar_dashboard(valores, *, contenidos=None, metadata=None, informes=()
         contenidos=contenidos or {k: "" for k in ("resultados", "optimizacion", "sensibilidad")},
         informe_actual=informe_actual, modo_local=modo_local, seccion_inicial=seccion_inicial,
         catalogo=json_seguro(PARAMETROS_ESTUDIO), metadata=json_seguro(metadata or {}),
-        licencia_fuentes=(RAIZ / "static/fonts/OFL.txt").read_text(encoding="utf-8"))
+        licencia_fuentes=(RAIZ / "static/fonts/OFL.txt").read_text(encoding="utf-8"),
+        modo_cp=modo_cp, cp_datos=cp_datos or {}, campos_cp=campos_cp)
 
 
 def tarjeta_kpi(clave, etiqueta, valor, unidad, explicacion, decimales=3):

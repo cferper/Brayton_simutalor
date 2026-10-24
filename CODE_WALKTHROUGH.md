@@ -1,6 +1,6 @@
 # Guía educativa de Brayton Simulator
 
-Guía del estado actual, actualizada el 23 de octubre de 2026. El simulador identifica los dominios motores, optimiza trabajo específico y rendimiento térmico y compara ambos criterios con intervalos recalculados por ejecución. Se mantienen los nueve parámetros, Flask local, siete gráficas por simulación normal o tres por estudio OFAT, metadatos Git y retención compartida de cuatro informes. La Fase 4 permite variar T1, T3, eta_c, eta_t o delta y comparar R/A/B. Las verificaciones históricas del modelo y la integración se explican en §§4.45–4.55. El panel **Diagnóstico y coherencia física** (§4.56) calcula controles sobre los resultados de cada informe; no ejecuta las pruebas históricas V.1–V.5 ni equivale a validación experimental. La **Fase 2A** (§4.57) añadió propiedades `cp(T)`; la **Fase 2B** (§4.58) incorpora un solucionador Brayton independiente basado en ellas; la **Fase 2C** (§4.59) añade viabilidad y optimización independientes con cp(T). La **Fase 2D** (§4.60) aporta una interfaz web separada para ese modelo. El flujo histórico de Flask, optimización, gráficas e informes HTML **sigue usando propiedades constantes**; el nuevo solucionador sólo se invoca directamente desde Python.
+Guía del estado actual (24 de octubre de 2026). La interfaz Flask principal ahora utiliza exclusivamente aire ideal con propiedades caloríficas variables cp(T), siete entradas físicas y optimización A/B numérica (§4.61). El dashboard original conserva las ocho secciones y la plantilla `templates/index.html`, sin selector de modelos ni página secundaria. Sensibilidad, Mapa de diseño y Segunda ley están desactivados temporalmente en la web hasta su adaptación. El flujo histórico con cp y gamma constantes permanece implementado en los módulos de `main.py` y su documentación de fases anteriores, y puede ejecutarse por terminal; los informes antiguos solo se consultan o descargan con una identificación explícita de su modelo. La validación experimental no está incluida.
 
 **Lectura por fases:** la [guía de aprendizaje de Fase 1](docs/milestones/03_dominio_viable_APRENDIZAJE.md) explica sus novedades respecto al commit de partida. La [guía de aprendizaje de Fase 2](docs/milestones/04_optimizacion_noideal_APRENDIZAJE.md) desarrolla la optimización y los intervalos dinámicos. La [guía de aprendizaje de Fase 3](docs/milestones/05_optimizacion_rendimiento_APRENDIZAJE.md) explica su física, algoritmos, integración y verificación de cierre. Este manual describe todo el código actual; `Evolution of the project` resume los grandes hitos, sin historial acumulativo de iteraciones.
 
@@ -18,9 +18,9 @@ La ejecución normal no lee ni sobrescribe los PNG históricos. Los ejemplos que
 
 ## 1. Visión general del programa
 
-El programa estudia un ciclo Brayton ideal y otro no ideal simplificado. Usa gas ideal con `cp` y `gamma` constantes, equipos adiabáticos en régimen estacionario y cambios despreciables de energía cinética y potencial. No calcula caudal másico, potencia, combustible, empuje ni mapas de máquinas.
+La aplicación web actual estudia un ciclo Brayton con aire ideal de composición constante, pero con `cp(T)` y `gamma(T)` variables. El caso base utiliza siete entradas y entalpías/entropías dependientes del estado; no modela motor real, combustible ni empuje. El modelo caloríficamente perfecto de nueve parámetros continúa existiendo en los módulos históricos y en el repositorio de conservación, pero no es seleccionable desde Flask.
 
-Por separado, `propiedades_aire.py` calcula propiedades térmicas variables de una mezcla ideal fija (N₂/O₂/Ar) entre 200 y 2000 K. `ciclo_cp_variable.py` reutiliza esa API para resolver estados y balances Brayton por entalpía y entropía. Ninguno de los dos módulos participa aún en el flujo anterior de `main.py`, `viabilidad.py`, optimización o web; sus resultados históricos no han cambiado.
+`propiedades_aire.py`, `ciclo_cp_variable.py` y `optimizacion_cp_variable.py` constituyen el motor de la web actual. El presentador `cp_variable_web.py` prepara sus datos para `web_app.py` y `dashboard.py`, sin añadir ecuaciones. `main.py`, `viabilidad.py`, `sensibilidad.py`, `mapa_diseno.py` y `segunda_ley.py` conservan los cálculos anteriores para uso histórico/por Python, pero sus acciones no están activas en la nueva web.
 
 | Estado | Lugar físico |
 |---|---|
@@ -31,7 +31,7 @@ Por separado, `propiedades_aire.py` calcula propiedades térmicas variables de u
 
 **INTERPRETACIÓN FÍSICA.** Los procesos ideales son dos isentrópicas y dos isóbaras. El no ideal incorpora eficiencias de compresor y turbina y pérdida de presión del combustor. Se calculan los máximos de trabajo de ambos modelos y, por separado, el máximo de rendimiento no ideal cuando hay pérdidas y dominio motor. El ideal/reversible tiene sólo un supremo no alcanzado de rendimiento; no se crea un punto B ficticio.
 
-**PYTHON.** Los nueve parámetros predeterminados están en `PARAMETROS_PREDETERMINADOS`. `main()` copia esa configuración y admite cambios por argumento. Flask convierte el formulario y llama a esa misma función para la simulación normal, a `ejecutar_sensibilidad` para OFAT, a `ejecutar_mapa` para el estudio rp–T3 o a `ejecutar_segunda_ley`; `dashboard.py` organiza sus resultados en ocho secciones y visores de pestañas; las funciones numéricas calculan; Matplotlib dibuja en buffers `BytesIO`; `reporting.py` incorpora el diagnóstico de esos datos, compone HTML con CSS e imágenes Base64 y publica un archivo completo en `outputs/`. §4.56 explica el camino resultados → controles → agrupación → panel. No se genera un TXT intermedio. La terminal muestra tres líneas de éxito; los detalles van al informe.
+**PYTHON.** La ruta principal `/` de Flask usa siete entradas desde `cp_variable_web.DEFAULTS`: lee `request.form`, verifica números finitos y llama a `resolver_ciclo` y `estudiar_cp_variable` mediante `preparar_resultados`. `dashboard.renderizar_dashboard(..., modo_cp=True)` coloca resultados y optimizaciones en las secciones originales, sin generar informes. La rama histórica de la misma plantilla sigue permitiendo consultar informes antiguos; `main.py` continúa realizando cálculos de nueve parámetros y generando PNG/HTML solamente si se llama desde Python. El flujo clásico detallado a continuación es **histórico**, no la ejecución actual de `web_app.py`.
 
 ```text
 Imports y definiciones
@@ -84,7 +84,9 @@ Brayton_Simulator/
 ├── main.py                     modelo, gráficas y coordinación
 ├── viabilidad.py               estados comunes, clasificación, fronteras y barridos
 ├── propiedades_aire.py          aire ideal de cp(T), h(T), s(T,p), gamma(T) e inversión; aislado
-├── ciclo_cp_variable.py         nuevo solucionador Brayton por entalpía/entropía, sin interfaz
+├── ciclo_cp_variable.py         solucionador Brayton cp(T), usado por Flask
+├── optimizacion_cp_variable.py  dominio y óptimos A/B de cp(T)
+├── cp_variable_web.py           presentadores SVG y preparación del dashboard
 ├── optimizacion.py             candidatos, búsqueda interior y contraste de máximos
 ├── optimizacion_rendimiento.py rendimiento y comparación A/B
 ├── sensibilidad.py             OFAT, derivadas locales y tres gráficas independientes
@@ -98,7 +100,7 @@ Brayton_Simulator/
 ├── dashboard.py                presentación compartida local/autónoma, sin física
 ├── web_app.py                  servidor Flask de acceso local
 ├── Abrir_Brayton_Simulator.cmd acceso por doble clic al formulario local
-├── templates/index.html        formulario Jinja/HTML
+├── templates/index.html        única plantilla principal: cp(T) e informes históricos
 ├── static/style.css            diseño responsive y tipografías
 ├── static/dashboard.js         secciones, pestañas y modal progresivos
 ├── static/fonts/               tres WOFF2 IBM Plex, OFL y procedencia
@@ -241,6 +243,8 @@ El formulario usa un servidor Flask local; los informes siguen siendo documentos
 **Qué hace:** compara R/A/B al variar una entrada, calcula derivadas locales y publica tres figuras. **PYTHON:** copias, callbacks y caché local, arrays NaN, estados explícitos y comprobación de pasos. **INTERPRETACIÓN FÍSICA:** escenarios a rp fija u optimizada, elasticidades condicionadas a una referencia, sin ecuaciones termodinámicas nuevas. Detalle y contratos en §4.40.
 
 ## 4. Explicación función por función
+
+**Ámbito actual y legado:** los apartados anteriores a §4.57 describen principalmente funciones de gas perfecto que siguen existiendo en Python y en los informes históricos; **no** son operaciones disponibles desde el formulario Flask de cp(T). Los contratos vigentes de la interfaz única están en §4.61. Esta distinción es fundamental al leer las explicaciones de las antiguas rutas POST.
 
 ### Cómo leer las firmas
 
@@ -1796,7 +1800,7 @@ print(T_desde_h(h(1000)))         # vuelve a 1000 K
 
 ### 4.58. Solucionador Brayton con cp(T) — `ciclo_cp_variable.py` (Fase 2B)
 
-**Alcance y punto de entrada.** El nuevo `resolver_ciclo(T1, T3, rp, p1, eta_c=1.0, eta_t=1.0, delta=0.0, tolerancia=1e-10)` recibe dos temperaturas en K, relación de presión adimensional `rp=p2/p1`, presión en kPa, eficiencias `0<eta<=1`, pérdida fraccional `0<=delta<1` y tolerancia relativa. Devuelve un **diccionario** de números/tuplas y diagnósticos: no genera imágenes, no publica informes, no modifica `main.py` ni se llama desde Flask. Los parámetros históricos `cp` y `gamma` no aparecen en su firma ni en sus ecuaciones. Véanse [milestone técnico 20](docs/milestones/20_ciclo_cp_variable.md) y [aprendizaje 2B](docs/milestones/20_ciclo_cp_variable_APRENDIZAJE.md).
+**Alcance y punto de entrada.** El nuevo `resolver_ciclo(T1, T3, rp, p1, eta_c=1.0, eta_t=1.0, delta=0.0, tolerancia=1e-10)` recibe dos temperaturas en K, relación de presión adimensional `rp=p2/p1`, presión en kPa, eficiencias `0<eta<=1`, pérdida fraccional `0<=delta<1` y tolerancia relativa. Devuelve un **diccionario** de números/tuplas y diagnósticos: no genera imágenes, no publica informes, no modifica `main.py` y actualmente lo invoca la capa web a través de `preparar_resultados`. Los parámetros históricos `cp` y `gamma` no aparecen en su firma ni en sus ecuaciones. Véanse [milestone técnico 20](docs/milestones/20_ciclo_cp_variable.md) y [aprendizaje 2B](docs/milestones/20_ciclo_cp_variable_APRENDIZAJE.md).
 
 **INTERPRETACIÓN FÍSICA.** Aire seco ideal de composición molar **fija** según §4.57. Se ignoran cambios cinéticos/potenciales; compresor y turbina son adiabáticos; el «combustor» es sólo un aporte externo de calor al mismo aire. Para `R_kJ=R_AIRE/1000`, las presiones son `p2=rp·p1`, `p3=p2·(1-delta)`, `p4=p1`. En cada equipo se invierte una **diferencia de entropía térmica** para hallar la referencia isentrópica:
 
@@ -1959,9 +1963,9 @@ El módulo `optimizacion.py` importa `exp`, `log`, `isfinite` y `sqrt` de `math`
 
 ### Imports de Flask
 
-`from flask import Flask, Response, abort, redirect, render_template, request, url_for` incorpora la aplicación, respuesta HTTP, errores de ruta, redirecciones, renderizado Jinja, petición actual y construcción de URLs. `request` representa la petición activa: se consulta dentro de las rutas, no al importar el módulo.
+`from flask import Flask, Response, abort, request, url_for` incorpora aplicación, respuesta HTTP, errores, petición y URL. La plantilla Jinja se renderiza en `dashboard.renderizar_dashboard`, de modo que `web_app.py` no llama directamente a `render_template`.
 
-`web_app.py` importa `main`, sus parámetros predeterminados, `ErrorModelo`, `ErrorNumerico` y la API `PARAMETROS_ESTUDIO`, `validar_configuracion`, `ejecutar_sensibilidad` de sensibilidad; también las marcas y patrón de informes de `reporting`. No copia las ecuaciones. En las nuevas pruebas `sys.executable` identifica el intérprete actual y `runpy.run_path` ejecuta el punto de entrada en un proceso aislado de prueba.
+`web_app.py` importa los presentadores de `cp_variable_web` y las excepciones del solucionador cp(T). Los módulos históricos se usan en otras rutas de terminal y reporting; Flask no ejecuta cálculos antiguos desde `/`.
 
 ### Imports de las pruebas
 
@@ -2126,22 +2130,22 @@ Abre `http://127.0.0.1:5000` en Chrome o Edge. Con el entorno activado bastan `p
 **HTTP GET:** solicita una representación, por ejemplo el formulario o un informe guardado. No ejecuta una simulación al visitar `/`. **HTTP POST:** envía los campos mediante el cuerpo de la petición para ejecutar un caso. Los valores llegan como cadenas, aunque el navegador dibuje controles numéricos.
 
 ```text
-GET / → valores_formulario → render_template → formulario
-POST / → request.form → leer_parametros
-                         ├─ errores de campos → formulario + 400
-                         └─ números válidos → botón normal: main(parametros=...)
-                                               o botón sensibilidad: validar_configuracion → ejecutar_sensibilidad
-                                               ├─ ErrorModelo → causas/intervalo y formulario + 400
-                                               ├─ ErrorNumerico → límite numérico y formulario + 400
-                                               ├─ error inesperado → registro + 500
-                                               └─ informe completo → 303 → GET /informes/nombre
+GET / → valores_formulario (7 valores) → renderizar_dashboard(modo_cp=True)
+POST / → request.form → leer_entradas → preparar_resultados
+                                      ├─ resolver_ciclo (Fase 2B)
+                                      ├─ estudiar_cp_variable (Fase 2C)
+                                      ├─ propiedades_estados y SVG
+                                      ├─ error esperado → formulario + 400
+                                      └─ éxito → HTML con Resultados y Optimización + 200
+POST / con acción antigua → aviso no adaptada + 400, sin cálculo
+GET /informes/nombre → consulta de HTML histórico de gas perfecto, solo lectura
 ```
 
-`float(texto)` convierte un número escrito; `.strip()` quita espacios. `isfinite` rechaza NaN e infinitos antes de evaluar el modelo. `5` en el campo de pérdida significa 5 %, y se convierte en `0.05` una sola vez. Los otros parámetros conservan sus unidades. No se multiplican eficiencias por 100: se introducen como fracciones.
+`float(texto)` convierte un número escrito; `.strip()` quita espacios y `isfinite` rechaza NaN/infinitos. En el formulario actual, la pérdida `delta=0.05` significa 5 %: **no se introduce 5**. Las eficiencias también se introducen como fracciones. Este contrato es distinto del antiguo formulario de nueve campos.
 
-Después del éxito, HTTP 303 indica al navegador que debe consultar por GET el informe recién generado. Así recargar la vista no reenvía el POST ni genera otra simulación. El servidor solo acepta nombres con el patrón del sistema y marcas completas dentro de `outputs/`; no recibe una ruta local libre del usuario. Si la retención ya eliminó ese informe, devuelve 404.
+El POST actual devuelve directamente 200 y muestra los resultados de cp(T); **no genera ni redirige a un nuevo informe**. Las rutas `/informes/<nombre>` siguen aceptando únicamente nombres con el patrón y las marcas del sistema histórico para su consulta y descarga. Si no existe, devuelven 404. Recargar un POST puede solicitar su reenvío al navegador, pero no provoca escrituras al historial.
 
-La vista añade «Volver al formulario» y «Descargar informe HTML». La descarga y el archivo original no contienen esos enlaces al servidor: siguen funcionando sin conexión ni servidor. «Restablecer valores» es un enlace GET que carga los valores predeterminados; un botón HTML `reset` restauraría los valores iniciales de la página actual, que podrían ser datos inválidos reenviados, por eso aquí se utiliza un enlace.
+Los archivos históricos conservan los enlaces de consulta/descarga y siguen funcionando sin conexión. En el formulario actual, «Restablecer valores» es un enlace GET que carga los siete predeterminados. No hay botón para guardar informes nuevos desde cp(T).
 
 El servidor se enlaza exclusivamente a `127.0.0.1`. Con `debug=False` no se ofrece depurador interactivo; `use_reloader=False` evita procesos de recarga y `threaded=False` procesa una petición cada vez. Durante una simulación otras peticiones esperan. No es una cola de trabajos ni un servidor de producción. Una ejecución de terminal en otro proceso aún puede coincidir con Flask: no se añade bloqueo entre procesos en esta tarea.
 
@@ -2349,13 +2353,12 @@ En el código de producción no hay `while`, división entera `//` ni parámetro
 
 ### Si se ejecuta `python web_app.py`
 
-1. Importa Flask, `main` y `reporting`. Se construye `app` y se registran rutas mediante decoradores; todavía no hay simulación.
-2. El punto de entrada llama a `iniciar_servidor`, que escucha solo en loopback y permanece activo.
-3. Un GET a `/` carga los valores predeterminados en porcentaje para el formulario y renderiza la plantilla.
-4. Un POST llama a `leer_parametros`; el botón normal llama a `main` y el botón de sensibilidad valida sus cuatro controles y llama a `ejecutar_sensibilidad`. Ambas acciones usan la misma carpeta de informes.
-5. `main` sigue el flujo normal anterior. OFAT sigue §4.40 y no genera las siete figuras normales. Cada llamada copia la configuración; no modifica los valores de otra petición.
-6. La ruta redirige al informe nuevo con 303. Un GET devuelve la copia de visualización con enlaces locales; la descarga devuelve el original autocontenido.
-7. El servidor sigue esperando peticiones. Puedes volver al formulario y generar otro caso sin reiniciarlo. Los errores esperados devuelven 400 y los internos 500; el proceso continúa.
+1. Se crea `app` de Flask con las rutas `/`, `/informes/<nombre>` y `/documentacion/<nombre>`; sin Blueprint alternativo.
+2. `iniciar_servidor()` escucha en 127.0.0.1:5000, con depurador y recarga desactivados.
+3. GET `/` obtiene las siete entradas de `DEFAULTS`. Jinja renderiza `templates/index.html`, adaptada a cp(T).
+4. POST con acción `normal` o `optimizar` llama al lector finito y después al solucionador 2B y optimizador 2C. Se muestran balances, propiedades, SVG y óptimos dentro de Resultados y Optimización. La acción solo determina el panel inicial.
+5. Sensibilidad, mapa y segunda ley muestran una explicación de próxima adaptación y no invocan los módulos antiguos. No se generan archivos ni una redirección 303.
+6. GET `/informes/<nombre>` solo consulta informes históricos. Los errores físicos esperados devuelven 400 y los inesperados 500; el servidor sigue activo.
 
 ## 13. Seguimiento de un cálculo concreto: trabajo neto
 
@@ -2831,21 +2834,34 @@ Una buena prueba de comprensión será reconstruir a mano el camino `parámetros
 
 ### 4.59. Fase 2C — Viabilidad y optimización independiente con cp(T)
 
-**PYTHON:** `optimizacion_cp_variable.py` importa `resolver_ciclo` de 2B y `h`, `s0`, `T_desde_h` de 2A. No lo llaman Flask, `main.py`, sensibilidad, mapa ni informes. La entrada pública `estudiar_cp_variable(T1,T3,p1=100.,eta_c=.85,eta_t=.9,delta=.05,*,tolerancia=1e-9,muestras=160)` recibe K, kPa, fracciones e integer para el tamaño de muestra, y devuelve `dict` con `dominio_motor=(rp_min,rp_max)` abierto, `A` y `B`, o campos `None` y `tipo='sin_motor'`. La búsqueda de A y B utiliza raíces de derivadas y `_raiz_monotona` (bisección), tras comprobar los signos en fronteras. `_maximo_acotado` queda sólo como auxiliar disponible para pruebas comparativas. Si una derivada no cambia de signo y el mejor valor corresponde a una frontera abierta, se informa de `supremo_frontera` y se deja `rp=None`. Ambos auxiliares reciben una función Python como argumento y cota inferior/superior reales; fallan con `ValueError` cuando no existe bracket y `ArithmeticError` por falta de convergencia. El auxiliar `_real_positivo(x)` comprueba reales finitos, sin permitir booleanos; es auxiliar de apoyo.
+**PYTHON:** `optimizacion_cp_variable.py` importa `resolver_ciclo` de 2B y `h`, `s0`, `T_desde_h` de 2A. Actualmente lo llama `preparar_resultados` desde el dashboard Flask; los módulos `main.py`, sensibilidad, mapa y los informes históricos no lo llaman. La entrada pública `estudiar_cp_variable(T1,T3,p1=100.,eta_c=.85,eta_t=.9,delta=.05,*,tolerancia=1e-9,muestras=160)` recibe K, kPa, fracciones e integer para el tamaño de muestra, y devuelve `dict` con `dominio_motor=(rp_min,rp_max)` abierto, `A` y `B`, o campos `None` y `tipo='sin_motor'`. La búsqueda de A y B utiliza raíces de derivadas y `_raiz_monotona` (bisección), tras comprobar los signos en fronteras. `_maximo_acotado` queda sólo como auxiliar disponible para pruebas comparativas. Si una derivada no cambia de signo y el mejor valor corresponde a una frontera abierta, se informa de `supremo_frontera` y se deja `rp=None`. Ambos auxiliares reciben una función Python como argumento y cota inferior/superior reales; fallan con `ValueError` cuando no existe bracket y `ArithmeticError` por falta de convergencia. El auxiliar `_real_positivo(x)` comprueba reales finitos, sin permitir booleanos; es auxiliar de apoyo.
 
 **INTERPRETACIÓN FÍSICA:** la viabilidad exige compresión, expansión efectiva, temperaturas 200–2000 K, `q_in>0`, `q_out>0`, trabajo neto positivo y coherencia de Segunda Ley en compresor/turbina. La cota inferior está en `rp>1/(1-delta)`. Las cotas superiores se obtienen de temperaturas por entropía y entalpía, no de fórmulas de gamma constante. `w_neto` es cóncavo respecto a `x=ln rp`, pues `dw/dx=R_kJ*(eta_t*T4s-T2s/eta_c)` es estrictamente decreciente. Para el rendimiento, el signo de `d eta/dx` coincide con `F=b*q_in-a*q_out`, con `a=R_kJ*T2s/eta_c`, `b=R_kJ*eta_t*T4s`; `F' < 0` mientras `q_in,q_out>0`. Por tanto hay a lo sumo un máximo interior alcanzado; si no, se informa de supremo en frontera excluida.
 
 Ejemplo: `estudiar_cp_variable(288.15,1600)` retorna dominio aproximado `(1.069645,229.221073)`, `rp_A≈15.87795`, `w_A≈414.08583 kJ/kg`, `rp_B≈46.81910` y `eta_B≈0.43745`. Véanse el [milestone 21](docs/milestones/21_optimizacion_cp_variable.md) y [aprendizaje 21](docs/milestones/21_optimizacion_cp_variable_APRENDIZAJE.md). Las 13/13 pruebas específicas se ejecutaron con los archivos auténticos de 2A/2B, acreditados por sus hashes Git. La suite web histórica no se ha ejecutado. Ninguna comparación constituye validación experimental.
 
-### 4.60. Interfaz independiente cp(T) — Fase 2D
+### 4.60. Primera interfaz cp(T) — Fase 2D (referencia histórica)
 
-**PYTHON:** `cp_variable_web.py` ofrece `cp_variable_bp`, un `Blueprint` con ruta `/modelo-cp-variable` (GET/POST). El servidor debe registrarlo mediante `app.register_blueprint(cp_variable_bp)` en `web_app.py`. Las entradas `T1,T3,rp,p1,eta_c,eta_t,delta` se leen en `leer_entradas(form)`, que devuelve dict de `float` y rechaza ausentes, NaN e infinitos; los restantes dominios físicos los valida `resolver_ciclo` de 2B. La ruta `modelo_cp_variable()` construye resultados y llama a `estudiar_cp_variable` de 2C. Su retorno es respuesta HTTP con plantilla `templates/cp_variable.html`, código 200 o 400. La plantilla se apoya en `/static/style.css` y en un CSS local acotado. No hay cálculo termodinámico JavaScript. Los resultados no se añaden al historial HTML histórico.
+La Fase 2D introdujo temporalmente una ruta y plantilla independiente para cp(T), ver [milestone 22](docs/milestones/22_integracion_web_cp_variable.md). En esa versión se verificaron 32 pruebas web mediante Actions. **La ruta /modelo-cp-variable, su Blueprint y la plantilla secundaria fueron retirados en el milestone 23**. Los algoritmos y presentadores físicos de aquella fase sí se conservan; el resultado histórico de sus pruebas no se presenta como una prueba del código actual.
 
-**INTERPRETACIÓN FÍSICA:** `propiedades_estados(p)` crea cuatro diccionarios con propiedades reales del aire de 2A. `svg_ts(p)` sitúa los cuatro puntos T–s calculados y une sus coordenadas mediante líneas esquemáticas; no asegura trayectorias reales. `_escala` es solo transformación gráfica. `curvas_optimizacion(entradas,estudio,muestras=90)` llama a `resolver_ciclo` en nodos interiores del dominio motor de 2C; conserva `None` en fallos y no une zonas sin datos. `svg_optimizacion(curva,estudio)` visualiza trabajo y rendimiento con escalas verticales independientes normalizadas. El valor de ambos máximos procede del optimizador físico, no de la malla gráfica. Supremos en fronteras abiertas no se etiquetan como óptimos alcanzados.
+### 4.61. Unificación del dashboard principal con cp(T) — milestone 23
 
-**Verificación de integración (24/10/2026):** GitHub Actions (Python 3.11, dependencias de `requirements.txt`) ejecutó `Flask.test_client()` y regresiones: **6/6 nuevas, 11/11 de `test_web_app.py` y 15/15 de `test_dashboard.py`**, todas correctas. El Blueprint está registrado, el acceso desde `/` utiliza un formulario GET para preservar los enlaces autocontenidos de los informes históricos. No se ha realizado validación experimental ni comprobación visual completa en navegador. Véanse [milestone técnico 22](docs/milestones/22_integracion_web_cp_variable.md) y [aprendizaje](docs/milestones/22_integracion_web_cp_variable_APRENDIZAJE.md).
+**PYTHON — flujo.** `web_app.index()` sigue registrado en GET/POST `/`. GET llama a `valores_formulario()` y devuelve siete valores desde `cp_variable_web.DEFAULTS`. POST recibe exactamente `T1, T3, rp, p1, eta_c, eta_t, delta`: las temperaturas se introducen en K, p1 en kPa, rp sin dimensión, eficiencias y delta en fracciones. `leer_entradas(form)` convierte cadenas a números finitos; luego `preparar_resultados(entradas)` reutiliza 2B/2C. Las acciones `normal` y `optimizar` muestran el resultado en su sección correspondiente; sensibilidad, mapa y segunda ley responden 400 sin ejecutar modelos antiguos. Los errores físicos y numéricos se muestran diferenciados. El servidor conserva `127.0.0.1:5000` y el mismo lanzador.
 
-## Evolution of the project
+**Firmas y contrato de las funciones modificadas:**
+
+- `valores_formulario() -> dict`: sin argumentos, entrega copia de siete valores (K, kPa, fracciones). La usan index y el manejador HTTP 500. No contiene cp ni gamma constantes. Ejemplo: `valores_formulario()['delta'] == 0.05`.
+- `leer_entradas(form) -> dict[str,float]`: objeto formulario con siete campos, devuelve escalares reales finitos; `ValueError` para ausencias, no numéricos, NaN o infinitos. La llama `index`. Ejemplo: `leer_entradas({'T1':'288.15','T3':'1600','rp':'10','p1':'100','eta_c':'.85','eta_t':'.9','delta':'.05'})`.
+- `preparar_resultados(entradas) -> dict`: recibe esos siete `float` y devuelve `ciclo` (2B), `estados` (cuatro propiedades T, p, cp, gamma, h, s), `ts` (SVG), `optimizacion` (2C), `grafica` (SVG o None). Llama a `resolver_ciclo`, `estudiar_cp_variable`, `propiedades_estados`, `svg_ts`, `curvas_optimizacion` y `svg_optimizacion`. Propaga `ValueError`, `EstadoFueraDeRango` y errores de convergencia. Ejemplo: `preparar_resultados({'T1':288.15,'T3':1600.,'rp':10.,'p1':100.,'eta_c':.85,'eta_t':.9,'delta':.05})['ciclo']['trabajo_neto'] ≈ 402.071`. Los módulos científicos no cambian.
+- `index()` recibe `flask.request` implícitamente, devuelve HTML y código 200/400. `@app.route` es un decorador que registra esta función; el código se ejecuta al recibir una petición y no genera un informe HTML guardado.
+- `dashboard.renderizar_dashboard(valores, *, contenidos=None, metadata=None, informes=(), errores=None, modo_local=True, informe_actual='', seccion_inicial='simulacion', modo_cp=False, cp_datos=None, campos_cp=()) -> str`: nueva bandera `modo_cp`, diccionario `cp_datos` y tupla `campos_cp`. Con `modo_cp=True` renderiza la interfaz activa. Por defecto conserva el contenido de informes históricos con propiedades constantes. Jinja evalúa `{% if modo_cp %}` en Python antes de transmitir HTML; el JavaScript sigue ocupándose solo de navegación, pestañas y ampliación de imágenes. Lo llaman `index`, `error_interno` y los presentadores de informes.
+- Los presentadores `propiedades_estados(p)`, `svg_ts(p)`, `_escala(valor, low, high, inicio, ancho)`, `curvas_optimizacion(entradas, estudio, muestras=90)` y `svg_optimizacion(curva, estudio)` siguen con firmas y unidades descritas en el hito 22. Se reutilizan, sin recalcular física en la plantilla.
+
+**INTERPRETACIÓN FÍSICA.** El panel Simulación utiliza siete parámetros; Resultados contiene T1–T4 y T2s/T4s [K], p1–p4 [kPa], trabajo de compresor y turbina, trabajo neto, calor entrante/saliente [kJ/kg], rendimiento [%] únicamente si el ciclo es motor, cp(T) [J/(kg K)], gamma(T), h [kJ/kg] y s [kJ/(kg K)]. El T–s representa estados calculados y segmentos esquemáticos. Optimización entrega máximos independientes A/B y distingue punto interior alcanzable de supremo en frontera excluida. Ejemplo: para T1=288.15 K, T3=1600 K, rp=10, p1=100 kPa, eta_c=.85, eta_t=.9, delta=.05, wneto≈402.071 kJ/kg y rendimiento≈34.893 %. A tiene rp≈15.878 y trabajo máximo≈414.086 kJ/kg; B, rp≈46.819 y rendimiento máximo≈43.745 %. No son resultados experimentales.
+
+**Compatibilidad y estado.** `templates/index.html` mantiene la disposición y navegación original de ocho secciones y la presentación IBM Plex. `templates/cp_variable.html` fue eliminada después de verificar la nueva interfaz; no hay selector ni ruta alternativa. Sensibilidad, Mapa de diseño y Segunda ley permanecen en la navegación con aviso de adaptación pendiente; sus módulos y documentos continúan disponibles. El panel Informes identifica los HTML anteriores como **gas perfecto histórico** y los deja consultar o descargar sin recalcular; no los atribuye a cp(T). `main.py` todavía permite ejecutar el simulador antiguo directamente en Python, pero no desde el formulario de Flask. Solo hay una página HTML de cálculo activa.
+
+**Pruebas.** Se usan `tests/test_cp_variable_web.py`, `tests/test_web_app.py` y `tests/test_dashboard.py` en GitHub Actions. Comprueban integración científica, gráficos, entradas y fallos, rutas, archivo histórico y navegación. Véanse [milestone técnico 23](docs/milestones/23_unificacion_dashboard_cp_variable.md) y [guía 23](docs/milestones/23_unificacion_dashboard_cp_variable_APRENDIZAJE.md) para resultados efectivos y limitaciones.
 
 Estos hitos resumen capacidades ya implementadas en la versión analizada, sin atribuirles fechas ni reconstruir un historial de commits. Los detalles del funcionamiento actual se explican en las secciones anteriores.
 
@@ -2885,4 +2901,8 @@ Estos hitos resumen capacidades ya implementadas en la versión analizada, sin a
 
 - **Fase 2A del nuevo plan: propiedades caloríficas variables del aire.** Ingeniería: mezcla molar ideal N₂/O₂/Ar, correlaciones Shomate contrastadas con NIST, h y s0 continuas por integración y referencia a 298,15 K/1 bar, cp y gamma dependientes de T; el ciclo histórico sigue intacto. Python: módulo independiente sin dependencias externas, tablas de coeficientes, funciones internas, validación estricta y bisección monótona de entalpía. Véanse [milestone técnico 19](docs/milestones/19_cp_variable_aire.md) y [guía de aprendizaje de Fase 2A](docs/milestones/19_cp_variable_aire_APRENDIZAJE.md).
 
-- **Fase 2B del nuevo plan: solucionador independiente con cp(T).** Ingeniería: estados por raíces de entropía isentrópica, eficiencias por saltos de entalpía, balances de primera ley y generación de entropía adiabática, clasificación de puntos no motores y límite térmico 200–2000 K. Python: retorno estructurado, bisección acotada, excepciones específicas y pruebas con cuadratura independiente; aún sin integración de interfaz o estudios anteriores; la optimización independiente de cp(T) se documenta en §4.59. Véanse [milestone técnico 20](docs/milestones/20_ciclo_cp_variable.md) y [guía de aprendizaje de Fase 2B](docs/milestones/20_ciclo_cp_variable_APRENDIZAJE.md).
+- **Fase 2B del nuevo plan: solucionador independiente con cp(T).** Ingeniería: estados por raíces de entropía isentrópica, eficiencias por saltos de entalpía, balances de primera ley y generación de entropía adiabática, clasificación de puntos no motores y límite térmico 200–2000 K. Python: retorno estructurado, bisección acotada, excepciones específicas y pruebas con cuadratura independiente; originalmente no estaba integrado en Flask, aunque ahora sí se reutiliza mediante la capa web. Véanse [milestone 20](docs/milestones/20_ciclo_cp_variable.md) y [aprendizaje](docs/milestones/20_ciclo_cp_variable_APRENDIZAJE.md).
+
+- **Fases 2C–2D del nuevo plan: optimización e integración cp(T).** Ingeniería: dominio motor abierto y objetivos A/B independientes; propiedades y balances variables en el navegador. Python: búsqueda numérica por derivadas, presentadores SVG y pruebas Flask mediante Actions. La primera integración de 2D usaba una página secundaria que ya no forma parte del código actual. Véanse [milestone 21](docs/milestones/21_optimizacion_cp_variable.md), [milestone 22](docs/milestones/22_integracion_web_cp_variable.md) y §4.61.
+
+- **Milestone 23: interfaz única con cp(T).** Ingeniería: un solo modelo activo, parámetros variables, estados y optimización A/B; se evitan prestaciones engañosas de apartados aún no adaptados. Python: reutilización de presentadores en un controlador Flask, condicionales Jinja para separar la lectura histórica de la simulación actual, regresiones HTTP y eliminación de ruta/plantilla redundantes. Véanse [milestone técnico 23](docs/milestones/23_unificacion_dashboard_cp_variable.md) y [aprendizaje 23](docs/milestones/23_unificacion_dashboard_cp_variable_APRENDIZAJE.md).

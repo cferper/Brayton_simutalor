@@ -36,16 +36,16 @@ class DashboardTests(unittest.TestCase):
         self.client = web_app.app.test_client()
         self.datos = {k: str(v) for k, v in web_app.valores_formulario().items()}
 
-    def test_seis_secciones_y_nueve_parametros_sin_duplicar(self):
+    def test_ocho_secciones_y_siete_parametros_cp_sin_duplicar(self):
         html = self.client.get('/').get_data(as_text=True)
         for clave, nombre in dashboard.SECCIONES:
             self.assertIn(f'id="{clave}"', html)
             self.assertIn(f'href="#{clave}"', html)
-        for clave in web_app.CAMPOS:
+        for clave in web_app.DEFAULTS:
             self.assertEqual(html.count(f'name="{clave}"'), 1)
-        self.assertEqual(html.count('type="number"'), 19)  # 9 físicos, 3 OFAT, 6 mapa + T0.
-        for titulo, _ in dashboard.GRUPOS:
-            self.assertIn(titulo, html)
+        self.assertEqual(html.count('type="number"'), 7)
+        self.assertNotIn('name="cp"', html)
+        self.assertNotIn('name="gamma"', html)
 
     def test_kpi_seis_valores_del_caso_noideal(self):
         valores = {'rp': 10., 'trabajo': self.args[2]['trabajo_neto'],
@@ -152,10 +152,10 @@ class DashboardTests(unittest.TestCase):
         self.assertEqual(self.client.get('/informes/'+ruta.name).status_code, 200)
 
     def test_acciones_no_se_ejecutan_al_navegar(self):
-        with patch.object(web_app, 'main') as normal, patch.object(web_app, 'ejecutar_sensibilidad') as ofat:
+        with patch.object(web_app, 'preparar_resultados') as ejecutar:
             for clave, _ in dashboard.SECCIONES:
                 self.assertEqual(self.client.get('/#'+clave).status_code, 200)
-        normal.assert_not_called(); ofat.assert_not_called()
+        ejecutar.assert_not_called()
 
     def test_ayuda_documentos_sin_rutas_arbitrarias(self):
         self.assertEqual(self.client.get('/documentacion/README.md').status_code, 200)
