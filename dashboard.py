@@ -113,7 +113,8 @@ def renderizar_dashboard(valores, *, contenidos=None, metadata=None, informes=()
                          modo_local=True, informe_actual="", seccion_inicial="simulacion",
                          modo_cp=False, cp_datos=None, campos_cp=(),
                          sens_datos=None, sens_config=None, sens_parametros=None,
-                         mapa_datos=None, mapa_config=None):
+                         mapa_datos=None, mapa_config=None,
+                         segunda_datos=None, segunda_config=None):
     """Una sola plantilla; modo cp(T) local o informes históricos autónomos."""
     css = (RAIZ / "static/style.css").read_text(encoding="utf-8")
     js = (RAIZ / "static/dashboard.js").read_text(encoding="utf-8")
@@ -139,7 +140,8 @@ def renderizar_dashboard(valores, *, contenidos=None, metadata=None, informes=()
         modo_cp=modo_cp, cp_datos=cp_datos or {}, campos_cp=campos_cp,
         sens_datos=sens_datos or {}, sens_config=sens_config or {},
         sens_parametros=sens_parametros or {}, mapa_datos=mapa_datos or {},
-        mapa_config=mapa_config or {})
+        mapa_config=mapa_config or {}, segunda_datos=segunda_datos or {},
+        segunda_config=segunda_config or {'T0':'288.15','p0':'100'})
 
 
 def tarjeta_kpi(clave, etiqueta, valor, unidad, explicacion, decimales=3):

@@ -25,8 +25,8 @@ class IntegracionMapaVariableCP(unittest.TestCase):
         t=r.get_data(as_text=True)
         self.assertIn('id="mapa"',t)
         self.assertIn('name="mapa_cp_n_T3"',t)
-        self.assertEqual(t.count('type="number"'),16)
-        self.assertEqual(t.count('Funcionalidad desactivada temporalmente'),1)
+        self.assertEqual(t.count('type="number"'),18)
+        self.assertNotIn('Funcionalidad desactivada temporalmente',t)
         self.assertNotIn('/modelo-cp-variable',t)
 
     def test_dos_mapas_unidades_mascaras_y_tooltips(self):

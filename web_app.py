@@ -10,7 +10,7 @@ from dashboard import renderizar_dashboard, separar_presentacion
 from segunda_ley import validar_estudio_reutilizable
 from ciclo_cp_variable import EstadoFueraDeRango, ErrorNumericoCiclo
 from cp_variable_web import (DEFAULTS, FIELDS, leer_entradas, preparar_resultados,
-                             preparar_sensibilidad, preparar_mapa)
+                             preparar_sensibilidad, preparar_mapa, preparar_segunda_ley)
 from sensibilidad_cp_variable import PARAMETROS_CP
 from mapa_diseno_cp_variable import DEFAULT_MAPA
 
@@ -86,9 +86,11 @@ def index():
     }
     mapa_config = {key: request.form.get('mapa_cp_'+key, str(value))
                    for key,value in DEFAULT_MAPA.items()}
-    errores, datos, sens_datos, mapa_datos = {}, {}, {}, {}
+    segunda_config = {'T0': request.form.get('T0', '288.15'),
+                      'p0': request.form.get('p0', '100')}
+    errores, datos, sens_datos, mapa_datos, segunda_datos = {}, {}, {}, {}, {}
     if request.method == "POST":
-        if accion not in ("normal", "optimizar", "sensibilidad", "mapa"):
+        if accion not in ("normal", "optimizar", "sensibilidad", "mapa", "segunda_ley"):
             errores["modelo"] = "Este estudio aún no está adaptado al modelo cp(T)."
         else:
             try:
@@ -107,6 +109,10 @@ def index():
                         T3_max=float(mapa_config['T3_max']),
                         n_rp=int(mapa_config['n_rp']),
                         n_T3=int(mapa_config['n_T3']))
+                elif accion == 'segunda_ley':
+                    segunda_datos = preparar_segunda_ley(
+                        entradas, float(segunda_config['T0']),
+                        float(segunda_config['p0']))
                 else:
                     datos = preparar_resultados(entradas)
             except EstadoFueraDeRango as exc:
@@ -117,7 +123,8 @@ def index():
                 errores["modelo"] = f"Entrada no válida: {exc}"
             except ArithmeticError:
                 errores["modelo"] = "No ha convergido la búsqueda numérica."
-    seccion = ("mapa" if accion == 'mapa' else
+    seccion = ("segunda_ley" if accion == 'segunda_ley' else
+               "mapa" if accion == 'mapa' else
                "sensibilidad" if accion == 'sensibilidad' else
                "optimizacion" if accion == "optimizar"
                else "resultados" if datos else "simulacion")
@@ -125,7 +132,8 @@ def index():
         valores, errores=errores, informes=listar_informes(),
         seccion_inicial=seccion, modo_cp=True, cp_datos=datos, campos_cp=FIELDS,
         sens_datos=sens_datos, sens_config=sens_config, sens_parametros=PARAMETROS_CP,
-        mapa_datos=mapa_datos, mapa_config=mapa_config)
+        mapa_datos=mapa_datos, mapa_config=mapa_config,
+        segunda_datos=segunda_datos, segunda_config=segunda_config)
     return pagina, (400 if errores else 200)
 
 

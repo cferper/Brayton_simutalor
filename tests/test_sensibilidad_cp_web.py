@@ -24,7 +24,7 @@ class IntegracionSensibilidadCP(unittest.TestCase):
         self.assertIn('name="sens_cp_parametro"',texto)
         self.assertNotIn('/modelo-cp-variable',texto)
         self.assertNotIn('name="cp"',texto)
-        self.assertEqual(texto.count('Funcionalidad desactivada temporalmente'),1)
+        self.assertNotIn('Funcionalidad desactivada temporalmente',texto)
 
     def test_post_muestra_graficas_locales_y_estados(self):
         response=self.client.post('/',data=FORM)

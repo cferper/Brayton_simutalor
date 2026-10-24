@@ -2,6 +2,7 @@
 
 No implementa ecuaciones térmicas ni altera los módulos científicos.
 """
+from functools import lru_cache
 from math import exp, isfinite, log
 from html import escape
 
@@ -10,6 +11,7 @@ from optimizacion_cp_variable import estudiar_cp_variable
 from propiedades_aire import cp, gamma
 from sensibilidad_cp_variable import PARAMETROS_CP, barrido_cp_variable
 from mapa_diseno_cp_variable import calcular_mapa_cp_variable
+from segunda_ley_cp_variable import analizar_segunda_ley_cp_variable
 
 DEFAULTS = {'T1': 288.15, 'T3': 1600.0, 'rp': 10.0, 'p1': 100.0,
             'eta_c': .85, 'eta_t': .90, 'delta': .05}
@@ -322,3 +324,45 @@ def preparar_mapa(entradas, rp_min, rp_max, T3_min, T3_max, n_rp, n_T3):
     estudio['svg_trabajo']=svg_mapa_cp_variable(estudio,'trabajo_neto',opt)
     estudio['svg_rendimiento']=svg_mapa_cp_variable(estudio,'rendimiento',opt)
     return estudio
+
+
+@lru_cache(maxsize=16)
+def _ciclo_para_segunda_ley(T1, T3, rp, p1, eta_c, eta_t, delta):
+    """Conserva los estados 2B para cambios aislados de T0/p0, sin optimizar."""
+    return resolver_ciclo(T1, T3, rp, p1, eta_c, eta_t, delta)
+
+
+def svg_exergia_destruida(estudio):
+    """Barras SVG en kJ/kg; no dibuja destrucciones negativas inconsistentes."""
+    a, b = estudio['destruccion']
+    if min(a, b) < 0:
+        return None
+    escala = max(1.0, a, b)
+    barras = []
+    for i, (nombre, valor, color) in enumerate((('Compresor', a, '#2563a6'),
+                                                 ('Turbina', b, '#c2410c'))):
+        y = 64 + 82*i
+        ancho = 375*valor/escala
+        barras.append(f'<text x="20" y="{y+18}" fill="currentColor" font-size="15">{nombre}</text>'
+                      f'<rect x="140" y="{y}" width="{ancho:.2f}" height="30" fill="{color}" rx="3">'
+                      f'<title>{nombre}: {valor:.6f} kJ/kg</title></rect>'
+                      f'<text x="{153+ancho:.2f}" y="{y+20}" font-size="14" fill="currentColor">{valor:.3f}</text>')
+    return ('<svg viewBox="0 0 665 260" role="img" '
+            'aria-label="Exergía destruida en compresor y turbina, en kilojulios por kilogramo">'
+            '<text x="20" y="26" fill="currentColor" font-weight="600">Exergía destruida [kJ/kg]</text>'
+            '<text x="20" y="44" fill="currentColor" font-size="12">Solo turbomáquinas adiabáticas; no representa la destrucción total del ciclo</text>'
+            + ''.join(barras) + '</svg>')
+
+
+def preparar_segunda_ley(entradas, T0=288.15, p0=100.0):
+    """Una solución 2B cacheada por ciclo y un estudio ambiental recalculable.
+
+    Entradas: dict de 7 números (K, kPa, fracciones), T0 [K], p0 [kPa].
+    Devuelve ciclo, estudio físico y SVG opcional sin optimizar ni guardar.
+    Las entradas inválidas propagan ValueError/excepciones de 2B.
+    """
+    ciclo = _ciclo_para_segunda_ley(*(entradas[k] for k in
+        ('T1', 'T3', 'rp', 'p1', 'eta_c', 'eta_t', 'delta')))
+    estudio = analizar_segunda_ley_cp_variable(ciclo, T0, p0)
+    return {'ciclo': ciclo, 'estudio': estudio,
+            'svg_destruccion': svg_exergia_destruida(estudio)}
