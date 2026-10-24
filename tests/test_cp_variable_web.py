@@ -52,7 +52,7 @@ class IntegracionWebCPVariable(unittest.TestCase):
         self.assertIn(b'No aplicable',r.data)
 
     def test_sin_dominio_no_optimiza(self):
-        r=self.client.post('/modelo-cp-variable',data={**BASE,'T3':'290'})
+        r=self.client.post('/modelo-cp-variable',data={**BASE,'T3':'500'})
         self.assertEqual(r.status_code,200)
         self.assertIn(b'No existe dominio motor',r.data)
 
