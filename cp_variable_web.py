@@ -9,6 +9,7 @@ from html import escape
 from ciclo_cp_variable import EstadoFueraDeRango, ErrorNumericoCiclo, resolver_ciclo
 from optimizacion_cp_variable import estudiar_cp_variable
 from propiedades_aire import cp, gamma
+from graficas_cp_variable import graficas_resultados, graficas_optimizacion
 from sensibilidad_cp_variable import PARAMETROS_CP, barrido_cp_variable
 from mapa_diseno_cp_variable import calcular_mapa_cp_variable
 from segunda_ley_cp_variable import analizar_segunda_ley_cp_variable
@@ -54,26 +55,6 @@ def _escala(valor, low, high, inicio, ancho):
     return inicio + ancho*(valor-low)/max(high-low, 1e-12)
 
 
-def svg_ts(p):
-    """SVG esquemático: sólo los estados se consideran termodinámicamente exactos."""
-    estados=list(zip(p['entropias'], p['temperaturas']))
-    ss=[v[0] for v in estados]; ts=[v[1] for v in estados]
-    smin,smax=min(ss),max(ss); tmin,tmax=min(ts),max(ts)
-    puntos=[(_escala(s,smin,smax,60,560),
-             _escala(t,tmin,tmax,320,-275)) for s,t in estados]
-    coords=' '.join(f'{x:.2f},{y:.2f}' for x,y in puntos+[puntos[0]])
-    circles=''.join(f'<circle cx="{x:.2f}" cy="{y:.2f}" r="5" fill="#2563eb"/>'
-                    f'<text x="{x+9:.2f}" y="{y-8:.2f}" font-size="15" fill="currentColor">{i}</text>'
-                    for i,(x,y) in enumerate(puntos,1))
-    return (f'<svg viewBox="0 0 680 390" role="img" aria-label="Estados del ciclo en diagrama temperatura-entropía">'
-            f'<line x1="60" y1="340" x2="640" y2="340" stroke="currentColor"/>'
-            f'<line x1="60" y1="340" x2="60" y2="20" stroke="currentColor"/>'
-            f'<text x="310" y="374" fill="currentColor">s [kJ/(kg K)]</text>'
-            f'<text x="12" y="25" fill="currentColor">T [K]</text>'
-            f'<polyline points="{coords}" fill="none" stroke="#64748b" stroke-dasharray="7 5" stroke-width="2"/>'
-            f'{circles}</svg>')
-
-
 def curvas_optimizacion(entradas, estudio, muestras=90):
     """Muestreo interior en escala log(rp), sin fabricar datos inválidos."""
     intervalo=estudio.get('dominio_motor')
@@ -95,34 +76,6 @@ def curvas_optimizacion(entradas, estudio, muestras=90):
     return valores
 
 
-def svg_optimizacion(curva, estudio):
-    """Gráfico de puntos evaluados; cortes entre tramos no calculables."""
-    puntos=[p for p in curva if p is not None]
-    if len(puntos)<2:
-        return None
-    xmin,xmax=min(log(p['rp']) for p in puntos),max(log(p['rp']) for p in puntos)
-    segments=[]
-    for key, color, offset in [('trabajo','#2563eb',0),('rendimiento','#c2410c',0)]:
-        values=[p[key] for p in puntos if p[key] is not None]
-        if not values:continue
-        ymin,ymax=min(values),max(values)
-        path=[]
-        for p in curva:
-            if p is None or p[key] is None:
-                if path:segments.append((color,path));path=[]
-                continue
-            x=_escala(log(p['rp']),xmin,xmax,70,540)
-            y=_escala(p[key],ymin,ymax,295,-245)
-            path.append((x,y))
-        if path:segments.append((color,path))
-    paths=''.join(f'<polyline points="{" ".join(f"{x:.2f},{y:.2f}" for x,y in path)}" '
-                  f'fill="none" stroke="{color}" stroke-width="2.5"/>' for color,path in segments)
-    return (f'<svg viewBox="0 0 650 350" role="img" aria-label="Trabajo y rendimiento normalizados en dos escalas independientes frente a rp">'
-            f'<line x1="70" y1="300" x2="620" y2="300" stroke="currentColor"/>'
-            f'<text x="275" y="338" fill="currentColor">ln(rp)</text>'
-            f'{paths}</svg>')
-
-
 def preparar_resultados(entradas):
     """Reúne estados, propiedades, curvas y óptimos ya resueltos por 2B/2C.
 
@@ -133,12 +86,17 @@ def preparar_resultados(entradas):
     ciclo = resolver_ciclo(**entradas)
     estudio = estudiar_cp_variable(entradas['T1'], entradas['T3'], entradas['p1'],
                                   entradas['eta_c'], entradas['eta_t'], entradas['delta'])
+    estados = propiedades_estados(ciclo)
+    graficas_r, diagnostico_comparacion = graficas_resultados(ciclo, estados, entradas)
+    # El mismo barrido numérico alimenta las tres vistas de optimización.
+    curva = curvas_optimizacion(entradas, estudio)
     return {
         'ciclo': ciclo,
-        'estados': propiedades_estados(ciclo),
-        'ts': svg_ts(ciclo),
+        'estados': estados,
+        'graficas_resultados': graficas_r,
+        'diagnostico_comparacion': diagnostico_comparacion,
         'optimizacion': estudio,
-        'grafica': svg_optimizacion(curvas_optimizacion(entradas, estudio), estudio),
+        'graficas_optimizacion': graficas_optimizacion(curva, estudio),
     }
 
 

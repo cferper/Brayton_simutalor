@@ -9,6 +9,7 @@ on:
       - validacion/fase-2g-cp
       - validacion/revision-educativa-cp
       - validacion/fundamentos-extensos-cp
+      - validacion/graficas-cp-resultados-optimizacion
       - mejoras/cp-variable
 permissions:
   contents: read
@@ -32,3 +33,5 @@ jobs:
         run: python -m unittest discover -s tests -p 'test_segunda_ley_cp*.py' -v
       - name: Verificar contenido educativo, galería SVG y accesibilidad del visor
         run: python -m unittest discover -s tests -p 'test_revision_educativa_cp.py' -v
+      - name: Verificar nuevas gráficas de Resultados y Optimización cp(T)
+        run: python -m unittest discover -s tests -p 'test_graficas_cp_variable.py' -v
