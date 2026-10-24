@@ -121,6 +121,13 @@
     document.getElementById('sens_minimo').value = range[0];
     document.getElementById('sens_maximo').value = range[1];
   });
+  // Fase 2E: catálogo y controles nuevos, separados del histórico gas perfecto.
+  const selectorCp = document.getElementById('sens_cp_parametro');
+  if (selectorCp) selectorCp.addEventListener('change', () => {
+    const opcion = selectorCp.selectedOptions[0];
+    document.getElementById('sens_cp_minimo').value = opcion.dataset.minimo;
+    document.getElementById('sens_cp_maximo').value = opcion.dataset.maximo;
+  });
   document.getElementById('caso')?.addEventListener('invalid', e => {
     activateSection(e.target.closest('.dashboard-panel')?.id || 'simulacion');
     const pane = e.target.closest('.edu-tab-pane');

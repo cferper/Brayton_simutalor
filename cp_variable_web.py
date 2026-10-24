@@ -3,10 +3,12 @@
 No implementa ecuaciones térmicas ni altera los módulos científicos.
 """
 from math import exp, isfinite, log
+from html import escape
 
 from ciclo_cp_variable import EstadoFueraDeRango, ErrorNumericoCiclo, resolver_ciclo
 from optimizacion_cp_variable import estudiar_cp_variable
 from propiedades_aire import cp, gamma
+from sensibilidad_cp_variable import PARAMETROS_CP, barrido_cp_variable
 
 DEFAULTS = {'T1': 288.15, 'T3': 1600.0, 'rp': 10.0, 'p1': 100.0,
             'eta_c': .85, 'eta_t': .90, 'delta': .05}
@@ -135,3 +137,78 @@ def preparar_resultados(entradas):
         'optimizacion': estudio,
         'grafica': svg_optimizacion(curvas_optimizacion(entradas, estudio), estudio),
     }
+
+
+def svg_sensibilidad(barrido, claves, etiqueta, unidad_y):
+    """Representa exclusivamente filas motoras; cada hueco corta el trazado.
+
+    No interpola máximos, no cruza regiones no motoras y señala dónde está
+    el caso base aun si no coincide con un punto de la malla OFAT.
+    """
+    colores = ('#2563eb', '#c2410c')
+    puntos = [p for p in barrido['filas'] if p['operativas'] is not None]
+    valores = [p['operativas'][clave]*(100 if clave == 'rendimiento' else 1)
+               for p in puntos for clave in claves]
+    if not valores:
+        return None
+    ymin, ymax = min(valores), max(valores)
+    holgura = max((ymax-ymin)*.09, max(abs(ymin),abs(ymax),1)*.015)
+    ymin -= holgura
+    ymax += holgura
+    xmin, xmax = barrido['minimo'], barrido['maximo']
+    x_coord = lambda x: _escala(x,xmin,xmax,76,555)
+    y_coord = lambda y: _escala(y,ymin,ymax,295,-245)
+
+    trazos=[]
+    for clave,color in zip(claves,colores):
+        tramo=[]
+        for punto in barrido['filas']+[{'operativas':None}]:
+            if punto['operativas'] is None:
+                if len(tramo)>1:
+                    coords=' '.join(f'{x:.2f},{y:.2f}' for x,y in tramo)
+                    trazos.append(f'<polyline points="{coords}" fill="none" stroke="{color}" stroke-width="2.5"/>')
+                elif tramo:
+                    x,y=tramo[0]
+                    trazos.append(f'<circle cx="{x:.2f}" cy="{y:.2f}" r="3.5" fill="{color}"/>')
+                tramo=[]
+                continue
+            y=punto['operativas'][clave]*(100 if clave == 'rendimiento' else 1)
+            tramo.append((x_coord(punto['x']),y_coord(y)))
+
+    referencia=barrido['referencia_x']
+    vertical = ''
+    if xmin <= referencia <= xmax:
+        x = x_coord(referencia)
+        vertical=(f'<line x1="{x:.2f}" x2="{x:.2f}" y1="48" y2="300" '
+                  f'stroke="#64748b" stroke-width="1.5" stroke-dasharray="4 5"/>'
+                  f'<text x="{x:.2f}" y="39" font-size="12" text-anchor="middle" fill="currentColor">Referencia</text>')
+    eje=escape(f"{barrido['parametro']} [{barrido['unidad']}]")
+    etiquetas=''.join(
+        f'<text x="{x_coord(x):.2f}" y="324" font-size="12" text-anchor="middle" fill="currentColor">{x:.4g}</text>'
+        for x in (xmin,(xmin+xmax)/2,xmax))
+    ylabels=''.join(
+        f'<text x="67" y="{y_coord(y)+4:.2f}" font-size="12" text-anchor="end" fill="currentColor">{y:.4g}</text>'
+        for y in (ymin,(ymin+ymax)/2,ymax))
+    leyenda=' · '.join(clave.replace('_',' ') for clave in claves)
+    return (f'<svg viewBox="0 0 670 385" role="img" aria-label="{escape(etiqueta)} en función de {eje}; '
+            'los tramos ausentes no representan ciclos motores">'
+            '<line x1="76" x2="632" y1="300" y2="300" stroke="currentColor"/>'
+            '<line x1="76" x2="76" y1="47" y2="300" stroke="currentColor"/>'
+            f'{vertical}{"".join(trazos)}{etiquetas}{ylabels}'
+            f'<text x="345" y="349" text-anchor="middle" fill="currentColor">{eje}</text>'
+            f'<text x="80" y="18" fill="currentColor">{escape(etiqueta)} [{escape(unidad_y)}]</text>'
+            f'<text x="345" y="376" font-size="12" text-anchor="middle" fill="currentColor">{escape(leyenda)} · huecos = no motor / sin datos</text>'
+            '</svg>')
+
+
+def preparar_sensibilidad(entradas, parametro, minimo, maximo, muestras):
+    """Presenter de la Fase 2E: OFAT y dos (o tres) gráficas independientes."""
+    estudio = barrido_cp_variable(entradas,parametro,minimo,maximo,muestras)
+    estudio['graficas'] = (
+        ('Trabajo neto',svg_sensibilidad(estudio,('trabajo_neto',),'Trabajo neto','kJ/kg')),
+        ('Rendimiento térmico',svg_sensibilidad(estudio,('rendimiento',),'Rendimiento térmico','%')),
+        ('Compresor y turbina',svg_sensibilidad(estudio,('trabajo_compresor','trabajo_turbina'),
+                                              'Trabajo de compresor y turbina','kJ/kg')),
+    )
+    estudio['etiqueta']=PARAMETROS_CP[parametro]['etiqueta']
+    return estudio

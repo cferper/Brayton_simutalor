@@ -27,7 +27,7 @@ class WebTests(unittest.TestCase):
         respuesta = self.client.get('/')
         texto = respuesta.get_data(as_text=True)
         self.assertEqual(respuesta.status_code, 200)
-        self.assertEqual(texto.count('type="number"'), 7)
+        self.assertEqual(texto.count('type="number"'), 10)  # 7 del ciclo + 3 OFAT
         for key in BASE:
             self.assertIn(f'name="{key}"', texto)
         self.assertIn('Restablecer valores', texto)
@@ -49,7 +49,7 @@ class WebTests(unittest.TestCase):
                 respuesta = self.client.post('/', data={**BASE,'accion':'normal',field:value})
                 self.assertEqual(respuesta.status_code, 400)
                 self.assertNotIn('data-kpi=',respuesta.get_data(as_text=True))
-        for accion in ('sensibilidad','mapa','segunda_ley'):
+        for accion in ('mapa','segunda_ley'):
             with self.subTest(accion=accion):
                 self.assertEqual(self.client.post('/',data={**BASE,'accion':accion}).status_code,400)
         self.assertFalse(self.carpeta.exists())

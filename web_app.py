@@ -9,7 +9,8 @@ from reporting import MARCA_FINAL, MARCA_INICIO, PATRON_INFORME
 from dashboard import renderizar_dashboard, separar_presentacion
 from segunda_ley import validar_estudio_reutilizable
 from ciclo_cp_variable import EstadoFueraDeRango, ErrorNumericoCiclo
-from cp_variable_web import DEFAULTS, FIELDS, leer_entradas, preparar_resultados
+from cp_variable_web import DEFAULTS, FIELDS, leer_entradas, preparar_resultados, preparar_sensibilidad
+from sensibilidad_cp_variable import PARAMETROS_CP
 
 
 app = Flask(__name__)
@@ -73,14 +74,28 @@ def index():
     valores = valores_formulario() if request.method == "GET" else {
         clave: request.form.get(clave, "") for clave in DEFAULTS
     }
-    errores, datos = {}, {}
+    accion = request.form.get('accion') if request.method == 'POST' else None
+    rango_sugerido = PARAMETROS_CP['T3']['rango']
+    sens_config = {
+        'parametro': request.form.get('sens_cp_parametro', 'T3'),
+        'minimo': request.form.get('sens_cp_minimo', str(rango_sugerido[0])),
+        'maximo': request.form.get('sens_cp_maximo', str(rango_sugerido[1])),
+        'muestras': request.form.get('sens_cp_muestras', '41'),
+    }
+    errores, datos, sens_datos = {}, {}, {}
     if request.method == "POST":
-        if request.form.get("accion") not in ("normal", "optimizar"):
+        if accion not in ("normal", "optimizar", "sensibilidad"):
             errores["modelo"] = "Este estudio aún no está adaptado al modelo cp(T)."
         else:
             try:
                 entradas = leer_entradas(request.form)
-                datos = preparar_resultados(entradas)
+                if accion == 'sensibilidad':
+                    sens_datos = preparar_sensibilidad(
+                        entradas, sens_config['parametro'],
+                        float(sens_config['minimo']), float(sens_config['maximo']),
+                        int(sens_config['muestras']))
+                else:
+                    datos = preparar_resultados(entradas)
             except EstadoFueraDeRango as exc:
                 errores["modelo"] = f"Estado fuera de 200–2000 K: {exc}"
             except ErrorNumericoCiclo:
@@ -89,11 +104,13 @@ def index():
                 errores["modelo"] = f"Entrada no válida: {exc}"
             except ArithmeticError:
                 errores["modelo"] = "No ha convergido la búsqueda numérica."
-    seccion = ("optimizacion" if request.form.get("accion") == "optimizar"
+    seccion = ("sensibilidad" if accion == 'sensibilidad' else
+               "optimizacion" if accion == "optimizar"
                else "resultados" if datos else "simulacion")
     pagina = renderizar_dashboard(
         valores, errores=errores, informes=listar_informes(),
-        seccion_inicial=seccion, modo_cp=True, cp_datos=datos, campos_cp=FIELDS)
+        seccion_inicial=seccion, modo_cp=True, cp_datos=datos, campos_cp=FIELDS,
+        sens_datos=sens_datos, sens_config=sens_config, sens_parametros=PARAMETROS_CP)
     return pagina, (400 if errores else 200)
 
 
