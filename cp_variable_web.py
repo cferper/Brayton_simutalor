@@ -9,6 +9,7 @@ from ciclo_cp_variable import EstadoFueraDeRango, ErrorNumericoCiclo, resolver_c
 from optimizacion_cp_variable import estudiar_cp_variable
 from propiedades_aire import cp, gamma
 from sensibilidad_cp_variable import PARAMETROS_CP, barrido_cp_variable
+from mapa_diseno_cp_variable import calcular_mapa_cp_variable
 
 DEFAULTS = {'T1': 288.15, 'T3': 1600.0, 'rp': 10.0, 'p1': 100.0,
             'eta_c': .85, 'eta_t': .90, 'delta': .05}
@@ -211,4 +212,113 @@ def preparar_sensibilidad(entradas, parametro, minimo, maximo, muestras):
                                               'Trabajo de compresor y turbina','kJ/kg')),
     )
     estudio['etiqueta']=PARAMETROS_CP[parametro]['etiqueta']
+    return estudio
+
+
+def _color_mapa(fraccion, rendimiento=False):
+    """Interpolación de color para la presentación, sin interpretación física."""
+    inferior, superior = ((254, 243, 199), (154, 52, 18)) if rendimiento else ((219, 234, 254), (29, 78, 216))
+    return '#'+''.join(f'{round(a+(b-a)*max(0,min(1,fraccion))):02x}'
+                     for a,b in zip(inferior, superior))
+
+
+def svg_mapa_cp_variable(estudio, magnitud, opt=None):
+    """SVG con celdas reales, máscaras discretas, barra de color y tooltips.
+
+    Cada rectángulo corresponde a un ciclo evaluado. Los no motores nunca
+    reciben color de prestación y ningún píxel es interpolado a través de ellos.
+    """
+    if magnitud not in ('trabajo_neto', 'rendimiento'):
+        raise ValueError('Magnitud de mapa desconocida.')
+    operativos = [c['operativas'][magnitud] for fila in estudio['filas']
+                  for c in fila if c['operativas'] is not None]
+    if not operativos:
+        return None
+    porcentaje = magnitud == 'rendimiento'
+    lo, hi = min(operativos), max(operativos)
+    escala = max(hi-lo, 1e-12)
+    left, top, width, height = 86, 52, 540, 350
+    cw, ch = width/estudio['n_rp'], height/estudio['n_T3']
+    colores_estado = {'no_motor':'#e2e8f0', 'fuera_rango':'#94a3b8',
+                      'entrada_invalida':'#f8fafc', 'error_numerico':'#fecaca'}
+    nombres_estado = {'no_motor':'No motor', 'fuera_rango':'Fuera de 200–2000 K',
+                      'entrada_invalida':'Entrada inadmisible', 'error_numerico':'Fallo numérico'}
+    celdas=[]
+    for j,fila in enumerate(estudio['filas']):
+        for i,p in enumerate(fila):
+            operativo=p['operativas']
+            if operativo is None:
+                color=colores_estado[p['estado']]
+                tooltip=f"rp={p['rp']:.5g}; T3={p['T3']:.3f} K; {nombres_estado[p['estado']]}: {p['motivo']}"
+            else:
+                valor=operativo[magnitud]
+                color=_color_mapa((valor-lo)/escala, porcentaje)
+                tooltip=(f"rp={p['rp']:.5g}; T3={p['T3']:.3f} K; "
+                         f"{'eta='+format(100*valor,'.3f')+' %' if porcentaje else 'wneto='+format(valor,'.3f')+' kJ/kg'}; "
+                         f"wc={operativo['trabajo_compresor']:.3f}; wt={operativo['trabajo_turbina']:.3f} kJ/kg")
+            x=left+i*cw
+            y=top+(estudio['n_T3']-1-j)*ch
+            celdas.append(f'<rect x="{x:.3f}" y="{y:.3f}" width="{cw+.03:.3f}" height="{ch+.03:.3f}" '
+                          f'fill="{color}"><title>{escape(tooltip)}</title></rect>')
+
+    # Ejes etiquetados con los valores físicos de los nodos, no con índices.
+    marcas_x=[]
+    for i in sorted({0,(estudio['n_rp']-1)//4,(estudio['n_rp']-1)//2,
+                     3*(estudio['n_rp']-1)//4,estudio['n_rp']-1}):
+        x=left+(i+.5)*cw
+        marcas_x.append(f'<text x="{x:.2f}" y="423" fill="currentColor" font-size="12" text-anchor="middle">{estudio["rps"][i]:.3g}</text>')
+    marcas_y=[]
+    for j in sorted({0,(estudio['n_T3']-1)//2,estudio['n_T3']-1}):
+        y=top+(estudio['n_T3']-.5-j)*ch
+        marcas_y.append(f'<text x="77" y="{y+4:.2f}" fill="currentColor" font-size="12" text-anchor="end">{estudio["T3s"][j]:.0f}</text>')
+    marcas_opt=[]
+    if opt and estudio['T3_min'] <= estudio['referencia_T3'] <= estudio['T3_max']:
+        for clave,color in (('A','#1e3a8a'),('B','#9a3412')):
+            punto=opt.get(clave)
+            if not punto or punto.get('tipo')!='maximo_interior' or punto['rp'] is None:
+                continue
+            rp=punto['rp']
+            if not estudio['rp_min'] <= rp <= estudio['rp_max']:
+                continue
+            xx=left+cw/2+cw*(estudio['n_rp']-1)*(
+                log(rp)-log(estudio['rp_min']))/(log(estudio['rp_max'])-log(estudio['rp_min']))
+            yy=top+height-ch/2-ch*(estudio['n_T3']-1)*(
+                estudio['referencia_T3']-estudio['T3_min'])/(estudio['T3_max']-estudio['T3_min'])
+            marcas_opt.append(f'<circle cx="{xx:.2f}" cy="{yy:.2f}" r="6" fill="{color}" stroke="white" stroke-width="2">'
+                              f'<title>{clave}: óptimo continuo 2C para T3={estudio["referencia_T3"]:.2f} K, rp={rp:.6f}</title></circle>'
+                              f'<text x="{xx+9:.2f}" y="{yy-9:.2f}" font-size="13" font-weight="bold" fill="{color}" stroke="white" stroke-width="2" paint-order="stroke">{clave}</text>')
+    unidades='%' if porcentaje else 'kJ/kg'
+    etiqueta='Rendimiento térmico' if porcentaje else 'Trabajo neto'
+    gradiente=''.join(f'<rect x="{190+i*31}" y="470" width="32" height="14" fill="{_color_mapa(i/7,porcentaje)}"/>' for i in range(8))
+    leyenda=''.join(f'<rect x="{x}" y="510" width="12" height="12" fill="{color}"/>'
+                    f'<text x="{x+17}" y="521" fill="currentColor" font-size="11">{texto}</text>'
+                    for x,color,texto in ((18,'#e2e8f0','No motor'),(160,'#94a3b8','Fuera de rango'),
+                                          (344,'#f8fafc','Entrada inválida'),(518,'#fecaca','Numérico')))
+    return (f'<svg viewBox="0 0 720 542" role="img" aria-label="Mapa rp-T3 de {etiqueta} en {unidades}; '
+            'gris indica zonas no motoras o no calculables">'
+            f'<text x="86" y="24" fill="currentColor" font-weight="600" font-size="16">{etiqueta} [{unidades}]</text>'
+            f'<text x="86" y="40" fill="currentColor" font-size="12">Cada celda: una evaluación cp(T). Pasa el cursor para consultar sus datos.</text>'
+            f'{"".join(celdas)}{"".join(marcas_opt)}{"".join(marcas_x)}{"".join(marcas_y)}'
+            '<text x="355" y="448" fill="currentColor" text-anchor="middle">rp [−] (escala logarítmica)</text>'
+            '<text x="12" y="48" fill="currentColor">T3 [K]</text>'
+            f'<text x="86" y="481" font-size="12" fill="currentColor">{lo*(100 if porcentaje else 1):.3g}</text>'
+            f'{gradiente}<text x="449" y="481" font-size="12" fill="currentColor">{hi*(100 if porcentaje else 1):.3g} {unidades}</text>'
+            f'{leyenda}<text x="360" y="538" text-anchor="middle" font-size="11" fill="currentColor">A/B: óptimos 2C solo a T3 de referencia · colores: mejores muestras de esta malla</text>'
+            '</svg>')
+
+
+def preparar_mapa(entradas, rp_min, rp_max, T3_min, T3_max, n_rp, n_T3):
+    """Prepara dos mapas SVG y una sola optimización 2C de referencia, si procede."""
+    estudio=calcular_mapa_cp_variable(entradas,rp_min,rp_max,T3_min,T3_max,n_rp,n_T3)
+    opt=None
+    if (estudio['conteos'].get('motor',0)>0 and T3_min<=entradas['T3']<=T3_max
+            and 200<=entradas['T3']<=2000):
+        try:
+            opt=estudiar_cp_variable(entradas['T1'],entradas['T3'],entradas['p1'],
+                                    entradas['eta_c'],entradas['eta_t'],entradas['delta'])
+        except (ValueError,ArithmeticError):
+            opt=None
+    estudio['optimos_referencia']=opt
+    estudio['svg_trabajo']=svg_mapa_cp_variable(estudio,'trabajo_neto',opt)
+    estudio['svg_rendimiento']=svg_mapa_cp_variable(estudio,'rendimiento',opt)
     return estudio

@@ -43,7 +43,7 @@ class DashboardTests(unittest.TestCase):
             self.assertIn(f'href="#{clave}"', html)
         for clave in web_app.DEFAULTS:
             self.assertEqual(html.count(f'name="{clave}"'), 1)
-        self.assertEqual(html.count('type="number"'), 10)  # siete físicos y tres controles OFAT
+        self.assertEqual(html.count('type="number"'), 16)  # siete físicos, tres OFAT y seis de mapa
         self.assertNotIn('name="cp"', html)
         self.assertNotIn('name="gamma"', html)
 

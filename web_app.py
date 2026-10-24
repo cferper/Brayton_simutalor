@@ -9,8 +9,10 @@ from reporting import MARCA_FINAL, MARCA_INICIO, PATRON_INFORME
 from dashboard import renderizar_dashboard, separar_presentacion
 from segunda_ley import validar_estudio_reutilizable
 from ciclo_cp_variable import EstadoFueraDeRango, ErrorNumericoCiclo
-from cp_variable_web import DEFAULTS, FIELDS, leer_entradas, preparar_resultados, preparar_sensibilidad
+from cp_variable_web import (DEFAULTS, FIELDS, leer_entradas, preparar_resultados,
+                             preparar_sensibilidad, preparar_mapa)
 from sensibilidad_cp_variable import PARAMETROS_CP
+from mapa_diseno_cp_variable import DEFAULT_MAPA
 
 
 app = Flask(__name__)
@@ -82,9 +84,11 @@ def index():
         'maximo': request.form.get('sens_cp_maximo', str(rango_sugerido[1])),
         'muestras': request.form.get('sens_cp_muestras', '41'),
     }
-    errores, datos, sens_datos = {}, {}, {}
+    mapa_config = {key: request.form.get('mapa_cp_'+key, str(value))
+                   for key,value in DEFAULT_MAPA.items()}
+    errores, datos, sens_datos, mapa_datos = {}, {}, {}, {}
     if request.method == "POST":
-        if accion not in ("normal", "optimizar", "sensibilidad"):
+        if accion not in ("normal", "optimizar", "sensibilidad", "mapa"):
             errores["modelo"] = "Este estudio aún no está adaptado al modelo cp(T)."
         else:
             try:
@@ -94,6 +98,15 @@ def index():
                         entradas, sens_config['parametro'],
                         float(sens_config['minimo']), float(sens_config['maximo']),
                         int(sens_config['muestras']))
+                elif accion == 'mapa':
+                    mapa_datos = preparar_mapa(
+                        entradas,
+                        rp_min=float(mapa_config['rp_min']),
+                        rp_max=float(mapa_config['rp_max']),
+                        T3_min=float(mapa_config['T3_min']),
+                        T3_max=float(mapa_config['T3_max']),
+                        n_rp=int(mapa_config['n_rp']),
+                        n_T3=int(mapa_config['n_T3']))
                 else:
                     datos = preparar_resultados(entradas)
             except EstadoFueraDeRango as exc:
@@ -104,13 +117,15 @@ def index():
                 errores["modelo"] = f"Entrada no válida: {exc}"
             except ArithmeticError:
                 errores["modelo"] = "No ha convergido la búsqueda numérica."
-    seccion = ("sensibilidad" if accion == 'sensibilidad' else
+    seccion = ("mapa" if accion == 'mapa' else
+               "sensibilidad" if accion == 'sensibilidad' else
                "optimizacion" if accion == "optimizar"
                else "resultados" if datos else "simulacion")
     pagina = renderizar_dashboard(
         valores, errores=errores, informes=listar_informes(),
         seccion_inicial=seccion, modo_cp=True, cp_datos=datos, campos_cp=FIELDS,
-        sens_datos=sens_datos, sens_config=sens_config, sens_parametros=PARAMETROS_CP)
+        sens_datos=sens_datos, sens_config=sens_config, sens_parametros=PARAMETROS_CP,
+        mapa_datos=mapa_datos, mapa_config=mapa_config)
     return pagina, (400 if errores else 200)
 
 

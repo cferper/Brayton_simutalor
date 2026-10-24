@@ -21,7 +21,7 @@ class IntegracionWebCPVariable(unittest.TestCase):
         for seccion in ('simulacion','resultados','optimizacion','sensibilidad',
                         'mapa','segunda_ley','informes','ayuda'):
             self.assertIn(f'href="#{seccion}"', texto)
-        self.assertEqual(texto.count('type="number"'), 10)  # siete físicas + tres OFAT
+        self.assertEqual(texto.count('type="number"'), 16)  # siete físicas + tres OFAT + seis de mapa
         self.assertEqual(texto.count('name="sens_cp_parametro"'), 1)
         self.assertNotIn('name="cp"', texto)
         self.assertNotIn('name="gamma"', texto)
@@ -76,7 +76,7 @@ class IntegracionWebCPVariable(unittest.TestCase):
 
     def test_operaciones_pendientes_no_se_ejecutan(self):
         with patch('web_app.preparar_resultados') as ejecutar:
-            for accion in ('mapa','segunda_ley','desconocida'):
+            for accion in ('segunda_ley','desconocida'):
                 with self.subTest(accion=accion):
                     respuesta = self.client.post('/',data={**BASE,'accion':accion})
                     self.assertEqual(respuesta.status_code,400)
@@ -85,7 +85,7 @@ class IntegracionWebCPVariable(unittest.TestCase):
         respuesta = self.client.get('/').get_data(as_text=True)
         for titulo in ('Sensibilidad','Mapa de diseño','Segunda ley'):
             self.assertIn(titulo,respuesta)
-        self.assertEqual(respuesta.count('Funcionalidad desactivada temporalmente'),2)
+        self.assertEqual(respuesta.count('Funcionalidad desactivada temporalmente'),1)
 
     def test_ruta_y_plantilla_antiguas_no_son_accesibles(self):
         self.assertEqual(self.client.get('/modelo-cp-variable').status_code,404)

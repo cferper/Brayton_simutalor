@@ -112,7 +112,8 @@ def json_seguro(datos):
 def renderizar_dashboard(valores, *, contenidos=None, metadata=None, informes=(), errores=None,
                          modo_local=True, informe_actual="", seccion_inicial="simulacion",
                          modo_cp=False, cp_datos=None, campos_cp=(),
-                         sens_datos=None, sens_config=None, sens_parametros=None):
+                         sens_datos=None, sens_config=None, sens_parametros=None,
+                         mapa_datos=None, mapa_config=None):
     """Una sola plantilla; modo cp(T) local o informes históricos autónomos."""
     css = (RAIZ / "static/style.css").read_text(encoding="utf-8")
     js = (RAIZ / "static/dashboard.js").read_text(encoding="utf-8")
@@ -137,7 +138,8 @@ def renderizar_dashboard(valores, *, contenidos=None, metadata=None, informes=()
         licencia_fuentes=(RAIZ / "static/fonts/OFL.txt").read_text(encoding="utf-8"),
         modo_cp=modo_cp, cp_datos=cp_datos or {}, campos_cp=campos_cp,
         sens_datos=sens_datos or {}, sens_config=sens_config or {},
-        sens_parametros=sens_parametros or {})
+        sens_parametros=sens_parametros or {}, mapa_datos=mapa_datos or {},
+        mapa_config=mapa_config or {})
 
 
 def tarjeta_kpi(clave, etiqueta, valor, unidad, explicacion, decimales=3):

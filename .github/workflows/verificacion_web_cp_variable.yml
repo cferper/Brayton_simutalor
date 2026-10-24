@@ -5,6 +5,7 @@ on:
       - validacion/fase-2d-web-cp
       - validacion/unificacion-cp-dashboard
       - validacion/fase-2e-cp
+      - validacion/fase-2f-cp
       - mejoras/cp-variable
 permissions:
   contents: read
@@ -22,3 +23,5 @@ jobs:
         run: python -m unittest discover -s tests -p 'test_cp_variable_web.py' -v && python -m unittest discover -s tests -p 'test_web_app.py' -v && python -m unittest discover -s tests -p 'test_dashboard.py' -v
       - name: Verificar sensibilidad OFAT cp(T) y su integración Flask
         run: python -m unittest discover -s tests -p 'test_sensibilidad_cp*.py' -v
+      - name: Verificar mapas de diseño cp(T) y la ruta Flask
+        run: python -m unittest discover -s tests -p 'test_mapa*cp*.py' -v
