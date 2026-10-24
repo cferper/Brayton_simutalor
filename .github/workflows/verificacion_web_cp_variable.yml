@@ -7,6 +7,7 @@ on:
       - validacion/fase-2e-cp
       - validacion/fase-2f-cp
       - validacion/fase-2g-cp
+      - validacion/revision-educativa-cp
       - mejoras/cp-variable
 permissions:
   contents: read
@@ -28,3 +29,5 @@ jobs:
         run: python -m unittest discover -s tests -p 'test_mapa*cp*.py' -v
       - name: Verificar Segunda Ley cp(T), balances y Flask
         run: python -m unittest discover -s tests -p 'test_segunda_ley_cp*.py' -v
+      - name: Verificar contenido educativo, galería SVG y accesibilidad del visor
+        run: python -m unittest discover -s tests -p 'test_revision_educativa_cp.py' -v

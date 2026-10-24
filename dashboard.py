@@ -10,6 +10,7 @@ import re
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 from sensibilidad import PARAMETROS_ESTUDIO
 from guias_educativas import construir_guias, construir_pestanas
+from educacion_cp_variable import AYUDAS_CP, AYUDAS_MAPA, construir_educacion_cp
 
 RAIZ = Path(__file__).resolve().parent
 SECCIONES = (("simulacion", "Simulación"), ("resultados", "Resultados"),
@@ -138,6 +139,9 @@ def renderizar_dashboard(valores, *, contenidos=None, metadata=None, informes=()
         catalogo=json_seguro(PARAMETROS_ESTUDIO), metadata=json_seguro(metadata or {}),
         licencia_fuentes=(RAIZ / "static/fonts/OFL.txt").read_text(encoding="utf-8"),
         modo_cp=modo_cp, cp_datos=cp_datos or {}, campos_cp=campos_cp,
+        educacion_cp=construir_educacion_cp() if modo_cp else {},
+        ayudas_cp=AYUDAS_CP if modo_cp else {},
+        ayudas_mapa=AYUDAS_MAPA if modo_cp else {},
         sens_datos=sens_datos or {}, sens_config=sens_config or {},
         sens_parametros=sens_parametros or {}, mapa_datos=mapa_datos or {},
         mapa_config=mapa_config or {}, segunda_datos=segunda_datos or {},

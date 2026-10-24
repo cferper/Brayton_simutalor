@@ -86,24 +86,48 @@
   const dialog = document.querySelector('.chart-dialog');
   let opener;
   function enlarge(figure, button) {
-    if (typeof dialog.showModal !== 'function') return;
+    if (!dialog || typeof dialog.showModal !== 'function') return;
+    const original = figure.querySelector('img, svg');
+    if (!original) return;
     opener = button;
     dialog.querySelector('h2').textContent = figure.querySelector('figcaption').textContent;
     const image = dialog.querySelector('img');
-    image.src = figure.querySelector('img').src;
-    image.alt = figure.querySelector('img').alt;
+    const vector = dialog.querySelector('.chart-vector');
+    vector.replaceChildren();
+    image.hidden = true;
+    vector.hidden = true;
+    if (original.tagName.toLowerCase() === 'svg') {
+      // Clonar el SVG, sin solicitar imágenes remotas ni alterar el gráfico calculado.
+      const copia = original.cloneNode(true);
+      copia.setAttribute('role', 'img');
+      copia.setAttribute('aria-label', figure.querySelector('figcaption').textContent);
+      vector.append(copia);
+      vector.hidden = false;
+    } else {
+      image.src = original.src;
+      image.alt = original.alt;
+      image.hidden = false;
+    }
     dialog.showModal();
   }
   document.querySelectorAll('[data-plot-viewer] figure').forEach(figure => {
+    const media = figure.querySelector('img, svg');
+    if (!media || !figure.querySelector('figcaption')) return;
     const button = document.createElement('button');
     button.type = 'button'; button.className = 'zoom-button'; button.textContent = 'Ampliar';
     button.setAttribute('aria-label', 'Ampliar: ' + figure.querySelector('figcaption').textContent);
     button.addEventListener('click', () => enlarge(figure, button));
     figure.append(button);
-    figure.querySelector('img').addEventListener('click', () => enlarge(figure, button));
+    media.addEventListener('click', () => enlarge(figure, button));
   });
-  dialog.querySelector('button').addEventListener('click', () => dialog.close());
-  dialog.addEventListener('close', () => { dialog.querySelector('img').removeAttribute('src'); opener?.focus(); });
+  dialog?.querySelector('button')?.addEventListener('click', () => dialog.close());
+  dialog?.addEventListener('close', () => {
+    dialog.querySelector('img').removeAttribute('src');
+    dialog.querySelector('img').hidden = true;
+    dialog.querySelector('.chart-vector').replaceChildren();
+    dialog.querySelector('.chart-vector').hidden = true;
+    opener?.focus();
+  });
   let printDetails = [];
   window.addEventListener('beforeprint', () => { printDetails = [...document.querySelectorAll('details:not([open])')]; printDetails.forEach(d => { d.open = true; }); });
   window.addEventListener('afterprint', () => printDetails.forEach(d => { d.open = false; }));
