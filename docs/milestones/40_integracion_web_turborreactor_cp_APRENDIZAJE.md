@@ -1,6 +1,6 @@
 # Milestone 40 — Aprendizaje: la primera web del turborreactor
 
-**Fase iniciada y documentada el 25/10/2026.** Base remota `mejoras/cp-variable` en `c0bce440882e31f10c1ad7dd95bfbc81825e142e`. Los modelos 34–39 ya existían. Este milestone presenta sus cálculos sin modificarlos. El commit propio está pendiente hasta publicar el cambio.
+**Fase iniciada y documentada el 25/10/2026.** Base remota original `mejoras/cp-variable` en `c0bce440882e31f10c1ad7dd95bfbc81825e142e`, primera publicación M40 `96f75e683d888e76815d3c82ae97b2b8824dc9e0`. Los modelos 34–39 ya existían. Este milestone presenta sus cálculos sin modificarlos. La revisión posterior se realiza sobre dicho commit inicial de la interfaz.
 
 ## 1. Qué existía y qué problema resuelve la interfaz
 
@@ -73,3 +73,38 @@ Bruto/neto en N/(kg/s), TSFC en kg/(N·h). En los tres casos la tobera está blo
 Ejecutar `python -m unittest discover -s tests -p 'test_turborreactor_web_40.py' -q` y `python -m unittest discover -s tests -q` tras instalar `requirements.txt`. Las pruebas verifican ruta, unidades, modos incompatibles, escape HTML, estados estáticos/totales, resultados indefinidos, compatibilidad del dashboard y ausencia de cálculos GET. Los resultados finales constan en la entrega. No se instala dependencia nueva.
 
 Se conservan los límites de M37: no hay geometría, caudal másico absoluto, combustión química, composición real de productos, mapas off-design ni entrada supersónica. Los SVG sólo representan tendencias de los estados calculados y no son diagramas de geometría real ni validación experimental. El ordenador Windows, `main` y el repositorio histórico permanecen fuera del alcance.
+
+## 9. Iteración de revisión visual y educativa — 25/10/2026
+
+**Motivo.** Tras sincronizar el primer milestone 40 en Windows se comprobó que las cinco secciones se encontraban apiladas. La rueda permitía recorrerlas sin utilizar el menú, mientras éste mantenía «Configuración» como selección estática. También se observaron SVG con texto demasiado pequeño en ventanas estrechas, explicaciones contextuales cortas, omisión de unidades en el desglose de empuje y mensajes genéricos para `rp=0`.
+
+**Navegación actual.** La función local de JavaScript `elegir(id, moverFoco=false)` recibe un identificador de sección `str` y un booleano que indica si el cambio lo ha solicitado el usuario. No devuelve un valor: cambia el DOM. Si el `id` no está entre los cinco permitidos, selecciona Configuración. Su fragmento central es:
+
+```javascript
+paneles.forEach(p=>{p.hidden=p.id!==id;});
+enlaces.forEach(a=>{
+  if(a.getAttribute('href')==='#'+id)a.setAttribute('aria-current','page');
+  else a.removeAttribute('aria-current');
+});
+```
+
+La propiedad `hidden` retira los otros paneles del flujo visual y de la navegación por teclado; CSS refuerza su ocultación (`display:none!important`). Un `aria-current="page"` identifica para lectores de pantalla y visualmente la única selección activa. `querySelectorAll` devuelve listas de elementos; `forEach` aplica la operación a cada uno. La función `porUrl()` no recibe argumentos y devuelve la parte `str` después de `#` en `location.hash`. `sincronizarHistoria()` tampoco recibe argumentos ni retorna datos; lee el fragmento y llama a `elegir(..., true)`, y está conectada a `popstate` y `hashchange`. El manejador local de clic `(evento)=>{...}` recibe el evento del enlace, hace `preventDefault()`, registra `history.pushState` y selecciona el panel sin saltar a un elemento oculto. `focus({preventScroll:true})` coloca el foco en el encabezado, evitando un segundo salto vertical del navegador. Sólo se llama a `window.scrollTo({top:0,behavior:'auto'})` durante una navegación voluntaria, para empezar el panel por arriba.
+
+**Cómo se elige la vista inicial.** El servidor sigue teniendo una sola ruta `turborreactor()` (contrato sin cambios). En la respuesta Jinja escribe `data-initial-panel="resultados"` si hubo POST exitoso, o `"configuracion"` en GET/error. Al cargar, el script prefiere un fragmento `#id` válido, o utiliza esta señal inicial. No hay almacenamiento persistente, sesiones ni peticiones AJAX. Al navegar dentro del HTML calculado se mantienen todos los números y las cadenas introducidas porque los otros paneles sólo están ocultos. Si JavaScript está deshabilitado **el formulario sigue funcionando y las cinco secciones quedan apiladas** como respaldo; en ese caso no existe navegación exclusiva, limitación intencionada de mejora progresiva.
+
+**Legibilidad y teclado.** Antes, un SVG se reducía por completo al ancho de la tarjeta. Ahora la caja `.turbo-svg` admite `overflow-x:auto`, se puede enfocar (`tabindex="0"`, `role="region"`, `aria-label`) y el SVG conserva `min-width:660px`; en móvil se desplaza **sólo el gráfico**. La navegación entre paneles usa enlaces `<a href="#...">` activables con Enter, funciona en pantallas estrechas y actualiza su resalte. No se han cambiado las funciones físicas ni los puntos de los gráficos.
+
+**Educación aplicada.** Los grupos de Configuración incorporan `<details><summary>...</summary>...</details>`: las descripciones de ambiente/Mach, compresor/cámara, eje/turbina/tobera y combustible aparecen bajo demanda sin alargar el formulario. Resultados explica `Fs=Fbruto/ṁaire−V∞` en N/(kg/s de aire), `TSFC=3600*f/Fs` sólo con Fs positivo, el significado de f, y por qué falta gasto másico para fuerza absoluta. Estaciones guía las seis transformaciones distinguiendo estados estáticos y totales. Visualizaciones explica qué representan las curvas de pₜ/Tₜ y el eje compresor-turbina. Fundamentos diferencia propiedades ideales y pérdidas no ideales prescritas, aire equivalente y gases reales, estudio de parámetros y un motor real fuera de diseño, y verificación numérica frente a validación experimental.
+
+**Validación del formulario en Python.** Cambia el cuerpo de `leer_turborreactor(valores)`, pero no su firma ni retorno: tras convertir todos los campos finitos y **antes** de llamar a `resolver_turborreactor_con_combustible`, ahora ejecuta:
+
+```python
+if datos["rp"] <= 1:
+    raise ValueError("La relación de compresión rp debe ser mayor que 1.")
+```
+
+Esta excepción es capturada por la ruta y aparece en Configuración, con estado HTTP 400 y las entradas originales intactas. El motor M37 conserva su propia validación científica. Ejemplo: un POST con `rp="0"` muestra ese mensaje y no llama al solucionador.
+
+**Ejemplos y unidades.** Los presets conservan `pi_d=1` (difusor sin pérdida total idealizada); algunas referencias numéricas anteriores fijaban `pi_d=.97` en Mach .7 o `.98` a 10 km/Mach .5. No son contradicciones: se están comparando **configuraciones diferentes**. El desglose de cantidad de movimiento, sobrepresión y resistencia de entrada ahora indica explícitamente `N/(kg/s de aire)` en los tres sumandos.
+
+**Pruebas.** `tests/test_turborreactor_web_40.py` amplía los casos GET/POST con pruebas de estructura de cinco secciones, selección inicial en HTML, señales de JS para historial y ocultación, accesibilidad de los SVG, `rp<=1`, contenido físico y conservación del POST sin JS. Se verificaron **27 pruebas específicas** y una suite de **532 pruebas descubiertas: 523 correctas, 9 omitidas opcionales y 0 fallidas**. Las pruebas estáticas de JS **no prueban que el navegador lo dibuje correctamente**; la inspección interactiva posterior en Windows sigue siendo recomendable. No se trata de validación experimental.

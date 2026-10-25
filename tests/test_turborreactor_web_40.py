@@ -1,12 +1,38 @@
 """Milestone 40: contratos HTTP, formulario y fidelidad del presentador web."""
 
 import unittest
+from html.parser import HTMLParser
+from pathlib import Path
 from unittest.mock import patch
 
 from web_app import app
 from turborreactor_web import (DEFAULTS_TURBO, EJEMPLOS_TURBO,
                               leer_turborreactor, simular_turborreactor,
                               estaciones_turborreactor, preparar_vista_turborreactor)
+
+
+RAIZ = Path(__file__).resolve().parents[1]
+
+
+class InspectorPaneles(HTMLParser):
+    """Lee estructura real HTML; no ejecuta ni simula el navegador."""
+    def __init__(self):
+        super().__init__()
+        self.paneles = []
+        self.navegacion = []
+        self.region_svg = []
+        self.inicial = None
+
+    def handle_starttag(self, tag, attrs):
+        a = dict(attrs)
+        if tag == 'body':
+            self.inicial = a.get('data-initial-panel')
+        if tag == 'section' and 'turbo-section' in a.get('class', '').split():
+            self.paneles.append(a)
+        if tag == 'a' and a.get('href', '').startswith('#') and a.get('href') != '#contenido':
+            self.navegacion.append(a)
+        if tag == 'div' and 'turbo-svg' in a.get('class', '').split():
+            self.region_svg.append(a)
 
 
 class TurborreactorWeb40(unittest.TestCase):
@@ -139,6 +165,98 @@ class TurborreactorWeb40(unittest.TestCase):
             self.cliente.get('/turborreactor')
             self.cliente.get('/')
         solver.assert_not_called()
+
+    def test_cinco_pantallas_y_enlaces_univocos(self):
+        html=self.cliente.get('/turborreactor').get_data(as_text=True)
+        inspector=InspectorPaneles(); inspector.feed(html)
+        ids=['configuracion','resultados','estaciones','graficas','fundamentos']
+        self.assertEqual([p['id'] for p in inspector.paneles],ids)
+        self.assertTrue(all(p.get('tabindex')=='-1' for p in inspector.paneles))
+        self.assertEqual([a['href'] for a in inspector.navegacion],['#'+i for i in ids])
+        self.assertEqual([a.get('aria-current') for a in inspector.navegacion].count('page'),1)
+
+    def test_seleccion_inicial_resultados_y_errores(self):
+        for respuesta,esperado in ((self.cliente.get('/turborreactor'),'configuracion'),
+                                    (self._post(),'resultados'),
+                                    (self._post(rp='0'),'configuracion')):
+            with self.subTest(esperado=esperado):
+                inspector=InspectorPaneles(); inspector.feed(respuesta.get_data(as_text=True))
+                self.assertEqual(inspector.inicial,esperado)
+
+    def test_navegacion_js_no_depende_de_scroll_y_es_historizable(self):
+        js=(RAIZ/'static/turborreactor.js').read_text(encoding='utf-8')
+        css=(RAIZ/'static/turborreactor.css').read_text(encoding='utf-8')
+        for fragmento in ('paneles.forEach','p.hidden=p.id!==id','aria-current',
+                          'history.pushState','popstate','hashchange',
+                          'preventDefault','document.body.dataset.initialPanel'):
+            self.assertIn(fragmento,js)
+        self.assertIn('.turbo-section[hidden]{display:none!important}',css)
+        self.assertIn('.turbo-page.turbo-nav-ready',css)
+        self.assertNotIn('wheel',js)
+
+    def test_conservar_estado_al_cambiar_de_panel(self):
+        js=(RAIZ/'static/turborreactor.js').read_text(encoding='utf-8')
+        # La selección actúa sobre las secciones del DOM existente: no hay
+        # recarga, petición HTTP adicional ni reseteo del formulario.
+        self.assertIn('paneles.forEach(p=>{p.hidden=p.id!==id;});',js)
+        self.assertIn('elegir(ids.has(id)?id:document.body.dataset.initialPanel,true)',js)
+        self.assertIn('if(location.hash',js)
+        self.assertNotIn('sessionStorage',js)
+        self.assertNotIn('fetch(',js)
+        self.assertIn('value="1600"',self._post().get_data(as_text=True))
+
+    def test_desglose_del_empuje_con_unidades(self):
+        pagina=self._post().get_data(as_text=True)
+        inspector=InspectorPaneles(); inspector.feed(pagina)
+        for nombre in ('Momento de salida','Presión</dt>','Resistencia de entrada'):
+            self.assertIn(nombre,pagina)
+        self.assertGreaterEqual(pagina.count('N/(kg/s de aire)'),3)
+        self.assertIn('Momento de salida + presión',pagina)
+
+    def test_ejemplos_y_recuperacion_ideal_presion(self):
+        pagina=self.cliente.get('/turborreactor').get_data(as_text=True)
+        for texto in ('πd = 1','πd = 0,97','πd = 0,98','recuperación ideal'):
+            self.assertIn(texto,pagina)
+
+    def test_validacion_previa_especifica_rp(self):
+        for rp in ('0','1','-1'):
+            with self.subTest(rp=rp):
+                r=self._post(rp=rp)
+                self.assertEqual(r.status_code,400)
+                html=r.get_data(as_text=True)
+                self.assertIn('La relación de compresión rp debe ser mayor que 1.',html)
+                self.assertIn(f'value="{rp}"',html)
+        with patch('turborreactor_web.resolver_turborreactor_con_combustible') as solucionador:
+            self._post(rp='0')
+        solucionador.assert_not_called()
+
+    def test_svg_legible_desplazable_y_foco(self):
+        pagina=self._post().get_data(as_text=True)
+        inspector=InspectorPaneles(); inspector.feed(pagina)
+        self.assertEqual(len(inspector.region_svg),3)
+        self.assertTrue(all(r.get('tabindex')=='0' and r.get('role')=='region'
+                            and 'aria-label' in r for r in inspector.region_svg))
+        css=(RAIZ/'static/turborreactor.css').read_text(encoding='utf-8')
+        self.assertIn('min-width:660px',css)
+        self.assertIn('overflow-x:auto',css)
+        self.assertIn('.turbo-svg:focus-visible',css)
+
+    def test_educacion_en_los_cinco_apartados(self):
+        pagina=self._post().get_data(as_text=True)
+        for texto in ('Qué cambia con el ambiente','Cómo afecta la compresión',
+                      'Pérdidas de potencia','combustible equivalente',
+                      'Cómo leer las prestaciones','Qué es una estación termodinámica',
+                      'Recorrido físico del aire','De una tabla de estados',
+                      'Cómo está construido el modelo físico',
+                      'verificación','validación'):
+            self.assertIn(texto,pagina)
+
+    def test_respaldo_sin_js_con_formulario_post(self):
+        pagina=self.cliente.get('/turborreactor').get_data(as_text=True)
+        self.assertIn('method="post"',pagina)
+        self.assertNotIn('hidden="hidden"',pagina)
+        self.assertIn('data-initial-panel="configuracion"',pagina)
+        self.assertEqual(self._post().status_code,200)
 
 
 if __name__=='__main__':

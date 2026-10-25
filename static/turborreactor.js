@@ -1,5 +1,42 @@
 /* Mejora progresiva: sin JS el formulario HTML sigue pudiendo enviarse. */
 document.addEventListener('DOMContentLoaded',()=>{
+  /* Navegación exclusiva en clientes JS: sin JS, los cinco apartados siguen
+     visibles en vertical como respaldo accesible y el POST sigue operativo. */
+  const paneles=[...document.querySelectorAll('.turbo-section[id]')];
+  const enlaces=[...document.querySelectorAll('.section-nav a[href^="#"]')];
+  const ids=new Set(paneles.map(p=>p.id));
+  const porUrl=()=>location.hash.slice(1);
+  const elegir=(id, moverFoco=false)=>{
+    if(!ids.has(id))id='configuracion';
+    paneles.forEach(p=>{p.hidden=p.id!==id;});
+    enlaces.forEach(a=>{
+      if(a.getAttribute('href')==='#'+id)a.setAttribute('aria-current','page');
+      else a.removeAttribute('aria-current');
+    });
+    document.body.dataset.activePanel=id;
+    if(moverFoco){
+      window.scrollTo({top:0,behavior:'auto'});
+      const titulo=document.querySelector('#'+id+' h2');
+      titulo?.setAttribute('tabindex','-1');
+      titulo?.focus({preventScroll:true});
+    }
+  };
+  const solicitado=porUrl();
+  elegir(ids.has(solicitado)?solicitado:document.body.dataset.initialPanel);
+  document.body.classList.add('turbo-nav-ready');
+  enlaces.forEach(a=>a.addEventListener('click',evento=>{
+    const id=a.getAttribute('href').slice(1);
+    if(!ids.has(id))return;
+    evento.preventDefault();
+    if(location.hash!=='#'+id)history.pushState(null,'','#'+id);
+    elegir(id,true);
+  }));
+  const sincronizarHistoria=()=>{
+    const id=porUrl();
+    elegir(ids.has(id)?id:document.body.dataset.initialPanel,true);
+  };
+  window.addEventListener('popstate',sincronizarHistoria);
+  window.addEventListener('hashchange',sincronizarHistoria);
   const form=document.getElementById('turbo-form');
   if(!form)return;
   const modos=[...form.querySelectorAll('input[name="modo_ambiente"]')];

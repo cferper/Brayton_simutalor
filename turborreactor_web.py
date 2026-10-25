@@ -86,6 +86,8 @@ def leer_turborreactor(valores):
         if not isfinite(valor):
             raise ValueError(f"El campo {nombre} debe ser finito.")
         datos[nombre] = valor
+    if datos["rp"] <= 1:
+        raise ValueError("La relación de compresión rp debe ser mayor que 1.")
     porcentaje = datos.pop("delta_pct")
     if not 0 <= porcentaje < 100:
         raise ValueError("La pérdida de presión debe estar entre 0 % y menos de 100 %.")

@@ -2,6 +2,11 @@
 .turbo-page .turbo-intro{background:linear-gradient(100deg,#fff,#e7f2fa);min-height:150px}
 .turbo-hero-mark{font-size:72px;color:#174a70;opacity:.65;padding:0 35px}
 .turbo-section{padding-bottom:34px;margin-bottom:30px;border-bottom:1px solid var(--border);scroll-margin-top:24px}
+.turbo-page.turbo-nav-ready .turbo-section[hidden]{display:none!important}
+.turbo-edu-details{margin:16px 0 0;border-top:1px solid var(--border);padding-top:12px}
+.turbo-edu-details summary{font-weight:600;color:var(--primary);cursor:pointer;line-height:1.6}
+.turbo-edu-details p{margin:11px 0 0;max-width:84ch;color:#41566b;font-size:13px;line-height:1.7}
+.turbo-explain{line-height:1.75;color:#41566b}.turbo-explain p{max-width:110ch}.turbo-explain li{margin:9px 0;max-width:110ch}
 .turbo-disclaimer{background:#eaf3fb;border-left:4px solid #2563a6;border-radius:5px;padding:13px 17px;margin:0 0 30px;line-height:1.65;color:#35546e}
 .turbo-guide{max-width:1100px}.turbo-guide ol{padding-left:22px;color:#41566b}.turbo-guide li{margin:8px 0}.turbo-guide p{margin-bottom:0;color:#41566b}
 .turbo-examples{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:20px 0}
@@ -24,7 +29,10 @@
 .turbo-table-wrap{overflow-x:auto}.turbo-table-wrap table{width:100%;border-collapse:collapse}.turbo-table-wrap th,.turbo-table-wrap td{text-align:left;padding:11px;border-bottom:1px solid var(--border);white-space:nowrap}
 .turbo-table-wrap th{font-size:12px;background:#eef4f9}.turbo-state-tag{background:#edf2f7;border-radius:4px;padding:4px 7px;font:11px 'IBM Plex Mono',monospace}
 .turbo-chart{margin:0 0 18px}.turbo-chart figcaption h3{margin-bottom:15px}.turbo-chart p{font-size:12px;color:#52677e;line-height:1.65;margin:10px 0 0}
-.turbo-svg svg{width:100%;height:auto;display:block;max-height:300px}.turbo-learning{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}
+.turbo-chart{overflow:hidden}.turbo-svg{overflow-x:auto;overflow-y:hidden;max-width:100%;overscroll-behavior-x:contain;scrollbar-width:thin}
+.turbo-svg:focus-visible{outline:3px solid #2563a6;outline-offset:-3px}
+.turbo-svg svg{display:block;width:100%;min-width:660px;height:auto;max-height:300px}
+.turbo-learning{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}
 .turbo-learning .edu-deep-block{margin:0;padding:24px}.turbo-learning .edu-deep-block p{line-height:1.8}
 @media(max-width:1100px){.turbo-fieldsets,.turbo-learning{grid-template-columns:1fr}.turbo-field-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:760px){.turbo-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.turbo-two-col{grid-template-columns:1fr}.turbo-hero-mark{display:none}.turbo-field-grid{grid-template-columns:1fr}.turbo-mode-options{flex-direction:column;gap:10px}.turbo-actions{flex-wrap:wrap}.turbo-learning .edu-deep-block{padding:17px}}
