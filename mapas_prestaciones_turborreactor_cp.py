@@ -84,7 +84,8 @@ def _punto(entradas, indices, config):
     base = {"indices": indices, "entradas": dict(entradas), "estado": None,
             "motivo": None, "Fs": None, "TSFC_kg_N_h": None, "f": None,
             "trabajo_compresor": None, "T4": None, "p4": None,
-            "regimen_tobera": None, "resultado": None}
+            "regimen_tobera": None, "resultado": None,
+            "cumple_restricciones": False}
     motivo = _incumplimiento(entradas, config)
     if motivo is not None:
         base.update(estado="inadmisible", motivo=motivo)
@@ -109,14 +110,20 @@ def _punto(entradas, indices, config):
     base["p4"] = r["turbina"]["p4"]
     if r["tobera"] is None:
         base.update(estado="sin_expansion", motivo="p4 <= presion_exterior")
+        # Sin tobera no se puede acreditar empuje positivo: ambas
+        # condiciones deben estar relajadas para cumplir el filtro.
+        base["cumple_restricciones"] = (not config["exigir_margen_tobera"]
+                                         and not config["exigir_empuje_positivo"])
         return base
     base["regimen_tobera"] = r["tobera"]["regimen"]
     base["Fs"] = r["prestaciones"]["empuje_especifico_neto"]
     base["TSFC_kg_N_h"] = r["prestaciones"]["TSFC_kg_N_h"]
     if base["Fs"] <= 0:
         base.update(estado="empuje_no_positivo", motivo="Fs <= 0")
+        base["cumple_restricciones"] = not config["exigir_empuje_positivo"]
     else:
         base.update(estado="valido", motivo="empuje_neto_positivo")
+        base["cumple_restricciones"] = True
     return base
 
 
@@ -153,6 +160,7 @@ def _resumen(puntos, nx, ny, comparar):
                                       (ny > 1 and iy in (0, ny-1)))}
     return {"total": len(puntos), "validos": len(validos),
             "descartados": len(puntos)-len(validos),
+            "cumplen_restricciones": sum(p["cumple_restricciones"] for p in puntos),
             "por_estado": {e:cont[e] for e in ESTADOS}, "por_motivo": motivos,
             "maximo_Fs": extremo("Fs", max),
             "minimo_TSFC": extremo("TSFC_kg_N_h", min),
