@@ -14,6 +14,7 @@ on:
       - validacion/visual-sensibilidad-cp
       - validacion/visual-mapa-cp
       - validacion/visual-segunda-ley-cp
+      - validacion/acoplamiento-turbomaquinaria-cp-34
       - mejoras/cp-variable
 permissions:
   contents: read
@@ -45,5 +46,7 @@ jobs:
         run: python -m unittest discover -s tests -p 'test_graficas_mapa_32.py' -v
       - name: Verificar gráficos de entropía y exergía (milestone 33)
         run: python -m unittest discover -s tests -p 'test_graficas_segunda_ley_33.py' -v
+      - name: Verificar acoplamiento de turbomáquinas (milestone 34)
+        run: python -m unittest discover -s tests -p 'test_acoplamiento_turbomaquinaria_34.py' -v
       - name: Verificar suite completa vigente y compatibilidad científica histórica
         run: python -m unittest discover -s tests -q
