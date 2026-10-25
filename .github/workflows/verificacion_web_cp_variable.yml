@@ -18,6 +18,7 @@ on:
       - validacion/tobera-cp-variable-35
       - validacion/condiciones-vuelo-cp-36
       - validacion/combustible-tsfc-cp-37
+      - validacion/mapas-prestaciones-cp-38
       - mejoras/cp-variable
 permissions:
   contents: read
@@ -57,5 +58,7 @@ jobs:
         run: python -m unittest discover -s tests -p 'test_vuelo_cp_variable_36.py' -v
       - name: Verificar combustible, nuevo eje y TSFC (milestone 37)
         run: python -m unittest discover -s tests -p 'test_combustible_cp_variable_37.py' -v
+      - name: Verificar barridos termodinámicos y frente de Pareto (milestone 38)
+        run: python -m unittest discover -s tests -p 'test_mapas_prestaciones_turborreactor_38.py' -v
       - name: Verificar suite completa vigente y compatibilidad científica histórica
         run: python -m unittest discover -s tests -q
