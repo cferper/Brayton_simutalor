@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="es">
+<head>
+ <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+ <title>Turborreactor · Brayton Simulator</title>
+ <link rel="stylesheet" href="{{ url_for('static',filename='style.css') }}">
+ <link rel="stylesheet" href="{{ url_for('static',filename='turborreactor.css') }}">
+ <script src="{{ url_for('static',filename='turborreactor.js') }}" defer></script>
+</head>
+<body class="turbo-page">
+<a class="skip-link" href="#contenido">Ir al contenido</a>
+<aside class="sidebar">
+ <a class="brand" href="/"><span class="brand-mark">B</span><span>Brayton<small>Engineering simulator</small></span></a>
+ <p class="side-label">Área de propulsión</p>
+ <nav class="section-nav" aria-label="Navegación del turborreactor">
+  <a href="#configuracion" aria-current="page"><span>01</span>Configuración</a>
+  <a href="#resultados"><span>02</span>Resultados</a>
+  <a href="#estaciones"><span>03</span>Estaciones</a>
+  <a href="#graficas"><span>04</span>Visualizaciones</a>
+  <a href="#fundamentos"><span>05</span>Fundamentos</a>
+  <a href="/"><span>↩</span>Volver a Brayton</a>
+ </nav>
+ <div class="side-footer"><strong>Turborreactor cp(T)</strong>Modelo educativo de aire equivalente, flujo subsónico y combustible simplificado</div>
+</aside>
+<div class="workspace"><div class="topbar"><span><strong>Laboratorio de ciclos</strong> / Propulsión / Turborreactor</span><a href="/">← Ciclo Brayton</a></div>
+<main class="main-content" id="contenido">
+ <header class="technical-header turbo-intro"><div class="intro"><p class="eyebrow">Modelo de propulsión · fase inicial</p><h1>Turborreactor</h1><p>Del ambiente al empuje neto: difusor, compresor, cámara, turbina y tobera convergente.</p></div><span class="turbo-hero-mark" aria-hidden="true">✈</span></header>
+ <div class="turbo-disclaimer">Modelo científico educativo con propiedades variables del aire. El combustible se representa mediante un aporte energético, no mediante química detallada. No predice las prestaciones de un motor certificado.</div>
+ <section id="configuracion" class="turbo-section"><div class="page-heading"><div><p class="eyebrow">01 · Preparación</p><h2>Uso y configuración</h2><p>Selecciona el ambiente, ajusta los componentes y ejecuta el cálculo.</p></div><span class="badge">14 parámetros configurables</span></div>
+  <div class="card turbo-guide"><h3>Cómo utilizar esta simulación</h3><ol><li>Escoge ambiente directo (temperatura y presión estáticas) o atmósfera estándar ISA (altitud geopotencial).</li><li>Introduce Mach y los parámetros del núcleo, difusor, tobera y combustible.</li><li>Ejecuta el cálculo para obtener empuje específico, consumo y estaciones termodinámicas.</li><li>Contrasta los diagnósticos: tobera bloqueada significa salida sónica, no necesariamente mayor empuje neto.</li></ol><p>El <strong>empuje específico</strong> es fuerza por unidad de caudal másico de aire [N/(kg/s)], equivalente dimensionalmente a m/s. El <strong>TSFC</strong> es combustible consumido por empuje y hora [kg/(N·h)]. Sin caudal absoluto no se obtiene fuerza en newtons.</p></div>
+  <div class="turbo-examples" aria-label="Casos predeterminados"><span>Ejemplos:</span><button type="button" data-ejemplo="estatico">Motor estático</button><button type="button" data-ejemplo="vuelo">Mach 0,7</button><button type="button" data-ejemplo="isa">10 km · Mach 0,5</button><small>Los ejemplos sólo cargan el formulario; pulsa «Simular» para calcular.</small></div>
+  {% if error %}<div class="error-summary" role="alert"><h3>Simulación no disponible</h3><p>{{ error }}</p><p>Se han conservado los valores introducidos. Revísalos y vuelve a ejecutar.</p></div>{% endif %}
+  <form id="turbo-form" method="post" action="/turborreactor" novalidate>
+   <div class="card turbo-modes"><h3>Origen del ambiente</h3><div class="turbo-mode-options"><label><input type="radio" name="modo_ambiente" value="directo" {% if valores.modo_ambiente=='directo' %}checked{% endif %}> Temperatura y presión directas</label><label><input type="radio" name="modo_ambiente" value="ISA" {% if valores.modo_ambiente=='ISA' %}checked{% endif %}> Atmósfera ISA (0–20 km)</label></div><p class="note">Los campos del modo no utilizado deben quedar vacíos. ISA es una atmósfera de referencia, no meteorología real.</p></div>
+   <div class="turbo-fieldsets">
+   {% for titulo,campos in grupos %}
+   <fieldset class="turbo-fields"><legend>{{ titulo }}</legend><div class="turbo-field-grid">
+    {% for nombre,etiqueta,unidad,ayuda in campos %}
+    <div class="field" {% if nombre in ('T_amb','p_amb') %}data-ambiente="directo"{% elif nombre == 'altitud_geopotencial' %}data-ambiente="ISA"{% endif %}>
+     <label for="{{ nombre }}">{{ etiqueta }} <span class="unit">[{{ unidad }}]</span></label>
+     <input id="{{ nombre }}" name="{{ nombre }}" type="text" inputmode="decimal" autocomplete="off" value="{{ valores[nombre] }}" aria-describedby="ayuda-{{ nombre }}">
+     <small id="ayuda-{{ nombre }}">{{ ayuda }}</small>
+    </div>
+    {% endfor %}
+   </div></fieldset>
+   {% endfor %}
+   </div>
+   <div class="turbo-actions"><button type="submit">Simular turborreactor →</button><a class="text-link" href="/turborreactor">Restablecer valores</a></div>
+  </form>
+ </section>
+ <section id="resultados" class="turbo-section"><div class="page-heading"><div><p class="eyebrow">02 · Prestaciones</p><h2>Resultados y diagnósticos</h2></div><span class="badge">{{ 'Caso calculado' if resultado else 'Pendiente de cálculo' }}</span></div>
+ {% if resultado %}
+ {% set r=resultado %}{% set p=r.prestaciones %}{% set n=r.tobera %}{% set di=r.diagnosticos %}
+ <div class="turbo-kpis">
+ {% for titulo,valor,unidad in [('Empuje específico bruto',p.empuje_especifico_bruto,'N/(kg/s)'),('Empuje específico neto',p.empuje_especifico_neto,'N/(kg/s)'),('TSFC',p.TSFC_kg_N_h,'kg/(N·h)'),('Combustible / aire',r.combustor.f,'kg/kg'),('Velocidad de vuelo',r.remanso.velocidad_vuelo,'m/s'),('Velocidad de escape',n.velocidad_salida if n else none,'m/s')] %}
+ <article class="kpi"><p class="card-label">{{ titulo }}</p><strong class="turbo-metric">{{ '—' if valor is none else '%.5g'|format(valor) }}</strong><small>{{ unidad if valor is not none else 'Indefinido físicamente' }}</small></article>
+ {% endfor %}
+ </div>
+ <div class="turbo-two-col"><article class="card"><h3>Funcionamiento de la tobera</h3><dl class="turbo-dl"><dt>Régimen</dt><dd>{{ n.regimen if n else 'Sin expansión disponible' }}</dd><dt>Mach de escape</dt><dd>{{ '%.4f'|format(n.mach_salida) if n else '—' }}</dd><dt>Presión estática de escape</dt><dd>{{ '%.3f kPa'|format(n.presion_salida) if n else '—' }}</dd><dt>Temperatura estática de escape</dt><dd>{{ '%.2f K'|format(n.temperatura_salida) if n else '—' }}</dd><dt>Presión total disponible tras turbina</dt><dd>{{ '%.3f kPa'|format(r.turbina.p4) }}</dd></dl></article>
+ <article class="card"><h3>Diagnóstico físico</h3><p><strong>Margen de expansión:</strong> {{ di.margen_tobera|replace('_',' ') }} · pₜ,4 / p∞ = {{ '%.4f'|format(di.relacion_p4_p_amb) }}.</p><p><strong>Empuje neto:</strong> {{ di.funcionamiento|replace('_',' ') }}.</p>{% if not n %}<p class="turbo-warning">La presión total de la turbina no permite expansión frente al exterior. No se asignan velocidad, empuje ni TSFC ficticios.</p>{% elif p.empuje_especifico_neto <= 0 %}<p class="turbo-warning">El empuje neto no es positivo. El TSFC no está definido para este punto.</p>{% else %}<p>Empuje de salida y presión menos resistencia del flujo entrante. La tobera convergente puede bloquearse a Mach 1.</p>{% endif %}<dl class="turbo-dl"><dt>Momento de salida</dt><dd>{{ '%.3f'|format(p.empuje_especifico_salida) if n else '—' }}</dd><dt>Presión</dt><dd>{{ '%.3f'|format(p.empuje_especifico_presion) if n else '—' }}</dd><dt>Resistencia de entrada</dt><dd>−{{ '%.3f'|format(p.resistencia_entrada) }} N/(kg/s)</dd></dl></article></div>
+ {% else %}<div class="card empty-state">Selecciona un ejemplo o configura el motor y pulsa «Simular turborreactor».</div>{% endif %}
+ </section>
+ <section id="estaciones" class="turbo-section"><div class="page-heading"><div><p class="eyebrow">03 · Flujo</p><h2>Estaciones del motor</h2><p>Las propiedades de remanso del núcleo no son las propiedades estáticas de la tobera.</p></div></div>
+ {% if vista %}<div class="card turbo-table-wrap"><table><thead><tr><th>Estación</th><th>Tipo</th><th>T [K]</th><th>p [kPa]</th><th>h [kJ/kg]</th></tr></thead><tbody>{% for e in vista.estaciones %}<tr><td>{{ e.nombre }}</td><td><span class="turbo-state-tag">{{ e.tipo }}</span></td><td>{{ '%.2f'|format(e.T) if e.T is not none else '—' }}</td><td>{{ '%.3f'|format(e.p) if e.p is not none else '—' }}</td><td>{{ '%.3f'|format(e.h) if e.h is not none else '—' }}</td></tr>{% endfor %}</tbody></table></div>
+ <p class="note">La entalpía está referida al aire a 298,15 K. El ambiente y la salida de tobera son estáticos; el difusor y el núcleo se representan mediante condiciones de remanso.</p>
+ {% else %}<div class="card empty-state">Las estaciones aparecerán tras un cálculo válido.</div>{% endif %}
+ </section>
+ <section id="graficas" class="turbo-section"><div class="page-heading"><div><p class="eyebrow">04 · Representación</p><h2>Visualizaciones y transformaciones</h2></div></div>
+ <figure class="card turbo-chart"><figcaption><h3>Esquema de componentes y eje</h3></figcaption><div class="turbo-svg">{{ vista.svg_componentes|safe if vista else '' }}</div><p>El compresor recibe potencia de la turbina a través del eje; la cámara aporta energía mediante combustible equivalente. No es una representación geométrica a escala.</p></figure>
+ {% if vista %}<div class="turbo-two-col"><figure class="card turbo-chart"><figcaption><h3>Temperaturas totales del núcleo</h3></figcaption><div class="turbo-svg">{{ vista.svg_temperaturas|safe }}</div><p>1: difusor; 2: compresor; 3: cámara; 4: turbina. Todas son temperaturas de remanso (K). Los extremos estáticos se excluyen deliberadamente.</p></figure><figure class="card turbo-chart"><figcaption><h3>Presiones totales del núcleo</h3></figcaption><div class="turbo-svg">{{ vista.svg_presiones|safe }}</div><p>La compresión eleva pₜ; difusor, cámara y turbina pueden reducirla. El gráfico no mezcla presión estática de escape con presión total del núcleo.</p></figure></div>{% else %}<div class="card empty-state">Los SVG numéricos se generarán únicamente cuando existan estados calculados.</div>{% endif %}
+ </section>
+ <section id="fundamentos" class="turbo-section"><div class="page-heading"><div><p class="eyebrow">05 · Teoría de Propulsión</p><h2>Fundamentos y procedimiento</h2><p>Ecuaciones, hipótesis e interpretación de resultados para Ingeniería Aeroespacial.</p></div></div>
+ <div class="turbo-learning">
+  <article class="card edu-deep-block"><h3>1 · Entrada de aire, vuelo y remanso</h3><p>El aire exterior se conoce por sus propiedades <em>estáticas</em>: temperatura T∞ y presión p∞. El motor en vuelo capta ese aire a velocidad V∞ = M∞ a∞, donde a∞ = √[γ(T∞) R T∞]. Su energía cinética por kilogramo se incorpora a la entalpía de remanso: <strong>h(Tₜ0) = h(T∞) + V∞²/2000</strong> con h en kJ/kg y V en m/s. La presión total ideal se determina imponiendo igual entropía antes y después del frenado imaginario. A Mach cero coinciden condiciones estáticas y totales.</p><p>El modo ISA proporciona T∞ y p∞ de la atmósfera de referencia a partir de la altitud geopotencial; no estima meteorología ni efectos locales.</p></article>
+  <article class="card edu-deep-block"><h3>2 · Difusor y recuperación de presión</h3><p>El difusor reduce idealmente la velocidad axial antes del compresor. En el modelo es adiabático, sin trabajo ni variación de temperatura <em>total</em>: <strong>Tₜ2 = Tₜ0</strong>. Las pérdidas aerodinámicas se concentran en <strong>pₜ2 = πd pₜ0</strong>, con 0 &lt; πd ≤ 1. La recuperación πd es prescrita: no se calculan perfiles, geometría, desprendimientos ni ondas de choque; el vuelo admitido es subsónico.</p></article>
+  <article class="card edu-deep-block"><h3>3 · Compresor, trabajo y presión</h3><p>El compresor aumenta la presión total de entrada en la relación rp. Primero se obtiene la salida isentrópica mediante s(T₂s,p₂) = s(T₁,p₁); después la eficiencia ηc fija el aumento de entalpía real. El trabajo específico por kg de aire es <strong>wc = h₂−h₁ = (h₂s−h₁)/ηc</strong>. Las propiedades del aire dependen de T, por lo que el algoritmo invierte numéricamente h(T) y s(T,p), sin tomar γ constante.</p></article>
+  <article class="card edu-deep-block"><h3>4 · Cámara y combustible equivalente</h3><p>La temperatura total T3 se prescribe y el combustible aporta una energía efectiva ηb PCI por kg de combustible, con PCI en kJ/kg. El balance de un kilogramo de aire y f kilogramos de combustible es <strong>h₂ + f ηb PCI = (1+f) h₃</strong>, de donde <strong>f = (h₃−h₂)/(ηb PCI−h₃)</strong>. La cámara pierde una fracción δ de presión: pₜ3 = pₜ2(1−δ), donde aquí pₜ2 designa la salida del compresor. Se supone entalpía sensible nula del combustible a 298,15 K. El gas sigue siendo aire equivalente, no productos de combustión reales.</p></article>
+  <article class="card edu-deep-block"><h3>5 · Eje y turbina</h3><p>La turbina debe alimentar el compresor, no maximizar el trabajo neto de un ciclo cerrado. Por unidad de aire, el balance es <strong>ηm (1+f)(h₃−h₄) = wc</strong>. La eficiencia de turbina relaciona salto real e isentrópico: ηt = (h₃−h₄)/(h₃−h₄s). La presión total de salida surge de conservar la entropía en el estado 4s, y puede quedar por encima o por debajo de p∞. Por eso no puede imponerse arbitrariamente presión ambiente al salir de la turbina.</p></article>
+  <article class="card edu-deep-block"><h3>6 · Tobera y bloqueo sónico</h3><p>La tobera convergente convierte entalpía total en energía cinética: <strong>Ve = √[2000(hₜ−he)]</strong>. La eficiencia ηn controla el salto respecto a una expansión isentrópica equivalente. El bloqueo aparece cuando <strong>Me = Ve / √[γ(Te) R Te] = 1</strong>: disminuir más la presión ambiente ya no acelera la salida de una tobera convergente idealizada; su presión estática pe puede seguir siendo superior a p∞. La diferencia aporta empuje de presión. Si la presión total disponible no supera la ambiente, no hay expansión y no se fabrica un resultado numérico.</p></article>
+  <article class="card edu-deep-block"><h3>7 · Empuje bruto, resistencia y neto</h3><p>La aceleración del flujo produce fuerza por cantidad de movimiento; además, una salida no adaptada aporta empuje por presión. El caudal de gas de escape es (1+f) veces el de aire captado. Dividiendo entre el caudal de aire, el empuje neto estático o en vuelo es <strong>Fs = (1+f)Ve − V∞ + (1+f)·1000(pe−p∞)/(ρe Ve)</strong> [N/(kg/s)]. La cantidad V∞ se resta porque el motor absorbe aire que ya trae momento lineal. El empuje bruto agrupa los dos términos de escape; el empuje neto resta la resistencia de entrada y puede ser negativo.</p></article>
+  <article class="card edu-deep-block"><h3>8 · Consumo específico y límites</h3><p>La relación combustible/aire f es kg de combustible por kg de aire. Con empuje específico neto positivo, <strong>TSFC = 3600 f/Fs</strong> [kg/(N·h)]. Si Fs es cero, negativo o indefinido, el TSFC no es útil y se muestra «—». El modelo omite variaciones de composición, química y pérdidas térmicas detalladas, mapas de máquinas, gasto másico, geometría, enfriamiento y límites mecánicos. No se modelan entradas supersónicas. Su verificación de ecuaciones no sustituye una validación frente a ensayos reales.</p></article>
+ </div>
+ </section>
+ <footer class="page-footer">Brayton Simulator · Propulsión Aeroespacial <span>Verificación matemática ≠ validación experimental</span></footer>
+</main></div>
+</body></html>

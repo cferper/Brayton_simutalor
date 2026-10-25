@@ -2,7 +2,9 @@
 
 ## Overview
 
-An educational Python simulator for studying gas turbine thermodynamics through ideal and simplified non-ideal Brayton cycles. It calculates cycle states, energy balances and pressure-ratio trends, and creates a self-contained HTML report for each execution.
+An educational Python simulator for studying gas-turbine thermodynamics. It preserves the historical calorically perfect Brayton model and its offline reports, adds an eight-section web dashboard for a Brayton cycle with variable air properties **cp(T)**, and provides a separate `/turborreactor` screen for a simplified, subsonic turbojet with fuel-equivalent energy balance, converging nozzle, specific net thrust and TSFC. The turbojet does **not** predict absolute thrust, chemical combustion or actual engine operating maps.
+
+**Current local web interface:** run `python web_app.py` (or the Windows launcher) and open `http://127.0.0.1:5000/` for the eight-section variable-property Brayton dashboard, or `http://127.0.0.1:5000/turborreactor` for the new turbojet form. Both share the same Flask server. Historical constant-property reports remain read-only and are not recalculated with the new model.
 
 ## Objectives
 
@@ -13,6 +15,8 @@ An educational Python simulator for studying gas turbine thermodynamics through 
 - Learn a development workflow using VS Code, Codex, Git and GitHub.
 
 ## Features
+
+- Independent educational turbojet web page with direct ambient/ISA input, 3 example presets, flight Mach, compressor/turbine/diffuser/nozzle/fuel controls, specific gross/net thrust, TSFC, six labeled stations, three explanatory SVG figures and physical diagnostics. It calls the existing `combustible_cp_variable.py` solver; no new scientific engine equations are implemented in Flask.
 
 - Ideal-cycle temperatures, thermal efficiency and specific energy balances.
 - An ordered efficiency table for pressure ratios of 5, 10, 15, 20 and 25.

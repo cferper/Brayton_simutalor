@@ -1,0 +1,31 @@
+/* Interfaz autónoma: reutiliza tokens, fuentes, tarjetas y enlaces del dashboard cp(T). */
+.turbo-page .turbo-intro{background:linear-gradient(100deg,#fff,#e7f2fa);min-height:150px}
+.turbo-hero-mark{font-size:72px;color:#174a70;opacity:.65;padding:0 35px}
+.turbo-section{padding-bottom:34px;margin-bottom:30px;border-bottom:1px solid var(--border);scroll-margin-top:24px}
+.turbo-disclaimer{background:#eaf3fb;border-left:4px solid #2563a6;border-radius:5px;padding:13px 17px;margin:0 0 30px;line-height:1.65;color:#35546e}
+.turbo-guide{max-width:1100px}.turbo-guide ol{padding-left:22px;color:#41566b}.turbo-guide li{margin:8px 0}.turbo-guide p{margin-bottom:0;color:#41566b}
+.turbo-examples{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:20px 0}
+.turbo-examples>span{font-weight:600}.turbo-examples button{border:1px solid #c3d5e7;background:#fff;border-radius:6px;padding:8px 12px;color:var(--primary);font-weight:600}
+.turbo-examples button:hover{background:#eaf1f8}.turbo-examples small{flex-basis:100%;margin-top:3px}
+.turbo-modes{padding-bottom:8px}.turbo-mode-options{display:flex;flex-wrap:wrap;gap:20px;margin:13px 0}.turbo-mode-options label{display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:600}
+.turbo-mode-options input{accent-color:var(--primary)}.turbo-fieldsets{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:17px}
+.turbo-fields{padding:20px}.turbo-fields legend{font-size:15px;font-weight:600;color:var(--primary);padding:0 7px}
+.turbo-field-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.turbo-field-grid .field{margin:0;min-width:0}.turbo-field-grid label{display:block;font-size:12px;font-weight:600;line-height:1.4;margin-bottom:5px}
+.turbo-field-grid input{width:100%;max-width:none;padding:9px 11px;border:1px solid #c6d3e0;border-radius:5px;background:#fff;color:#172b42}
+.turbo-field-grid small{display:block;margin-top:5px;line-height:1.55}.turbo-field-grid .unit{font-weight:400;color:#52677e}
+.turbo-field-grid [data-ambiente][data-inactivo="true"]{opacity:.55}
+.turbo-actions{display:flex;align-items:center;gap:20px;margin:20px 0}.turbo-actions button{background:#174a70;color:#fff;border:0;border-radius:6px;padding:12px 20px;font-weight:600}
+.turbo-kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin:0 0 20px}.turbo-kpis .kpi{padding:18px;display:flex;flex-direction:column;gap:5px}
+.turbo-metric{font:600 26px/1.2 'IBM Plex Mono',monospace;color:#174a70;overflow-wrap:anywhere}.turbo-kpis small{font-size:11px}
+.turbo-two-col{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}.turbo-two-col .card{min-width:0}
+.turbo-dl{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,.8fr);gap:7px 12px;margin:14px 0 0}.turbo-dl dt{color:#52677e}.turbo-dl dd{margin:0;font-family:'IBM Plex Mono',monospace;font-size:12px;overflow-wrap:anywhere}
+.turbo-warning{background:#fff2df;border-left:3px solid #c08022;padding:10px 12px;color:#704711}
+.turbo-table-wrap{overflow-x:auto}.turbo-table-wrap table{width:100%;border-collapse:collapse}.turbo-table-wrap th,.turbo-table-wrap td{text-align:left;padding:11px;border-bottom:1px solid var(--border);white-space:nowrap}
+.turbo-table-wrap th{font-size:12px;background:#eef4f9}.turbo-state-tag{background:#edf2f7;border-radius:4px;padding:4px 7px;font:11px 'IBM Plex Mono',monospace}
+.turbo-chart{margin:0 0 18px}.turbo-chart figcaption h3{margin-bottom:15px}.turbo-chart p{font-size:12px;color:#52677e;line-height:1.65;margin:10px 0 0}
+.turbo-svg svg{width:100%;height:auto;display:block;max-height:300px}.turbo-learning{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}
+.turbo-learning .edu-deep-block{margin:0;padding:24px}.turbo-learning .edu-deep-block p{line-height:1.8}
+@media(max-width:1100px){.turbo-fieldsets,.turbo-learning{grid-template-columns:1fr}.turbo-field-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:760px){.turbo-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.turbo-two-col{grid-template-columns:1fr}.turbo-hero-mark{display:none}.turbo-field-grid{grid-template-columns:1fr}.turbo-mode-options{flex-direction:column;gap:10px}.turbo-actions{flex-wrap:wrap}.turbo-learning .edu-deep-block{padding:17px}}
+@media(max-width:420px){.turbo-kpis{grid-template-columns:1fr}}

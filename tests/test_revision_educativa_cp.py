@@ -148,7 +148,10 @@ class RevisionEducativaCP(unittest.TestCase):
         self.assertIn('.edu-deep-block .edu-equation', css)
 
     def test_una_sola_plantilla_principal(self):
-        self.assertEqual([p.name for p in (ROOT / 'templates').glob('*.html')], ['index.html'])
+        # El milestone 40 añade otra aplicación visual en la misma Flask;
+        # index.html continúa siendo la ÚNICA plantilla del dashboard Brayton.
+        self.assertEqual(sorted(p.name for p in (ROOT / 'templates').glob('*.html')),
+                         ['index.html', 'turborreactor.html'])
         self.assertIn('class="cp-gallery"', (ROOT / 'templates/index.html').read_text(encoding='utf-8'))
 
 

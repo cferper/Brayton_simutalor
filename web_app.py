@@ -3,7 +3,7 @@
 from html import escape
 from pathlib import Path
 
-from flask import Flask, Response, abort, redirect, request, url_for
+from flask import Flask, Response, abort, redirect, request, url_for, render_template
 
 from reporting import MARCA_FINAL, MARCA_INICIO, PATRON_INFORME
 from dashboard import renderizar_dashboard, separar_presentacion
@@ -13,6 +13,8 @@ from cp_variable_web import (DEFAULTS, FIELDS, leer_entradas, preparar_resultado
                              preparar_sensibilidad, preparar_mapa, preparar_segunda_ley)
 from sensibilidad_cp_variable import PARAMETROS_CP
 from mapa_diseno_cp_variable import DEFAULT_MAPA
+from turborreactor_web import (GRUPOS_TURBO, EJEMPLOS_TURBO,
+    valores_turborreactor, simular_turborreactor, preparar_vista_turborreactor)
 
 
 app = Flask(__name__)
@@ -24,6 +26,26 @@ app.config["MAX_CONTENT_LENGTH"] = 16 * 1024
 def valores_formulario():
     """Las siete entradas del modelo cp(T), sin cp ni gamma constantes."""
     return DEFAULTS.copy()
+
+
+@app.route("/turborreactor", methods=["GET", "POST"])
+def turborreactor():
+    """Página independiente: sólo presentación; el cálculo reside en M37."""
+    valores = valores_turborreactor(request.form if request.method == "POST" else None)
+    resultado, vista, error = None, None, None
+    if request.method == "POST":
+        try:
+            resultado = simular_turborreactor(valores)
+            vista = preparar_vista_turborreactor(resultado)
+        except EstadoFueraDeRango:
+            error = "Alguna temperatura calculada sale del dominio de 200 a 2000 K."
+        except ErrorNumericoCiclo:
+            error = "El cálculo numérico no ha convergido con esta configuración."
+        except (ValueError, ArithmeticError) as exc:
+            error = str(exc) if isinstance(exc, ValueError) else "Cálculo físicamente inadmisible."
+    return render_template("turborreactor.html", valores=valores,
+                           grupos=GRUPOS_TURBO, ejemplos=EJEMPLOS_TURBO,
+                           resultado=resultado, vista=vista, error=error), (400 if error else 200)
 
 
 def listar_informes():

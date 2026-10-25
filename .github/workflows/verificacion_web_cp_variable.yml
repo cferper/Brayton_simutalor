@@ -20,6 +20,7 @@ on:
       - validacion/combustible-tsfc-cp-37
       - validacion/mapas-prestaciones-cp-38
       - validacion/verificacion-independiente-turborreactor-cp-39
+      - validacion/integracion-web-turborreactor-cp-40
       - mejoras/cp-variable
 permissions:
   contents: read
@@ -63,5 +64,7 @@ jobs:
         run: python -m unittest discover -s tests -p 'test_mapas_prestaciones_turborreactor_38.py' -v
       - name: Verificar referencia analítica independiente y defectos del mapa (milestone 39)
         run: python -m unittest discover -s tests -p 'test_verificacion_independiente_turborreactor_39.py' -v
+      - name: Verificar integración web y preservación de Brayton (milestone 40)
+        run: python -m unittest discover -s tests -p 'test_turborreactor_web_40.py' -v
       - name: Verificar suite completa vigente y compatibilidad científica histórica
         run: python -m unittest discover -s tests -q
