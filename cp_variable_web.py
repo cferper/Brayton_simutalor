@@ -11,6 +11,7 @@ from optimizacion_cp_variable import estudiar_cp_variable
 from propiedades_aire import cp, gamma
 from graficas_cp_variable import graficas_resultados, graficas_optimizacion
 from sensibilidad_cp_variable import PARAMETROS_CP, barrido_cp_variable
+from graficas_sensibilidad_cp import svg_variaciones_relativas, svg_temperaturas_caracteristicas
 from mapa_diseno_cp_variable import calcular_mapa_cp_variable
 from segunda_ley_cp_variable import analizar_segunda_ley_cp_variable
 
@@ -170,6 +171,12 @@ def preparar_sensibilidad(entradas, parametro, minimo, maximo, muestras):
         ('Rendimiento térmico',svg_sensibilidad(estudio,('rendimiento',),'Rendimiento térmico','%')),
         ('Compresor y turbina',svg_sensibilidad(estudio,('trabajo_compresor','trabajo_turbina'),
                                               'Trabajo de compresor y turbina','kJ/kg')),
+    )
+    relativo, diagnostico = svg_variaciones_relativas(estudio)
+    estudio['diagnostico_variaciones'] = diagnostico
+    estudio['graficas'] += (
+        ('Variaciones relativas', relativo),
+        ('Temperaturas características', svg_temperaturas_caracteristicas(estudio)),
     )
     estudio['etiqueta']=PARAMETROS_CP[parametro]['etiqueta']
     return estudio

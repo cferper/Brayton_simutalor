@@ -11,6 +11,9 @@ on:
       - validacion/fundamentos-extensos-cp
       - validacion/graficas-cp-resultados-optimizacion
       - validacion/saneamiento-suite-historica-cp
+      - validacion/visual-sensibilidad-cp
+      - validacion/visual-mapa-cp
+      - validacion/visual-segunda-ley-cp
       - mejoras/cp-variable
 permissions:
   contents: read
@@ -36,5 +39,7 @@ jobs:
         run: python -m unittest discover -s tests -p 'test_revision_educativa_cp.py' -v
       - name: Verificar nuevas gráficas de Resultados y Optimización cp(T)
         run: python -m unittest discover -s tests -p 'test_graficas_cp_variable.py' -v
+      - name: Verificar representaciones OFAT ampliadas (milestone 31)
+        run: python -m unittest discover -s tests -p 'test_graficas_sensibilidad_31.py' -v
       - name: Verificar suite completa vigente y compatibilidad científica histórica
         run: python -m unittest discover -s tests -q
