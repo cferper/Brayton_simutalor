@@ -102,13 +102,17 @@ class RevisionEducativaCP(unittest.TestCase):
         self.assertIn('De 5 evaluaciones', html)
         self.assertGreaterEqual(html.count('class="cp-figure"'), 3)
 
-    def test_mapa_dos_graficas_y_malla_interpretada(self):
+    def test_mapa_cinco_graficas_y_malla_interpretada(self):
         html = self._post('mapa', mapa_cp_rp_min='1.1', mapa_cp_rp_max='45',
                           mapa_cp_T3_min='1300', mapa_cp_T3_max='1700',
                           mapa_cp_n_rp='5', mapa_cp_n_T3='5')
         self.assertIn('data-plot-viewer="cp-mapa"', html)
         self.assertIn('25 celdas', html)
-        self.assertEqual(html.count('class="cp-figure"'), 2)
+        self.assertEqual(html.count('class="cp-figure"'), 5)
+        for titulo in ('Mapa A · Trabajo neto', 'Mapa B · Rendimiento térmico',
+                       'Mapa de viabilidad', 'Cortes · Trabajo neto',
+                       'Cortes · Rendimiento'):
+            self.assertIn(titulo, html)
         self.assertIn('Mejores puntos muestreados', html)
 
     def test_exergia_muestra_alcance_parcial_y_svg(self):

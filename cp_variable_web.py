@@ -13,6 +13,7 @@ from graficas_cp_variable import graficas_resultados, graficas_optimizacion
 from sensibilidad_cp_variable import PARAMETROS_CP, barrido_cp_variable
 from graficas_sensibilidad_cp import svg_variaciones_relativas, svg_temperaturas_caracteristicas
 from mapa_diseno_cp_variable import calcular_mapa_cp_variable
+from graficas_mapa_cp import svg_mapa_viabilidad, svg_cortes_mapa
 from segunda_ley_cp_variable import analizar_segunda_ley_cp_variable
 
 DEFAULTS = {'T1': 288.15, 'T3': 1600.0, 'rp': 10.0, 'p1': 100.0,
@@ -288,6 +289,9 @@ def preparar_mapa(entradas, rp_min, rp_max, T3_min, T3_max, n_rp, n_T3):
     estudio['optimos_referencia']=opt
     estudio['svg_trabajo']=svg_mapa_cp_variable(estudio,'trabajo_neto',opt)
     estudio['svg_rendimiento']=svg_mapa_cp_variable(estudio,'rendimiento',opt)
+    estudio['svg_viabilidad']=svg_mapa_viabilidad(estudio)
+    estudio['svg_cortes_trabajo']=svg_cortes_mapa(estudio,'trabajo_neto')
+    estudio['svg_cortes_rendimiento']=svg_cortes_mapa(estudio,'rendimiento')
     return estudio
 
 
