@@ -16,6 +16,7 @@ on:
       - validacion/visual-segunda-ley-cp
       - validacion/acoplamiento-turbomaquinaria-cp-34
       - validacion/tobera-cp-variable-35
+      - validacion/condiciones-vuelo-cp-36
       - mejoras/cp-variable
 permissions:
   contents: read
@@ -51,5 +52,7 @@ jobs:
         run: python -m unittest discover -s tests -p 'test_acoplamiento_turbomaquinaria_34.py' -v
       - name: Verificar tobera convergente y empuje específico (milestone 35)
         run: python -m unittest discover -s tests -p 'test_tobera_cp_variable_35.py' -v
+      - name: Verificar atmósfera, difusor y empuje neto (milestone 36)
+        run: python -m unittest discover -s tests -p 'test_vuelo_cp_variable_36.py' -v
       - name: Verificar suite completa vigente y compatibilidad científica histórica
         run: python -m unittest discover -s tests -q
