@@ -2951,6 +2951,13 @@ Los rendimientos \(\eta_{ex,c}=(e_2-e_1)/w_c\) y \(\eta_{ex,t}=w_t/(e_3-e_4)\) [
 
 **Pruebas y límites:** 14 métodos científicos `tests/test_segunda_ley_cp_variable.py` y 7 de Flask `tests/test_segunda_ley_cp_web.py`; se conservan los 64 métodos de regresión de Fase 2F. GitHub Actions se amplía con un paso específico y rama temporal, sin reejecutar suites científicas históricas completas. Véanse [milestone técnico 26](docs/milestones/26_segunda_ley_cp_variable.md) y [guía educativa 26](docs/milestones/26_segunda_ley_cp_variable_APRENDIZAJE.md). Revisión visual real de Windows pendiente; no equivale a test Flask.
 
+#### Ampliación gráfica de Segunda ley (milestone 33)
+
+**PYTHON.** \`preparar_segunda_ley(entradas, T0=288.15, p0=100.0)\` conserva la reutilización de estados cacheados de 2B y una sola llamada a \`analizar_segunda_ley_cp_variable\`, añadiendo tres resultados SVG al diccionario para el dashboard. El módulo nuevo \`graficas_segunda_ley_cp.py\` incorpora \`svg_exergias_estados(estudio)\`, \`svg_generacion_entropia(estudio)\` y \`svg_balances_exergia(ciclo, estudio)\`, que devuelven cadenas SVG o \`None\`. El auxiliar \`_svg_barras_signo(datos, titulo, unidad, nota)\` transforma listas de etiquetas, valores firmados y colores en barras con origen cero, sin calcular de nuevo propiedades. Las pruebas XML leen \`data-rol\`, \`data-valor\` y \`data-residuo-c/t\` para comparar números. El HTML conserva una sola galería con visor ampliable y no publica nuevas barras ante \`estado='inconsistente'\`.
+
+**INTERPRETACIÓN FÍSICA / INGENIERÍA.** Exergía física e_i=(h_i−h0)−T0(s_i−s0) [kJ/kg] de los estados 1–4 con ambiente T0/p0. Generación de entropía en las máquinas adiabáticas s2−s1 y s4−s3 [kJ/(kg·K)]. Balance de compresor wc=(e2−e1)+T0*s_gen,c y de turbina (e3−e4)=wt+T0*s_gen,t, con signos y residuos conservados. **No** representan la destrucción total del ciclo, exergía química ni un rendimiento exergético global. Ver [milestone 33](docs/milestones/33_graficas_segunda_ley_cp.md) y [aprendizaje](docs/milestones/33_graficas_segunda_ley_cp_APRENDIZAJE.md).
+
+
 ### 4.65. Revisión educativa y visual del dashboard cp(T) — milestone 27, iteración 1
 
 **Qué cambió entonces y qué no.** En aquella primera iteración había ocho gráficas SVG: un T–s en Resultados, una gráfica dual A/B en Optimización, tres curvas OFAT, dos mapas y una distribución de exergía destruida. Posteriormente **Resultados pasó a seis y Optimización a tres** mediante el milestone 29 (§4.67); la cifra anterior es histórica, no el inventario actual. Las ocho secciones, el único `templates/index.html` y los solucionadores 2A–2G permanecen intactos.

@@ -43,5 +43,7 @@ jobs:
         run: python -m unittest discover -s tests -p 'test_graficas_sensibilidad_31.py' -v
       - name: Verificar mapas categóricos y cortes (milestone 32)
         run: python -m unittest discover -s tests -p 'test_graficas_mapa_32.py' -v
+      - name: Verificar gráficos de entropía y exergía (milestone 33)
+        run: python -m unittest discover -s tests -p 'test_graficas_segunda_ley_33.py' -v
       - name: Verificar suite completa vigente y compatibilidad científica histórica
         run: python -m unittest discover -s tests -q

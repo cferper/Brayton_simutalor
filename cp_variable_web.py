@@ -15,6 +15,8 @@ from graficas_sensibilidad_cp import svg_variaciones_relativas, svg_temperaturas
 from mapa_diseno_cp_variable import calcular_mapa_cp_variable
 from graficas_mapa_cp import svg_mapa_viabilidad, svg_cortes_mapa
 from segunda_ley_cp_variable import analizar_segunda_ley_cp_variable
+from graficas_segunda_ley_cp import (svg_exergias_estados, svg_generacion_entropia,
+                                      svg_balances_exergia)
 
 DEFAULTS = {'T1': 288.15, 'T3': 1600.0, 'rp': 10.0, 'p1': 100.0,
             'eta_c': .85, 'eta_t': .90, 'delta': .05}
@@ -334,4 +336,7 @@ def preparar_segunda_ley(entradas, T0=288.15, p0=100.0):
         ('T1', 'T3', 'rp', 'p1', 'eta_c', 'eta_t', 'delta')))
     estudio = analizar_segunda_ley_cp_variable(ciclo, T0, p0)
     return {'ciclo': ciclo, 'estudio': estudio,
-            'svg_destruccion': svg_exergia_destruida(estudio)}
+            'svg_destruccion': svg_exergia_destruida(estudio),
+            'svg_estados': svg_exergias_estados(estudio),
+            'svg_entropia': svg_generacion_entropia(estudio),
+            'svg_balances': svg_balances_exergia(ciclo, estudio)}
