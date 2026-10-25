@@ -15,6 +15,8 @@ from sensibilidad_cp_variable import PARAMETROS_CP
 from mapa_diseno_cp_variable import DEFAULT_MAPA
 from turborreactor_web import (GRUPOS_TURBO, EJEMPLOS_TURBO,
     valores_turborreactor, simular_turborreactor, preparar_vista_turborreactor)
+from prestaciones_turborreactor_web import (PARAMETROS_OFAT, ESTADOS_WEB,
+    valores_estudios, preparar_estudio)
 
 
 app = Flask(__name__)
@@ -30,9 +32,12 @@ def valores_formulario():
 
 @app.route("/turborreactor", methods=["GET", "POST"])
 def turborreactor():
-    """Página independiente: sólo presentación; el cálculo reside en M37."""
+    """Página independiente: simulación M37 y estudios OFAT/mapas con M38."""
     valores = valores_turborreactor(request.form if request.method == "POST" else None)
+    controles = valores_estudios(request.form if request.method == "POST" else None)
     resultado, vista, error = None, None, None
+    estudio, error_estudio = None, None
+    accion = request.form.get("accion", "simular") if request.method == "POST" else None
     if request.method == "POST":
         try:
             resultado = simular_turborreactor(valores)
@@ -43,9 +48,24 @@ def turborreactor():
             error = "El cálculo numérico no ha convergido con esta configuración."
         except (ValueError, ArithmeticError) as exc:
             error = str(exc) if isinstance(exc, ValueError) else "Cálculo físicamente inadmisible."
+        if accion in ("sensibilidad", "mapa"):
+            try:
+                estudio = preparar_estudio(accion, request.form, valores)
+            except EstadoFueraDeRango:
+                error_estudio = "Alguna temperatura queda fuera de 200 a 2000 K."
+            except ErrorNumericoCiclo:
+                error_estudio = "No ha convergido el procedimiento numérico del estudio."
+            except ValueError as exc:
+                error_estudio = str(exc)
+        elif accion != "simular":
+            error_estudio = "Acción de formulario desconocida."
     return render_template("turborreactor.html", valores=valores,
                            grupos=GRUPOS_TURBO, ejemplos=EJEMPLOS_TURBO,
-                           resultado=resultado, vista=vista, error=error), (400 if error else 200)
+                           resultado=resultado, vista=vista, error=error,
+                           estudio=estudio, error_estudio=error_estudio,
+                           controles=controles, accion=accion,
+                           parametros_ofat=PARAMETROS_OFAT,
+                           estados_web=ESTADOS_WEB), (400 if error or error_estudio else 200)
 
 
 def listar_informes():

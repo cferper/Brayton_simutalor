@@ -21,6 +21,7 @@ on:
       - validacion/mapas-prestaciones-cp-38
       - validacion/verificacion-independiente-turborreactor-cp-39
       - validacion/integracion-web-turborreactor-cp-40
+      - validacion/prestaciones-web-turborreactor-cp-41
       - mejoras/cp-variable
 permissions:
   contents: read
@@ -66,5 +67,7 @@ jobs:
         run: python -m unittest discover -s tests -p 'test_verificacion_independiente_turborreactor_39.py' -v
       - name: Verificar integración web y preservación de Brayton (milestone 40)
         run: python -m unittest discover -s tests -p 'test_turborreactor_web_40.py' -v
+      - name: Verificar sensibilidad y mapas web del turborreactor (milestone 41)
+        run: python -m unittest discover -s tests -p 'test_prestaciones_turborreactor_web_41.py' -v
       - name: Verificar suite completa vigente y compatibilidad científica histórica
         run: python -m unittest discover -s tests -q

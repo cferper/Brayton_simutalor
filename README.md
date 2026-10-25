@@ -2,9 +2,9 @@
 
 ## Overview
 
-An educational Python simulator for studying gas-turbine thermodynamics. It preserves the historical calorically perfect Brayton model and its offline reports, adds an eight-section web dashboard for a Brayton cycle with variable air properties **cp(T)**, and provides a separate `/turborreactor` screen for a simplified, subsonic turbojet with fuel-equivalent energy balance, converging nozzle, specific net thrust and TSFC. The turbojet does **not** predict absolute thrust, chemical combustion or actual engine operating maps.
+An educational Python simulator for studying gas-turbine thermodynamics. It preserves the historical calorically perfect Brayton model and its offline reports, adds an eight-section web dashboard for a Brayton cycle with variable air properties **cp(T)**, and provides a separate seven-section `/turborreactor` interface for a simplified, subsonic turbojet with fuel-equivalent energy balance, converging nozzle, specific net thrust and TSFC. The turbojet now offers OFAT sensitivity (up to 31 samples) and two-dimensional performance sweeps (up to 15×15 points), including a discrete Pareto comparison **only** for fixed-environment rp–T3. These are parameter studies, **not** actual engine operating maps. The turbojet does **not** predict absolute thrust or chemical combustion.
 
-**Current local web interface:** run `python web_app.py` (or the Windows launcher) and open `http://127.0.0.1:5000/` for the eight-section variable-property Brayton dashboard, or `http://127.0.0.1:5000/turborreactor` for the new turbojet form. Both share the same Flask server. Historical constant-property reports remain read-only and are not recalculated with the new model.
+**Current local web interface:** run `python web_app.py` (or the Windows launcher) and open `http://127.0.0.1:5000/` for the eight-section variable-property Brayton dashboard, or `http://127.0.0.1:5000/turborreactor` for the independent turbojet (Configuration, Results, Stations, Visualizations, Sensitivity, Performance Maps and Fundamentals). Both share the same Flask server. Historical constant-property reports remain read-only and are not recalculated with the new model. See [milestone 41](docs/milestones/41_prestaciones_web_turborreactor_cp.md) and its [learning guide](docs/milestones/41_prestaciones_web_turborreactor_cp_APRENDIZAJE.md).
 
 ## Objectives
 

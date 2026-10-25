@@ -166,10 +166,11 @@ class TurborreactorWeb40(unittest.TestCase):
             self.cliente.get('/')
         solver.assert_not_called()
 
-    def test_cinco_pantallas_y_enlaces_univocos(self):
+    def test_pantallas_actuales_y_enlaces_univocos(self):
         html=self.cliente.get('/turborreactor').get_data(as_text=True)
         inspector=InspectorPaneles(); inspector.feed(html)
-        ids=['configuracion','resultados','estaciones','graficas','fundamentos']
+        ids=['configuracion','resultados','estaciones','graficas',
+             'sensibilidad','mapa','fundamentos']
         self.assertEqual([p['id'] for p in inspector.paneles],ids)
         self.assertTrue(all(p.get('tabindex')=='-1' for p in inspector.paneles))
         self.assertEqual([a['href'] for a in inspector.navegacion],['#'+i for i in ids])

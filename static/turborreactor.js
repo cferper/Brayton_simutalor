@@ -1,6 +1,6 @@
 /* Mejora progresiva: sin JS el formulario HTML sigue pudiendo enviarse. */
 document.addEventListener('DOMContentLoaded',()=>{
-  /* Navegación exclusiva en clientes JS: sin JS, los cinco apartados siguen
+  /* Navegación exclusiva en clientes JS: sin JS, los siete apartados siguen
      visibles en vertical como respaldo accesible y el POST sigue operativo. */
   const paneles=[...document.querySelectorAll('.turbo-section[id]')];
   const enlaces=[...document.querySelectorAll('.section-nav a[href^="#"]')];
@@ -70,5 +70,37 @@ document.addEventListener('DOMContentLoaded',()=>{
     });
     sync();
   }));
+  /* Los estudios son formularios hermanos (HTML no admite forms anidados).
+     Al enviar se capturan todos los valores *actuales* del formulario M40;
+     los ocultos del servidor permiten también el envío sin JavaScript. */
+  document.querySelectorAll('[data-study-form]').forEach(estudio=>{
+    estudio.addEventListener('submit',()=>{
+      estudio.querySelectorAll('input[data-motor-field]').forEach(oculto=>{
+        if(oculto.name==='modo_ambiente'){
+          oculto.value=modos.find(r=>r.checked)?.value||'directo';
+        }else if(form.elements[oculto.name]){
+          oculto.value=form.elements[oculto.name].value;
+        }
+      });
+    });
+  });
+  const selectorOfat=document.getElementById('sens_parametro');
+  if(selectorOfat){
+    const rangos={rp:['5','15'],T3:['1400','1800'],mach:['0','0.8'],
+      eta_c:['0.7','1'],eta_t:['0.7','1'],pi_d:['0.8','1'],delta_pct:['0','10']};
+    selectorOfat.addEventListener('change',()=>{
+      const rango=rangos[selectorOfat.value];if(!rango)return;
+      document.getElementById('sens_min').value=rango[0];
+      document.getElementById('sens_max').value=rango[1];
+    });
+  }
+  const selectorMapa=document.getElementById('mapa_tipo');
+  if(selectorMapa){
+    const mostrarMapa=()=>document.querySelectorAll('[data-map-fields]').forEach(grupo=>{
+      grupo.hidden=grupo.dataset.mapFields!==selectorMapa.value;
+    });
+    selectorMapa.addEventListener('change',mostrarMapa);
+    mostrarMapa();
+  }
   sync();
 });
