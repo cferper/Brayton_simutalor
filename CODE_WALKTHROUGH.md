@@ -3213,6 +3213,73 @@ El mapa A barre `rp` y `T3` en un mismo ambiente y Mach y compara dos objetivos:
 
 **INTERPRETACIÓN FÍSICA / INGENIERÍA — choque y estado parcial.** En la rama `choque_interno_o_salida_no_resuelto`, el estado de garganta **sí** se conoce por bloqueo: se pasa `critico` como `garganta` a `_resultado` y se conservan `Tg,pg,rhog,Vg,Mg=1`. Solo `salida` continúa `None`; los residuos que dependen de ella y el empuje también permanecen indefinidos. El umbral `p_choque_salida_aproximado` congela gamma local en la fórmula de choque perfecto: los tests próximos al umbral verifican la clasificación **programada**, no una frontera exacta para cp(T). La referencia de gas perfecto invierte ahora **independientemente** la fórmula `A/A*(M)` por bisección dentro del test para comparar Mach supersónico a 600 K; la tolerancia relativa del 3 % reconoce modelos caloríficos distintos, sin implicar validación experimental.
 
+### 4.78 — Integración web de tobera C-D (milestone 42.B)
+
+**INTERPRETACIÓN FÍSICA / INGENIERÍA.** La convergente conserva el modelo
+histórico con ηn. La convergente-divergente C-D impone `epsilon=Ae/Ag≥1` y
+expansión isentrópica ideal `cp(T)`: el parámetro `eta_n` **se valida** como
+fracción física `0<eta_n≤1` por compatibilidad de la API, pero **no interviene**
+en las ecuaciones C-D, cuya eficiencia ideal efectiva es 1. La garganta
+puede estar bloqueada (M=1) aunque un choque interno impida conocer el estado
+de salida: `Fs` y `TSFC` quedan en `None`, no en cero. En mapas, esos casos
+tienen el estado separado `tobera_no_resuelta`; `sin_expansion` se reserva
+para falta de margen total de presión. El empuje conocido se calcula como
+`(1+f)*(Ve+1000*(pe-p_amb)/Ge)-Vinf` en N/(kg/s de aire), con `Ge=ρe Ve`;
+`TSFC=3600*f/Fs` sólo para Fs positivo.
+
+**PYTHON: firmas y flujo de llamada.** `resolver_turborreactor_con_combustible(
+mach,rp,eta_c,T3,delta,eta_t,eta_m,eta_n=1,pi_d=1,eta_b=.99,PCI=43000,*,
+T_amb=None,p_amb=None,altitud_geopotencial=None,tipo_tobera="convergente",
+epsilon=1.5)` recibe magnitudes adimensionales salvo K, kPa y PCI [kJ/kg].
+Valida `eta_n` en ambos modos, `epsilon≥1` en C-D y todos los dominios ya
+existentes; puede lanzar `ValueError`, `EstadoFueraDeRango` o
+`ErrorNumericoCiclo`. Mantiene su diccionario previo de componentes, empuje
+y diagnóstico; para una C-D no resuelta conserva `tobera` con garganta
+calculada y deja prestaciones no calculables en `None`.
+`leer_turborreactor(valores: dict[str,str]) -> dict` transforma textos del
+formulario en parámetros físicos, exige `eta_n` numérico y finito en ambos
+modos y delega al solucionador con
+`simular_turborreactor(valores)`. El servidor muestra `ValueError` en pantalla;
+el navegador mantiene visible y editable `eta_n` también en C-D y sólo oculta
+el campo geométrico `epsilon` cuando corresponde, sin alterar las ecuaciones.
+
+**PYTHON: `_presion_adaptacion_cd(Tt, pt, epsilon) -> float`** devuelve la
+contrapresión ideal de adaptación [kPa] a partir de remanso [K, kPa] y
+relación de áreas adimensional. Usa `_sonico()` de 42.A para conocer `p*`,
+y `relacion_areas_adaptada()` para evaluar la relación física, sin duplicar
+la relación área–Mach. Para `epsilon=1`, devuelve `p*` directamente. Para
+`epsilon>1`, el extremo inferior del intervalo es la menor presión admisible
+en 200 K (con un pequeño margen) y su área debe ser **mayor o igual** al
+objetivo; el extremo superior es `p*`, cuyo área límite es 1, inferior al
+objetivo. La función es monótona decreciente en la rama supersónica. La
+bisección conserva la solución entre ambos extremos y verifica el residuo
+`abs(Ae/Ag calculada - epsilon)` antes de retornar. El algoritmo previo
+partía de la *primera presión válida* de la rama supersónica, que podía
+tener un área mayor que el objetivo, sin demostrar que encerrase la raíz:
+devolvía presiones equivocadas cerca de `epsilon=1`. Para `Tt=1200 K`,
+`pt=500 kPa` y `epsilon=1.001`, la presión correcta es `259.119611 kPa`,
+con área reconstruida `1.0010000001`. `ValueError` cubre entradas no reales,
+no finitas, relación inválida, límite inferior del aire y falta de
+convergencia; pueden propagarse excepciones físicas de 42.A.
+
+**PYTHON: `_adaptacion_cd(resultado: dict) -> dict|None`** la llama
+`preparar_vista_turborreactor(resultado)` desde la ruta Flask. Devuelve
+`presion_adaptada`, `epsilon_adaptada` y dos campos de error textual, o
+`None` si no existe tobera C-D. Evalúa la relación inversa pública de 42.A
+para el ambiente actual; controla fallos físicos sin inventar presiones.
+`mapas_prestaciones_turborreactor_cp._punto(...)` usa el estado
+`tobera_no_resuelta` y sus entradas/resultado conservan la garganta; no
+participa en óptimos, Pareto ni TSFC. `prestaciones_turborreactor_web`
+agrega su etiqueta a `ESTADOS_WEB` para tablas, máscaras y estadísticas.
+Por ejemplo, `_presion_adaptacion_cd(1200,500,1.001)` produce aproximadamente
+`259.119611`; `_presion_adaptacion_cd(1200,500,1e8)` lanza `ValueError`
+porque la geometría excede el dominio del aire.
+
+Verificación del software: inversiones directas/inversas, límites, legado,
+API y regresión de mapas; no se ha efectuado validación contra ensayos de
+toberas o turborreactores. Véanse el [documento técnico 42.B](docs/milestones/42b_integracion_web_tobera_cd_cp.md)
+y su [aprendizaje](docs/milestones/42b_integracion_web_tobera_cd_cp_APRENDIZAJE.md).
+
 ## Evolution of the project
 
 Estos hitos resumen capacidades ya implementadas en la versión analizada, sin atribuirles fechas ni reconstruir un historial de commits. Los detalles del funcionamiento actual se explican en las secciones anteriores.

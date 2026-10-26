@@ -16,6 +16,7 @@ ESTADOS_WEB = {
     "valido": "Válida",
     "empuje_no_positivo": "Empuje no positivo",
     "sin_expansion": "Sin expansión",
+    "tobera_no_resuelta": "Tobera C-D: choque no resuelto",
     "inadmisible": "Inadmisible",
     "fallo_numerico": "Fallo numérico",
 }
@@ -83,8 +84,9 @@ def _eje(valores, clave_min, clave_max, limite_min, limite_max, n):
 
 def _argumentos_comunes(datos):
     """Filtra los parámetros físicos que aceptan los barridos públicos M38."""
-    claves = ("eta_c", "eta_t", "eta_m", "eta_n", "eta_b", "PCI", "pi_d", "delta")
-    return {clave: datos[clave] for clave in claves}
+    claves = ("eta_c", "eta_t", "eta_m", "eta_n", "eta_b", "PCI", "pi_d", "delta",
+              "tipo_tobera", "epsilon")
+    return {clave: datos[clave] for clave in claves if clave in datos}
 
 
 def _ambiente_mapa(datos):

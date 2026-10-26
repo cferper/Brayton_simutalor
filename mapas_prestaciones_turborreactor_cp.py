@@ -10,7 +10,7 @@ from ciclo_cp_variable import EstadoFueraDeRango, ErrorNumericoCiclo
 from vuelo_cp_variable import _finito
 
 
-ESTADOS = ("valido", "empuje_no_positivo", "sin_expansion",
+ESTADOS = ("valido", "empuje_no_positivo", "sin_expansion", "tobera_no_resuelta",
            "inadmisible", "fallo_numerico")
 RESTRICCIONES = ("T3_max", "rp_min", "rp_max", "mach_min", "mach_max",
                  "altitud_min", "altitud_max", "exigir_empuje_positivo",
@@ -118,6 +118,11 @@ def _punto(entradas, indices, config):
     base["regimen_tobera"] = r["tobera"]["regimen"]
     base["Fs"] = r["prestaciones"]["empuje_especifico_neto"]
     base["TSFC_kg_N_h"] = r["prestaciones"]["TSFC_kg_N_h"]
+    if base["Fs"] is None:
+        base.update(estado="tobera_no_resuelta", motivo="choque_interno_o_salida_no_resuelto")
+        # Ni una relajación de filtros convierte un choque sin resolver en
+        # empuje calculado o en un punto de optimización.
+        return base
     if base["Fs"] <= 0:
         base.update(estado="empuje_no_positivo", motivo="Fs <= 0")
         base["cumple_restricciones"] = not config["exigir_empuje_positivo"]
@@ -197,14 +202,16 @@ def _barrer(nombre, eje_x, eje_y, fijo, nombre_x, nombre_y, restricciones,
 def barrer_rp_t3(valores_rp, valores_T3, *, mach=0, pi_d=1,
                  T_amb=None, p_amb=None, altitud_geopotencial=None,
                  eta_c=.85, delta=.04, eta_t=.9, eta_m=.98, eta_n=.95,
-                 eta_b=.99, PCI=43000, restricciones=None):
+                 eta_b=.99, PCI=43000, restricciones=None,
+                 tipo_tobera="convergente", epsilon=1.5):
     """Malla fija de ambiente y Mach: x=rp, y=T3; permite Pareto global."""
     rp = _eje(valores_rp, "rp", 1.0, float("inf"))
     if rp[0] <= 1:
         raise ValueError("rp debe ser estrictamente mayor que 1.")
     t3 = _eje(valores_T3, "T3", 200, 2000)
     fijo = dict(mach=mach, pi_d=pi_d, eta_c=eta_c, delta=delta,
-                eta_t=eta_t, eta_m=eta_m, eta_n=eta_n, eta_b=eta_b, PCI=PCI)
+                eta_t=eta_t, eta_m=eta_m, eta_n=eta_n, eta_b=eta_b, PCI=PCI,
+                tipo_tobera=tipo_tobera, epsilon=epsilon)
     if altitud_geopotencial is not None:
         if T_amb is not None or p_amb is not None:
             raise ValueError("Con altitud ISA, no suministres ambiente directo.")
@@ -218,11 +225,12 @@ def barrer_rp_t3(valores_rp, valores_T3, *, mach=0, pi_d=1,
 def barrer_mach_altitud(valores_mach, valores_altitud, *, rp=10, T3=1600,
                         pi_d=.98, eta_c=.85, delta=.04, eta_t=.9,
                         eta_m=.98, eta_n=.95, eta_b=.99, PCI=43000,
-                        restricciones=None):
+                        restricciones=None, tipo_tobera="convergente", epsilon=1.5):
     """Malla x=Mach, y=altitud ISA; extremos descriptivos, SIN Pareto global."""
     mach = _eje(valores_mach, "Mach", 0, 1, incluir_maximo=False)
     altura = _eje(valores_altitud, "altitud", 0, 20000)
     fijo = dict(rp=rp, T3=T3, pi_d=pi_d, eta_c=eta_c, delta=delta,
-                eta_t=eta_t, eta_m=eta_m, eta_n=eta_n, eta_b=eta_b, PCI=PCI)
+                eta_t=eta_t, eta_m=eta_m, eta_n=eta_n, eta_b=eta_b, PCI=PCI,
+                tipo_tobera=tipo_tobera, epsilon=epsilon)
     return _barrer("Mach_altitud", mach, altura, fijo,
                    "mach", "altitud_geopotencial", restricciones, False)

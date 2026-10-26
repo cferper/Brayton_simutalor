@@ -56,3 +56,8 @@
 @media(max-width:760px){.turbo-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.turbo-two-col{grid-template-columns:1fr}.turbo-hero-mark{display:none}.turbo-field-grid{grid-template-columns:1fr}.turbo-mode-options{flex-direction:column;gap:10px}.turbo-actions{flex-wrap:wrap}.turbo-learning .edu-deep-block{padding:17px}}
 @media(max-width:760px){.turbo-study-fields{grid-template-columns:1fr}.turbo-study-form{padding:17px}}
 @media(max-width:420px){.turbo-kpis{grid-template-columns:1fr}}
+/* Selector de geometría M42.B; visibilidad progresiva sin perder entradas. */
+.turbo-nozzle-config{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:1rem;margin-top:1rem}
+.turbo-nozzle-config .field{min-width:0}
+.turbo-nozzle-config select{width:100%;max-width:100%;padding:.6rem}
+.turbo-page [data-tobera][hidden]{display:none!important}

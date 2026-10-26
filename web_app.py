@@ -57,7 +57,7 @@ def turborreactor():
                 error_estudio = "No ha convergido el procedimiento numérico del estudio."
             except ValueError as exc:
                 error_estudio = str(exc)
-        elif accion != "simular":
+        elif accion not in ("simular", "adaptacion"):
             error_estudio = "Acción de formulario desconocida."
     return render_template("turborreactor.html", valores=valores,
                            grupos=GRUPOS_TURBO, ejemplos=EJEMPLOS_TURBO,

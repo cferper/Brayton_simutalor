@@ -12,6 +12,7 @@ from acoplamiento_turbomaquinaria_cp import _invertir_h
 from ciclo_cp_variable import ErrorNumericoCiclo, _temperatura_desde_s0
 from propiedades_aire import R_AIRE, T_MAX, T_MIN, h, s, s0
 from tobera_cp_variable import resolver_tobera_convergente
+from tobera_convergente_divergente_cp import resolver_tobera_convergente_divergente
 from vuelo_cp_variable import _finito, aplicar_difusor, atmosfera_estandar, calcular_remanso
 
 
@@ -97,14 +98,22 @@ def resolver_turborreactor_con_combustible(mach, rp, eta_c, T3, delta,
                                           eta_t, eta_m, eta_n=1.0, pi_d=1.0,
                                           eta_b=0.99, PCI=43000.0, *,
                                           T_amb=None, p_amb=None,
-                                          altitud_geopotencial=None):
+                                          altitud_geopotencial=None,
+                                          tipo_tobera="convergente", epsilon=1.5):
     """Resuelve turborreactor subsónico; ambiente directo o ISA 0–20 km.
 
     f [kg/kg aire], Fs [N/(kg/s aire)], TSFC [kg/(N s), kg/(N h)].
     Ausencia de expansión deja tobera, Fs y TSFC en None; Fs<=0 deja
     TSFC en None. Los componentes antiguos permanecen independientes.
     """
-    _validar_entradas(rp, eta_c, T3, delta, eta_t, eta_m, eta_n, eta_b, PCI)
+    if tipo_tobera not in ("convergente", "convergente_divergente"):
+        raise ValueError("El tipo de tobera debe ser convergente o convergente_divergente.")
+    # eta_n permanece en el contrato histórico de la API. Siempre debe ser
+    # válido, aunque la tobera C-D ideal no lo utilice en sus ecuaciones.
+    _validar_entradas(rp, eta_c, T3, delta, eta_t, eta_m,
+                     eta_n, eta_b, PCI)
+    if tipo_tobera == "convergente_divergente" and (not _finito(epsilon) or epsilon < 1):
+        raise ValueError("La relación de áreas Ae/Ag debe ser finita y mayor o igual que 1.")
     if altitud_geopotencial is not None:
         if T_amb is not None or p_amb is not None:
             raise ValueError("Elige altitud ISA o temperatura/presión directas.")
@@ -133,6 +142,7 @@ def resolver_turborreactor_con_combustible(mach, rp, eta_c, T3, delta,
     estado = "con_margen" if margen > 1+1e-10 else (
         "sin_margen" if margen < 1-1e-10 else "limite")
     diagnosticos = {"margen_tobera": estado, "relacion_p4_p_amb": margen,
+                    "tipo_tobera": tipo_tobera,
                     "aproximacion": "aire equivalente, sin química de combustión"}
     if turbina["p4"] <= p_infinito:
         diagnosticos["funcionamiento"] = "sin_expansion_disponible"
@@ -146,8 +156,26 @@ def resolver_turborreactor_con_combustible(mach, rp, eta_c, T3, delta,
                                  "empuje_especifico_neto": None,
                                  "TSFC_kg_N_s": None, "TSFC_kg_N_h": None},
                 "diagnosticos": diagnosticos}
-    tobera = resolver_tobera_convergente(turbina["T4"], turbina["p4"],
-                                        p_infinito, eta_n)
+    if tipo_tobera == "convergente":
+        tobera = resolver_tobera_convergente(turbina["T4"], turbina["p4"],
+                                            p_infinito, eta_n)
+    else:
+        tobera = resolver_tobera_convergente_divergente(
+            turbina["T4"], turbina["p4"], p_infinito, epsilon)
+        diagnosticos["regimen_tobera"] = tobera["regimen"]
+        if not tobera["resuelto"]:
+            diagnosticos["funcionamiento"] = "tobera_no_resuelta"
+            diagnosticos["detalle_tobera"] = tobera["diagnostico"]
+            return {"origen_ambiente": origen, "ambiente": ambiente,
+                    "remanso": remanso, "difusor": difusor, "compresor": compresor,
+                    "combustor": combustor, "turbina": turbina, "tobera": tobera,
+                    "prestaciones": {"empuje_especifico_bruto": None,
+                                     "empuje_especifico_salida": None,
+                                     "resistencia_entrada": remanso["velocidad_vuelo"],
+                                     "empuje_especifico_presion": None,
+                                     "empuje_especifico_neto": None,
+                                     "TSFC_kg_N_s": None, "TSFC_kg_N_h": None},
+                    "diagnosticos": diagnosticos}
     salida = (1+f)*tobera["empuje_especifico_momento"]
     presion = (1+f)*tobera["empuje_especifico_presion"]
     resistencia = remanso["velocidad_vuelo"]
