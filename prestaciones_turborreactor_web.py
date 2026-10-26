@@ -142,8 +142,11 @@ def _svg_curva(puntos, parametro, unidad_x, clave, titulo, unidad_y):
         if p["punto"]["estado"] == "valido" and valor is not None:
             y = coord_y(valor)
             segmento.append(f'{x:.2f},{y:.2f}')
-            svg.append(f'<circle cx="{x:.2f}" cy="{y:.2f}" r="4" fill="#1967a6">'
-                       f'<title>{p["valor_parametro"]:.4g}: {valor:.5g}</title></circle>')
+            choque = p["punto"].get("motivo") == "choque_normal_resuelto"
+            svg.append(f'<circle cx="{x:.2f}" cy="{y:.2f}" r="{5 if choque else 4}" '
+                       f'fill="{ "#d28b1b" if choque else "#1967a6" }">'
+                       f'<title>{p["valor_parametro"]:.4g}: {valor:.5g}'
+                       f'{"; choque normal resuelto" if choque else ""}</title></circle>')
         else:
             cerrar()
             svg.append(f'<path d="M{x-5:.2f} {y1-5} l10 10 m-10 0 l10 -10" '
@@ -153,8 +156,9 @@ def _svg_curva(puntos, parametro, unidad_x, clave, titulo, unidad_y):
     if not validos:
         svg.append('<text x="430" y="153" text-anchor="middle" font-size="16">'
                    'Sin prestaciones definidas en este intervalo</text>')
-    svg.append('<text x="120" y="310" font-size="12" fill="#1967a6">● Válido</text>'
-               '<text x="245" y="310" font-size="12" fill="#ad4b24">× Sin dato / inadmisible</text>')
+    svg.append('<text x="100" y="310" font-size="12" fill="#1967a6">● Válido</text>'
+               '<text x="200" y="310" font-size="12" fill="#9b6700">● Choque resuelto</text>'
+               '<text x="365" y="310" font-size="12" fill="#ad4b24">× Sin dato / inadmisible</text>')
     return _base_svg(ancho, alto, svg, f'{titulo} frente a {parametro}; interrupciones si faltan resultados')
 
 
@@ -187,7 +191,8 @@ def _svg_mapa(mapa, clave, titulo):
                            + (f'{valor:.6g} {unidad}' if valor is not None else
                               ESTADOS_WEB[p["estado"]]))
             svg.append(f'<rect x="{x}" y="{y}" width="{celda_x-2}" height="{celda_y-2}" '
-                       f'rx="3" fill="{color}" stroke="#9aacbb">'
+                       f'rx="3" fill="{color}" stroke="{ "#d28b1b" if p.get("motivo")=="choque_normal_resuelto" else "#9aacbb" }" '
+                       f'stroke-width="{3 if p.get("motivo")=="choque_normal_resuelto" else 1}">'
                        f'<title>{escape(descripcion)}</title></rect>')
             if valor is None:
                 svg.append(f'<text x="{x+celda_x/2}" y="{y+25}" font-size="21" '
@@ -207,7 +212,7 @@ def _svg_mapa(mapa, clave, titulo):
                f'text-anchor="middle">{eje_x}</text>')
     svg.append(f'<text x="10" y="{y0-12}" font-size="12">{eje_y}</text>')
     svg.append(f'<text x="{x0}" y="{alto-21}" font-size="12">'
-               '× Sin dato / estado inválido; el número dentro de cada celda expresa el valor</text>')
+               '× Sin dato; borde ocre = choque normal resuelto; número = valor</text>')
     if not datos:
         svg.append(f'<text x="{x0}" y="{alto-8}" font-size="11">'
                    'No hay magnitudes definidas en esta malla.</text>')
@@ -244,13 +249,15 @@ def _svg_pareto(mapa):
     for p in candidatos:
         x,y=cx(p["TSFC_kg_N_h"]),cy(p["Fs"])
         no_dominado=id(p) in frontera
+        choque=p.get("motivo")=="choque_normal_resuelto"
         svg.append(f'<circle cx="{x:.2f}" cy="{y:.2f}" r="{6 if no_dominado else 3.2}" '
                    f'fill="{"#d28b1b" if no_dominado else "#648bb0"}" '
-                   f'stroke="{"#553800" if no_dominado else "none"}" '
+                   f'stroke="{"#c44b20" if choque else "#553800" if no_dominado else "none"}" '
                    f'stroke-width="1.5"><title>rp={p["entradas"]["rp"]:.5g}, '
                    f'T3={p["entradas"]["T3"]:.5g} K; '
                    f'Fs={p["Fs"]:.6g}, TSFC={p["TSFC_kg_N_h"]:.6g}'
-                   f'{"; no dominado" if no_dominado else "; dominado"}</title></circle>')
+                   f'{"; no dominado" if no_dominado else "; dominado"}'
+                   f'{"; choque normal resuelto" if choque else ""}</title></circle>')
     svg.append('<text x="110" y="315" font-size="12">● Azul: evaluado válido  '
                '◉ Ocre con borde: no dominado</text>')
     return _base_svg(780, 360, svg, 'Pareto del mapa rp y T3: minimizar TSFC y maximizar empuje neto')

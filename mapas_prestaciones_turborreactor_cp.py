@@ -127,7 +127,10 @@ def _punto(entradas, indices, config):
         base.update(estado="empuje_no_positivo", motivo="Fs <= 0")
         base["cumple_restricciones"] = not config["exigir_empuje_positivo"]
     else:
-        base.update(estado="valido", motivo="empuje_neto_positivo")
+        motivo = ("choque_normal_resuelto" if r["tobera"]["regimen"] in
+                  ("choque_normal_interno", "choque_normal_salida")
+                  else "empuje_neto_positivo")
+        base.update(estado="valido", motivo=motivo)
         base["cumple_restricciones"] = True
     return base
 

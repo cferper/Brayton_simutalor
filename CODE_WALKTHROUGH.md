@@ -3203,7 +3203,7 @@ El mapa A barre `rp` y `T3` en un mismo ambiente y Mach y compara dos objetivos:
 
 **INTERPRETACIÓN FÍSICA / INGENIERÍA.** El nuevo módulo `tobera_convergente_divergente_cp.py` es **independiente**: ni la web ni los motores de §§4.69–4.76 lo importan todavía. Tampoco reemplaza la tobera exclusivamente convergente de §4.70. Para remanso `Tt,pt`, contrapresión `p_amb` [kPa] y geometría `epsilon=Ae/Ag>=1`, aplica `h(Tt)=h(T)+V²/2000` con h [kJ/kg] y `s(T,p)=s(Tt,pt)` con s [kJ/(kg K)]; obtiene `V=sqrt(2000*(h(Tt)-h(T)))` [m/s], `a=sqrt(gamma(T)*R_AIRE*T)` y `G=rho*V` [kg/(m² s)] con `rho=1000*p/(R_AIRE*T)` [kg/m³]. En la garganta bloqueada `Mg=1`, `Gg=G*` y `Ag=A*`, por lo que `epsilon=G*/Ge`. En flujo no bloqueado `Mg<1` y **Ag no es A\***. La ecuación `dA/A=(M²-1)dV/V` explica que el divergente acelera cuando `M>1`. Para una misma relación de áreas existen una raíz subsónica y otra supersónica: elegir una sin contrapresión ni régimen físico induce errores.
 
-**INTERPRETACIÓN FÍSICA / INGENIERÍA — diagnósticos.** La salida ideal adaptada cumple `pe=p_amb`, la subexpandida `pe>p_amb`, la sobreexpandida `pe<p_amb`. El empuje específico de **tobera aislada** es `Fs=Ve+1000*(pe-p_amb)/(rho_e*Ve)` [N/(kg/s)=m/s]; no presupone caudal absoluto, no resta velocidad del avión y no equivale al empuje neto del turborreactor web. Una garganta bloqueada **no garantiza** una salida real supersónica: un choque interno puede dejarla subsónica y aumentar entropía. Sin solucionador de choques no se devuelven estado de salida ni empuje para contrapresiones diagnosticadas como ambiguas. Se usa sólo como referencia aproximada `p_choque_salida≈pe[1+2*gamma(Te)*(Me²-1)/(gamma(Te)+1)]`, fórmula de choque perfecto con **gamma local congelada**, incapaz de fijar con rigor la frontera del régimen bajo cp(T). En sobreexpansión por debajo de ese umbral se declara una **rama supersónica ideal**, que no simula separación ni choques exteriores. El aire de composición fija y las correlaciones `200–2000 K` excluyen extrapolar gases de combustión reales. La verificación numérica/analítica no es validación experimental.
+**INTERPRETACIÓN FÍSICA / INGENIERÍA — diagnósticos.** La salida ideal adaptada cumple `pe=p_amb`, la subexpandida `pe>p_amb`, la sobreexpandida `pe<p_amb`. El empuje específico de **tobera aislada** es `Fs=Ve+1000*(pe-p_amb)/(rho_e*Ve)` [N/(kg/s)=m/s]; no presupone caudal absoluto, no resta velocidad del avión y no equivale al empuje neto del turborreactor web. Una garganta bloqueada **no garantiza** una salida supersónica: el modelo 42.C calcula choques normales internos o de salida con conservación y aumento de entropía. El umbral `umbral_choque_salida_aproximado` conserva su nombre histórico pero ahora se calcula con el solucionador cp(T) y no con gamma local congelada. Debajo de ese umbral se mantiene la **rama supersónica ideal**, sin modelar choques exteriores, separación ni fricción. El aire de composición fija y las correlaciones `200–2000 K` excluyen extrapolar gases de combustión reales. La verificación numérica/analítica no es validación experimental.
 
 **PYTHON — funciones, entrada y ejecución.** No hay nuevo consumidor en producción: las dos funciones públicas las invocan directamente las pruebas y las puede utilizar código Python futuro. `resolver_tobera_convergente_divergente(Tt, pt, p_amb, epsilon)` recibe cuatro reales finitos no booleanos (K, kPa, kPa, ratio [-]), valida `200<Tt<=2000`, `pt>p_amb>0`, `epsilon>=1`, y devuelve `dict` con `regimen: str`, `resuelto: bool`, `diagnostico: str|None`, entradas, temperaturas y presiones de garganta/salida [K,kPa], Mach [-], densidades [kg/m³], velocidades [m/s], flujos por área [kg/(m² s)], `area_salida_por_caudal` [m²/(kg/s)], presiones crítica y diferencia [kPa], `adaptacion: str|None`, empuje de momento, presión y total [N/(kg/s)] y residuos de energía [kJ/kg], entropía [kJ/(kg K)] y masa [kg/(m² s)]. En ramas no resueltas los campos de salida, empuje y residuos son `None`, no ceros. `relacion_areas_adaptada(Tt, pt, p_amb)` recibe K,kPa,kPa y devuelve `float epsilon>1` para `Me>1` y `pe=p_amb` con cp(T). `ValueError` señala entradas o pretensión subsónica de adaptación supersónica; `EstadoFueraDeRango` señala temperatura requerida fuera de 200–2000 K; `ErrorNumericoCiclo` señala una raíz fuera de la rama o falta de convergencia. Ejemplo: `epsilon=relacion_areas_adaptada(1200,500,70)` da ≈1.652764798; `resolver_tobera_convergente_divergente(1200,500,70,epsilon)['mach_salida']` da ≈1.939449112. Para `p_amb=400`, el mismo caso devuelve `resuelto=False` y `empuje_especifico_total=None`, sin estado inventado.
 
@@ -3220,9 +3220,10 @@ histórico con ηn. La convergente-divergente C-D impone `epsilon=Ae/Ag≥1` y
 expansión isentrópica ideal `cp(T)`: el parámetro `eta_n` **se valida** como
 fracción física `0<eta_n≤1` por compatibilidad de la API, pero **no interviene**
 en las ecuaciones C-D, cuya eficiencia ideal efectiva es 1. La garganta
-puede estar bloqueada (M=1) aunque un choque interno impida conocer el estado
-de salida: `Fs` y `TSFC` quedan en `None`, no en cero. En mapas, esos casos
-tienen el estado separado `tobera_no_resuelta`; `sin_expansion` se reserva
+puede estar bloqueada (M=1) mientras un choque normal interno ya resuelto
+reduce el Mach de salida y la presión total (véase §4.79). Cuando el dominio
+no permite resolverlo, `Fs` y `TSFC` quedan en `None`, no en cero. En mapas,
+esos casos conservan el estado separado `tobera_no_resuelta`; `sin_expansion` se reserva
 para falta de margen total de presión. El empuje conocido se calcula como
 `(1+f)*(Ve+1000*(pe-p_amb)/Ge)-Vinf` en N/(kg/s de aire), con `Ge=ρe Ve`;
 `TSFC=3600*f/Fs` sólo para Fs positivo.
@@ -3280,9 +3281,76 @@ API y regresión de mapas; no se ha efectuado validación contra ensayos de
 toberas o turborreactores. Véanse el [documento técnico 42.B](docs/milestones/42b_integracion_web_tobera_cd_cp.md)
 y su [aprendizaje](docs/milestones/42b_integracion_web_tobera_cd_cp_APRENDIZAJE.md).
 
+### 4.79 — Choque normal y flujo posterior en la tobera C-D (milestone 42.C)
+
+**Correcciones finales tras revisión independiente:** dos textos de
+interfaz ahora reconocen la resolución de choques normales; los choques
+oblicuos y las pérdidas viscosas siguen excluidos. En un choque interno,
+`choque_normal.generacion_entropia` [kJ/(kg·K)] representa el incremento
+físico positivo, mientras que `residuo_entropia_salida` compara la salida
+con `s(Tt, pt2)` (presión total aguas abajo), por lo que debe ser cercano
+a cero. Las fronteras cercanas a `Ae/Ag=1` emplean tolerancias acotadas
+por la anchura del intervalo físico de contrapresiones. Las nuevas pruebas
+ejercitan esa región y verifican en Flask las magnitudes y unidades del
+bloque visual de choque.
+
+**INTERPRETACIÓN FÍSICA / INGENIERÍA.** El choque normal es una discontinuidad
+adiabática cuasiunidimensional: `rho1*V1=rho2*V2` [kg/(m²·s)],
+`p1+rho1*V1²/1000=p2+rho2*V2²/1000` [kPa] y
+`h(T1)+V1²/2000=h(T2)+V2²/2000` [kJ/kg]. La entalpía total se conserva;
+la entropía aumenta y la presión total posterior disminuye. Se calcula
+`Achoque/Ag`, nunca una posición axial [m] sin geometría `A(x)`.
+La corriente se expande supersónicamente hasta el choque, experimenta el
+salto y continúa en la rama subsónica isentrópica hasta la salida. Para
+`Tt=1200 K`, `pt=500 kPa`, `Ae/Ag=1.5`, `pamb=350 kPa` se obtiene
+`Achoque/Ag≈1.36206`, `pe≈350 kPa`, `Me≈0.54316` y empuje específico
+de tobera ≈`358.658 N/(kg/s)`; son resultados del modelo, no ensayos.
+No se calculan choques oblicuos, separación de capa límite ni fricción.
+
+**PYTHON — nuevo solucionador.** `choque_normal_cp.resolver_choque_normal(T1,
+p1,V1,*,tolerancia=1e-9) -> dict` recibe temperatura estática [K], presión
+estática [kPa], velocidad [m/s] y tolerancia numérica relativa [-]. Comprueba
+reales finitos, dominio del aire y `M1>1`. Encuentra `Tt` con `T_desde_h`,
+construye `p2(T2)` de la ecuación de cantidad de movimiento, y mediante
+bisección en la rama subsónica impone continuidad de masa y ecuación de
+estado. Devuelve `T1,p1,V1,M1,rho1,T2,p2,V2,M2,rho2,Tt,pt1,pt2`, pérdida
+de presión total [kPa], entropía generada [kJ/(kg·K)], flujo superficial
+[kg/(m²·s)] y diccionario `residuos` (masa, momento, energía).
+Lanza `ValueError` para entradas inválidas, `EstadoFueraDeRango` para
+temperaturas imposibles y `ErrorNumericoCiclo` si no queda una solución física
+con residuos pequeños. Ejemplo: `resolver_choque_normal(763.6539,84.12215,
+995.2389)['M2']` es aproximadamente `0.60473`. Importa `h`, `s`, `s0`,
+`gamma`, `R_AIRE` y `T_desde_h` de los módulos existentes; lo llama
+`_salida_tras_choque` y también los tests de 42.C.
+
+**PYTHON — área y contrapresión.** `_salida_tras_choque(Tt,pt,critico,
+epsilon,area_choque) -> (dict,dict)` recibe K, kPa, estado crítico, Ae/Ag
+y Achoque/Ag [-]; invoca `_salida_area` supersónica, el solucionador de
+choque y una nueva inversión isentrópica de flujo a la salida con `pt2`.
+`_choque_en_divergente(Tt,pt,p_amb,epsilon,critico) -> (dict,dict)` busca por
+bisección la relación `Achoque/Ag` entre 1 y `epsilon`, comparando las
+contrapresiones de los extremos antes de iterar; lanza `ValueError` cuando
+la contrapresión queda fuera de esta rama. Ambas funciones son auxiliares
+llamadas por `resolver_tobera_convergente_divergente`. Su resultado público
+incluye `choque_normal` (dict o `None`) y `relacion_areas_choque` [-]. Para
+estado no resuelto preserva la garganta y no inventa empuje.
+
+**PYTHON — integración.** `combustible_cp_variable.py` utiliza la salida
+resuelta sin nuevas eficiencias; `mapas_prestaciones_turborreactor_cp._punto`
+marca `motivo='choque_normal_resuelto'` para conservar `estado='valido'` en
+optimizaciones. Los SVG de `prestaciones_turborreactor_web.py` destacan
+visualmente esos puntos y `templates/turborreactor.html` muestra ambas
+caras del choque, pérdida de presión total y entropía generada. La
+calculadora 42.B sigue siendo *isentrópica ideal*. Las pruebas específicas
+comparan conservación, gas perfecto independiente, fronteras y regresión;
+no constituyen validación experimental. Véanse [documento técnico](docs/milestones/42c_choque_normal_tobera_cd_cp.md)
+y [aprendizaje](docs/milestones/42c_choque_normal_tobera_cd_cp_APRENDIZAJE.md).
+
 ## Evolution of the project
 
 Estos hitos resumen capacidades ya implementadas en la versión analizada, sin atribuirles fechas ni reconstruir un historial de commits. Los detalles del funcionamiento actual se explican en las secciones anteriores.
+
+- **Choques normales cuasi-1D con cp(T) variable (milestone 42.C, sin commit).** Ingeniería: conservación y segunda ley, presión total decreciente, choque localizado por relación de áreas y salida subsónica. Python: raíces físicas acotadas, nuevos estados de salida y diagnóstico web/estudios. [Técnico](docs/milestones/42c_choque_normal_tobera_cd_cp.md) y [aprendizaje](docs/milestones/42c_choque_normal_tobera_cd_cp_APRENDIZAJE.md).
 
 - **Tobera C-D ideal cp(T) independiente (milestone 42.A; revisión local).** Ingeniería: garganta crítica, ramas de área, contrapresión, adaptación, régimen de choque no resuelto y empuje específico de tobera; Python: bisección de flujos por área, diagnósticos explícitos y verificación de compatibilidad convergente. Sin conexión con Flask ni con el motor. [Técnico](docs/milestones/42a_tobera_convergente_divergente_cp.md) y [aprendizaje](docs/milestones/42a_tobera_convergente_divergente_cp_APRENDIZAJE.md).
 

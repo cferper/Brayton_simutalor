@@ -69,17 +69,39 @@ class TurborreactorWeb42B(unittest.TestCase):
         self.assertEqual(vista["estaciones"][-2]["nombre"], "Garganta de tobera C-D")
         self.assertAlmostEqual(vista["adaptacion_cd"]["presion_adaptada"], n["presion_salida"], places=4)
 
-    def test_no_resuelto_sin_empuje(self):
+    def test_choque_interno_resuelto_con_empuje_42c(self):
         self.valores.update(tipo_tobera="convergente_divergente", epsilon="6")
         # Geometría suficientemente abierta para exigir choque interno
         # con esta contrapresión: la garganta sí conserva estado sónico.
         r = simular_turborreactor(self.valores)
         self.assertIsNotNone(r["tobera"])
-        self.assertFalse(r["tobera"]["resuelto"])
+        self.assertTrue(r["tobera"]["resuelto"])
         self.assertIsNotNone(r["tobera"]["mach_garganta"])
-        self.assertIsNone(r["prestaciones"]["empuje_especifico_neto"])
-        self.assertIsNone(r["prestaciones"]["TSFC_kg_N_h"])
-        self.assertIsNone(preparar_vista_turborreactor(r)["estaciones"][-1]["T"])
+        self.assertEqual(r["tobera"]["regimen"], "choque_normal_interno")
+        self.assertIsNotNone(r["prestaciones"]["empuje_especifico_neto"])
+        self.assertIsNotNone(r["prestaciones"]["TSFC_kg_N_h"])
+        self.assertIsNotNone(preparar_vista_turborreactor(r)["estaciones"][-1]["T"])
+
+    def test_html_muestra_estados_y_perdidas_choque_42c(self):
+        self.valores.update(tipo_tobera='convergente_divergente',epsilon='6')
+        esperado=simular_turborreactor(self.valores)['tobera']['choque_normal']
+        self.assertIsNotNone(esperado)
+        with app.test_client() as cliente:
+            respuesta=cliente.post('/turborreactor',data=self.valores)
+            self.assertEqual(respuesta.status_code,200)
+            html=respuesta.get_data(as_text=True)
+        bloque=html.split('<h4>Choque normal interno</h4>',1)[1].split('</dl>',1)[0]
+        for rotulo in ('Achoque/Ag','Mach anterior / posterior',
+                       'Presión anterior / posterior','Pérdida de presión total',
+                       'Entropía generada'):
+            self.assertIn(rotulo,bloque)
+        for valor in ('%.5f'%esperado['relacion_areas_choque'],
+                      '%.4f / %.4f'%(esperado['M1'],esperado['M2']),
+                      '%.3f / %.3f kPa'%(esperado['p1'],esperado['p2']),
+                      '%.3f kPa'%esperado['perdida_presion_total'],
+                      '%.6f kJ/(kg·K)'%esperado['generacion_entropia']):
+            self.assertIn(valor,bloque)
+        self.assertNotIn('—',bloque)
 
     def test_mapa_conserva_geometria(self):
         m = barrer_rp_t3([10, 11], [1500, 1600], mach=0, T_amb=288.15,
@@ -102,7 +124,8 @@ class TurborreactorWeb42B(unittest.TestCase):
                     self.assertFalse(punto["cumple_restricciones"])
                     self.assertIsNotNone(punto["resultado"]["tobera"]["mach_garganta"])
         self.assertEqual(sum(m["por_estado"].values()), m["total"])
-        self.assertGreater(m["por_estado"]["tobera_no_resuelta"], 0)
+        self.assertTrue(any(p["regimen_tobera"] == "choque_normal_interno"
+                            for fila in m["puntos"] for p in fila))
 
     def test_epsilon_uno_limite_sonico_y_adaptacion(self):
         self.valores.update(tipo_tobera="convergente_divergente", epsilon="1")

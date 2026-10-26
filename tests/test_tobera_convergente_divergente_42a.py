@@ -50,19 +50,18 @@ class ConvergenteDivergente42A(unittest.TestCase):
         self.assertLess(r['empuje_especifico_presion'],0)
         self.assertIn('separación',r['diagnostico'])
 
-    def test_zona_de_choque_sin_empuje_ficticio(self):
+    def test_zona_de_choque_ahora_resuelta_42c(self):
         r = resolver_tobera_convergente_divergente(TT,PT,400,self.epsilon)
-        self.assertFalse(r['resuelto'])
-        self.assertIn('choque',r['regimen'])
-        for clave in ('mach_salida','presion_salida','empuje_especifico_total',
-                      'diferencia_presiones','residuo_masa'):
-            self.assertIsNone(r[clave])
+        self.assertTrue(r['resuelto'])
+        self.assertEqual(r['regimen'],'choque_normal_interno')
+        self.assertAlmostEqual(r['presion_salida'],400,delta=1e-5)
+        self.assertGreater(r['empuje_especifico_total'],0)
         self.assertGreater(r['umbral_choque_salida_aproximado'],0)
 
-    def test_choque_conserva_garganta_conocida_sin_fingir_salida(self):
+    def test_choque_conserva_garganta_conocida_y_resuelve_salida_42c(self):
         r = resolver_tobera_convergente_divergente(TT, PT, 400, self.epsilon)
         r_ref = resolver_tobera_convergente_divergente(TT, PT, 70, self.epsilon)
-        self.assertFalse(r['resuelto'])
+        self.assertTrue(r['resuelto'])
         for clave in ('temperatura_garganta', 'presion_garganta',
                       'densidad_garganta', 'velocidad_garganta', 'mach_garganta'):
             self.assertIsNotNone(r[clave])
@@ -72,7 +71,7 @@ class ConvergenteDivergente42A(unittest.TestCase):
                       'presion_salida','empuje_especifico_total',
                       'residuo_masa','residuo_energia_garganta',
                       'residuo_entropia_garganta'):
-            self.assertIsNone(r[clave])
+            self.assertIsNotNone(r[clave])
 
     def test_frontera_aproximada_choque_y_advertencia(self):
         base = resolver_tobera_convergente_divergente(TT, PT, 140, self.epsilon)
@@ -84,10 +83,10 @@ class ConvergenteDivergente42A(unittest.TestCase):
                                                         self.epsilon)
         self.assertTrue(debajo['resuelto'])
         self.assertEqual(debajo['regimen'], 'supersonico_sobreexpandido_ideal')
-        self.assertIn('gamma local', debajo['diagnostico'])
-        self.assertFalse(encima['resuelto'])
+        self.assertIn('choque normal', debajo['diagnostico'])
+        self.assertTrue(encima['resuelto'])
         self.assertIn('choque', encima['regimen'])
-        self.assertIsNone(encima['empuje_especifico_total'])
+        self.assertIsNotNone(encima['empuje_especifico_total'])
         self.assertAlmostEqual(encima['mach_garganta'], 1, places=8)
         self.assertAlmostEqual(debajo['umbral_choque_salida_aproximado'], umbral)
 

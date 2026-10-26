@@ -1,14 +1,13 @@
-"""Tobera C-D ideal cuasi-1D con aire cp(T), independiente del motor.
+"""Tobera C-D cuasi-1D con cp(T): ramas isentrópicas y choque normal interno.
 
-K, kPa, J/(kg K), kJ/kg y m/s. Las ramas con choques no se resuelven.
-La estimación de choque normal a la salida es solo un *indicador* basado
-en gamma local constante; nunca se emplea para calcular empuje.
+K, kPa, J/(kg K), kJ/kg y m/s. Se omiten fricción y separación.
 """
 
 from math import exp, isfinite, log, sqrt
 from numbers import Real
 
 from ciclo_cp_variable import EstadoFueraDeRango, ErrorNumericoCiclo
+from choque_normal_cp import resolver_choque_normal
 from propiedades_aire import R_AIRE, T_MAX, T_MIN, gamma, h, s, s0
 
 
@@ -95,7 +94,7 @@ def _validar(Tt, pt, p_amb, epsilon):
 
 
 def _resultado(Tt, pt, p_amb, epsilon, critico, garganta, salida,
-               regimen, *, motivo=None, umbral_choque=None):
+               regimen, *, motivo=None, umbral_choque=None, choque=None):
     """Contrato homogéneo: None para salidas y empujes físicamente no resueltos."""
     disponible = salida is not None and garganta is not None
     diferencia = salida['p']-p_amb if disponible else None
@@ -134,17 +133,68 @@ def _resultado(Tt, pt, p_amb, epsilon, critico, garganta, salida,
         'residuo_energia_garganta': ht-h(garganta['T'])-garganta['V']**2/2000 if disponible else None,
         'residuo_energia_salida': ht-h(salida['T'])-salida['V']**2/2000 if disponible else None,
         'residuo_entropia_garganta': s(garganta['T'],garganta['p'])-s(Tt,pt) if disponible else None,
-        'residuo_entropia_salida': s(salida['T'],salida['p'])-s(Tt,pt) if disponible else None,
+        # Referencia isentrópica de cada tramo: tras choque, pt2 (no pt1).
+        'residuo_entropia_salida': (s(salida['T'],salida['p'])-s(Tt,choque['pt2'])
+                                    if choque else s(salida['T'],salida['p'])-s(Tt,pt))
+                                   if disponible else None,
         'umbral_choque_salida_aproximado': umbral_choque,
+        'choque_normal': choque,
+        'relacion_areas_choque': choque['relacion_areas_choque'] if choque else None,
     }
 
 
+def _salida_tras_choque(Tt, pt, critico, epsilon, area_choque):
+    """Resuelve choque a A/Ag fija y salida subsónica cuasi-1D posterior."""
+    antes = _salida_area(Tt, pt, critico, area_choque, supersonica=True)
+    choque = resolver_choque_normal(antes['T'], antes['p'], antes['V'])
+    pt2 = choque['pt2']
+    objetivo = critico['G']/epsilon
+    # El estado sónico T* depende de Tt, no de pt2; el flujo sí depende de pt2.
+    if _estado(critico['T'], Tt, pt2)['G'] < objetivo*(1-1e-9):
+        raise ErrorNumericoCiclo('El flujo posterior excede la capacidad subsónica.')
+    Te = _biseccion(lambda T: _estado(T,Tt,pt2)['G']-objetivo,
+                    critico['T'], Tt)
+    salida = _estado(Te,Tt,pt2)
+    choque['relacion_areas_choque'] = area_choque
+    choque['residuo_masa_geometrica'] = (area_choque*choque['flujo_masico_por_area']
+                                       -critico['G'])
+    return salida, choque
+
+
+def _choque_en_divergente(Tt, pt, p_amb, epsilon, critico):
+    """Busca el área de choque que reproduce la contrapresión de salida."""
+    salida_limite = _salida_area(Tt,pt,critico,epsilon,supersonica=False)
+    # A/Ag=1 es choque degenerado (sin salto); el límite superior es salida.
+    presion_max = salida_limite['p']
+    salida_choque_e, _ = _salida_tras_choque(Tt,pt,critico,epsilon,epsilon)
+    presion_min = salida_choque_e['p']
+    anchura = presion_max-presion_min
+    # Una tolerancia absoluta fija puede consumir toda la rama si Ae/Ag≈1.
+    margen = max(1e-10*pt, min(1e-8*pt, 1e-3*anchura))
+    if p_amb > presion_max + margen or p_amb < presion_min - margen:
+        raise ValueError('La contrapresión no pertenece a la rama de choque interno.')
+    if abs(p_amb-presion_min) <= margen:
+        return _salida_tras_choque(Tt,pt,critico,epsilon,epsilon)
+    # Cerca de la garganta el choque se debilita, y la evaluación exacta a
+    # A/Ag=1 no admite M1>1. Se usa el límite analítico de rama subsónica.
+    lo, hi = 1., epsilon
+    for _ in range(85):
+        medio = (lo+hi)/2
+        salida, choque = _salida_tras_choque(Tt,pt,critico,epsilon,medio)
+        if salida['p'] > p_amb:
+            lo = medio
+        else:
+            hi = medio
+        if abs(salida['p']-p_amb) <= max(1e-10*pt, min(1e-9*pt, 1e-4*anchura)):
+            return salida, choque
+    raise ErrorNumericoCiclo('La posición del choque no converge.')
+
+
 def resolver_tobera_convergente_divergente(Tt, pt, p_amb, epsilon):
-    """Resuelve sólo ramas físicas isentrópicas C-D (K, kPa, kPa, Ae/Ag).
+    """Resuelve ramas isentrópicas y choque normal cuasi-1D (K, kPa, kPa, Ae/Ag).
 
     Retorna dict con estados, áreas, residuos y empuje específico [N/(kg/s)].
-    Las contrapresiones que pueden requerir choques producen resuelto=False,
-    sin salida/empuje; el criterio de choque a la salida es aproximado.
+    Puede devolver estado no resuelto cuando faltan datos físicos o dominio.
     """
     _validar(Tt, pt, p_amb, epsilon)
     Tt, pt, p_amb, epsilon = map(float,(Tt,pt,p_amb,epsilon))
@@ -163,7 +213,8 @@ def resolver_tobera_convergente_divergente(Tt, pt, p_amb, epsilon):
 
     salida_sub = _salida_area(Tt,pt,critico,epsilon,supersonica=False)
     p_inicio_bloqueo = salida_sub['p']
-    tol_p = 1e-9*pt
+    # Frontera sónico/subsónico: limitar incertidumbre por anchura de rama.
+    tol_p = max(1e-10*pt, min(1e-9*pt, 1e-3*(pt-p_inicio_bloqueo)))
     if p_amb >= p_inicio_bloqueo-tol_p:
         # A p_inicio_bloqueo la garganta es sónica, pero la salida sigue subsónica.
         if abs(p_amb-p_inicio_bloqueo) <= tol_p:
@@ -177,29 +228,38 @@ def resolver_tobera_convergente_divergente(Tt, pt, p_amb, epsilon):
         return _resultado(Tt,pt,p_amb,epsilon,critico,garganta,salida_amb,
                           'subsonico_no_bloqueado')
 
-    # En una C-D bloqueada la raíz supersónica es matemática; su validez
-    # exige excluir choques dentro del divergente. Para ello se utiliza una
-    # cota indicativa (gamma_e local) y se rehúsa inferir el estado ambiguo.
+    # La frontera choque-en-salida se obtiene resolviendo las conservaciones
+    # con cp(T), no congelando gamma a la temperatura de salida.
     salida_sup = _salida_area(Tt,pt,critico,epsilon,supersonica=True)
-    g = gamma(salida_sup['T'])
-    p_choque_aprox = salida_sup['p']*(1+2*g/(g+1)*(salida_sup['M']**2-1))
-    if p_amb >= p_choque_aprox*(1-1e-6):
-        return _resultado(Tt,pt,p_amb,epsilon,critico,critico,None,
-                          'choque_interno_o_salida_no_resuelto',
-                          motivo='Contrapresión compatible con choque interno/salida; '
-                          'sin solucionador de choques no se predice la salida.',
-                          umbral_choque=p_choque_aprox)
+    if epsilon > 1:
+        choque_salida = resolver_choque_normal(salida_sup['T'],salida_sup['p'],salida_sup['V'])
+        p_choque = choque_salida['p2']
+        anchura_choque = max(0., p_inicio_bloqueo-p_choque)
+        tol_choque = max(1e-10*pt, min(1e-8*pt, 1e-3*anchura_choque))
+        if p_amb >= p_choque-tol_choque:
+            try:
+                salida, choque = _choque_en_divergente(Tt,pt,p_amb,epsilon,critico)
+                regimen = ('choque_normal_salida' if abs(choque['relacion_areas_choque']-epsilon)
+                           <= min(1e-8*epsilon, 1e-3*(epsilon-1)) else 'choque_normal_interno')
+                return _resultado(Tt,pt,p_amb,epsilon,critico,critico,salida,
+                                  regimen,choque=choque,umbral_choque=p_choque)
+            except (EstadoFueraDeRango,ErrorNumericoCiclo,ValueError) as exc:
+                return _resultado(Tt,pt,p_amb,epsilon,critico,critico,None,
+                                  'choque_interno_o_salida_no_resuelto',
+                                  motivo=str(exc),umbral_choque=p_choque)
+    else:
+        p_choque = salida_sup['p']
     if p_amb > salida_sup['p']*(1+1e-6):
         # En la zona sobreexpandida el flujo interior puede mantenerse
         # supersónico y ajustar presión fuera, pero separación no está modelada.
         regimen = 'supersonico_sobreexpandido_ideal'
-        motivo = ('Rama supersónica ideal; la estimación con gamma local sitúa '
+        motivo = ('Rama supersónica ideal; el choque normal de salida sitúa '
                   'el choque fuera. No predice separación ni choques externos.')
     else:
         regimen = 'supersonico_ideal'
         motivo = None
     return _resultado(Tt,pt,p_amb,epsilon,critico,critico,salida_sup,
-                      regimen,motivo=motivo,umbral_choque=p_choque_aprox)
+                      regimen,motivo=motivo,umbral_choque=p_choque)
 
 
 def relacion_areas_adaptada(Tt, pt, p_amb):
