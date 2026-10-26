@@ -148,10 +148,13 @@ class RevisionEducativaCP(unittest.TestCase):
         self.assertIn('.edu-deep-block .edu-equation', css)
 
     def test_una_sola_plantilla_principal(self):
-        # El milestone 40 añade otra aplicación visual en la misma Flask;
-        # index.html continúa siendo la ÚNICA plantilla del dashboard Brayton.
-        self.assertEqual(sorted(p.name for p in (ROOT / 'templates').glob('*.html')),
-                         ['index.html', 'turborreactor.html'])
+        # index.html sigue siendo la única página del dashboard Brayton;
+        # M43 requiere estas plantillas, sin impedir ampliaciones legítimas.
+        necesarias = {'index.html', 'turborreactor.html',
+                      'turborreactor_teoria_43.html'}
+        disponibles = {p.name for p in (ROOT / 'templates').glob('*.html')}
+        self.assertTrue(necesarias.issubset(disponibles),
+                        f'Faltan plantillas: {sorted(necesarias - disponibles)}')
         self.assertIn('class="cp-gallery"', (ROOT / 'templates/index.html').read_text(encoding='utf-8'))
 
 

@@ -55,6 +55,8 @@
 @media(max-width:1100px){.turbo-study-fields{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:760px){.turbo-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.turbo-two-col{grid-template-columns:1fr}.turbo-hero-mark{display:none}.turbo-field-grid{grid-template-columns:1fr}.turbo-mode-options{flex-direction:column;gap:10px}.turbo-actions{flex-wrap:wrap}.turbo-learning .edu-deep-block{padding:17px}}
 @media(max-width:760px){.turbo-study-fields{grid-template-columns:1fr}.turbo-study-form{padding:17px}}
+/* El turborreactor no usa el menú plegable del dashboard Brayton. */
+@media screen and (max-width:760px){.js .turbo-page .sidebar:not(.menu-open) .section-nav{display:flex}}
 @media(max-width:420px){.turbo-kpis{grid-template-columns:1fr}}
 /* Selector de geometría M42.B; visibilidad progresiva sin perder entradas. */
 .turbo-nozzle-config{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:1rem;margin-top:1rem}

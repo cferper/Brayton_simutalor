@@ -32,16 +32,16 @@ class PrestacionesWeb41(unittest.TestCase):
         return self.cliente.post('/turborreactor', data={**base(**motor),
             **controles(**(controles_extra or {})), 'accion': accion})
 
-    def test_siete_secciones_y_navegacion_sin_scroll(self):
+    def test_seis_secciones_y_navegacion_sin_scroll(self):
         respuesta = self.cliente.get('/turborreactor')
         self.assertEqual(respuesta.status_code, 200)
         html = respuesta.get_data(as_text=True)
         ids = ['configuracion', 'resultados', 'estaciones', 'graficas',
-               'sensibilidad', 'mapa', 'fundamentos']
+               'sensibilidad', 'mapa']
         for ident in ids:
             self.assertIn(f'id="{ident}" class="turbo-section"', html)
             self.assertIn(f'href="#{ident}"', html)
-        self.assertEqual(html.count('class="turbo-section"'), 7)
+        self.assertEqual(html.count('class="turbo-section"'), 6)
         js = (RAIZ/'static/turborreactor.js').read_text(encoding='utf-8')
         self.assertIn('history.pushState', js)
         self.assertIn('popstate', js)
@@ -51,8 +51,8 @@ class PrestacionesWeb41(unittest.TestCase):
 
     def test_educacion_propulsion_ejes_unidades_legend_y_keyboard(self):
         html = self.cliente.get('/turborreactor').get_data(as_text=True)
-        for frase in ('One Factor At a Time', 'interacciones',
-                      'frontera de la malla', 'No se define un frente global',
+        for frase in ('Un factor cada vez (OFAT)', 'interacciones',
+                      'borde sólo es extremo', 'No se define un frente global',
                       'kg/(N·h)', 'data-study-form="sensibilidad"',
                       'data-study-form="mapa"', 'tabindex="0"'):
             # El mensaje Pareto se materializa al calcular el mapa B.

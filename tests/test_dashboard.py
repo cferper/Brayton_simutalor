@@ -129,6 +129,7 @@ class DashboardTests(unittest.TestCase):
 
     def test_vista_local_conserva_parametros_y_descarga_original(self):
         ruta = reporting.guardar_informe_html(self.html, self.carpeta, self.args[8])
+        original = ruta.read_bytes()
         vista = self.client.get('/informes/'+ruta.name)
         self.assertEqual(vista.status_code, 200)
         texto = vista.get_data(as_text=True)
@@ -137,7 +138,8 @@ class DashboardTests(unittest.TestCase):
         self.assertIn('value="288.15"', texto)
         self.assertIn('value="5.0"', texto)
         descarga = self.client.get('/informes/'+ruta.name+'?descargar=1')
-        self.assertEqual(descarga.get_data(as_text=True), self.html)
+        self.assertEqual(descarga.data, original)
+        self.assertEqual(ruta.read_bytes(), original)
 
     def test_historial_solo_lectura_y_compatibilidad_anterior(self):
         antiguo = reporting.MARCA_INICIO+'<html>anterior</html>'+reporting.MARCA_FINAL

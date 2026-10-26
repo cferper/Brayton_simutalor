@@ -46,7 +46,7 @@ GRUPOS_TURBO = (
         ("eta_t", "Rendimiento isentrópico de turbina", "–", "Eficiencia de expansión de la turbina."),
         ("eta_m", "Rendimiento mecánico del eje", "–", "Fracción del trabajo de turbina que llega al compresor."),
         ("pi_d", "Recuperación de presión del difusor", "–", "Relación de presiones totales; hasta uno."),
-        ("eta_n", "Rendimiento de tobera", "–", "Convergente: afecta a la expansión. C-D ideal: se valida (0 < ηn ≤ 1), pero no modifica el cálculo."),
+        ("eta_n", "Rendimiento de tobera", "–", "Convergente: afecta a la expansión. C-D: se valida (0 < ηn ≤ 1), pero no interviene en el modelo actual, que admite choques normales irreversibles."),
     )),
     ("Combustible equivalente", (
         ("eta_b", "Rendimiento de combustión", "–", "Fracción efectiva del PCI que aporta energía."),

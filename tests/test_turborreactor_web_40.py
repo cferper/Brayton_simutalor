@@ -149,7 +149,7 @@ class TurborreactorWeb40(unittest.TestCase):
         self.assertIn('href="/turborreactor"',pagina)
         self.assertEqual(pagina.count('class="dashboard-panel"'),8)
         turbo=self.cliente.get('/turborreactor').get_data(as_text=True)
-        for texto in ('Fundamentos y procedimiento','Uso y configuraci','TSFC','Bloqueo','Combustible','propiedades de remanso'):
+        for texto in ('Fundamentos teóricos y procesos','Uso y configuraci','TSFC','Bloqueo','Combustible','propiedades de remanso'):
             if texto=='Bloqueo':
                 self.assertIn('bloqueo',turbo.lower())
             else:
@@ -170,7 +170,7 @@ class TurborreactorWeb40(unittest.TestCase):
         html=self.cliente.get('/turborreactor').get_data(as_text=True)
         inspector=InspectorPaneles(); inspector.feed(html)
         ids=['configuracion','resultados','estaciones','graficas',
-             'sensibilidad','mapa','fundamentos']
+             'sensibilidad','mapa']
         self.assertEqual([p['id'] for p in inspector.paneles],ids)
         self.assertTrue(all(p.get('tabindex')=='-1' for p in inspector.paneles))
         self.assertEqual([a['href'] for a in inspector.navegacion],['#'+i for i in ids])
@@ -242,14 +242,13 @@ class TurborreactorWeb40(unittest.TestCase):
         self.assertIn('overflow-x:auto',css)
         self.assertIn('.turbo-svg:focus-visible',css)
 
-    def test_educacion_en_los_cinco_apartados(self):
+    def test_educacion_distribuida_en_los_seis_apartados(self):
         pagina=self._post().get_data(as_text=True)
         for texto in ('Qué cambia con el ambiente','Cómo afecta la compresión',
                       'Pérdidas de potencia','combustible equivalente',
-                      'Cómo leer las prestaciones','Qué es una estación termodinámica',
-                      'Recorrido físico del aire','De una tabla de estados',
-                      'Cómo está construido el modelo físico',
-                      'verificación','validación'):
+                      'Empuje bruto y neto','0 · Ambiente y 1 · Difusor',
+                      '4→garganta→escape · Tobera','Temperaturas totales [K]',
+                      'modelo educativo','Verificación','validación'):
             self.assertIn(texto,pagina)
 
     def test_respaldo_sin_js_con_formulario_post(self):

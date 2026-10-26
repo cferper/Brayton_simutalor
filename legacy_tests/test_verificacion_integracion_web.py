@@ -226,7 +226,13 @@ class VerificacionIntegracionWebV5(unittest.TestCase):
         incompleto.write_text(reporting.MARCA_INICIO + "sin cierre", encoding="utf-8")
         fuera = self.raiz / "fuera.txt"; fuera.write_text("personal", encoding="utf-8")
         enlace = self.salidas / ("brayton_2026-10-23_08-00-00-000000_" + "c" * 32 + ".html")
-        enlace.symlink_to(fuera)
+        with self.subTest(comprobacion="filtrado de enlace simbólico"):
+            try:
+                enlace.symlink_to(fuera)
+            except OSError as error:
+                if getattr(error, "winerror", None) == 1314:
+                    self.skipTest("Windows sin privilegio para crear enlaces simbólicos")
+                raise
         antes = {p.name: p.read_bytes() for p in self.salidas.iterdir() if not p.is_symlink()}
         entradas = web_app.listar_informes()
         self.assertEqual({i["nombre"] for i in entradas}, {ruta.name, antiguo.name})
@@ -243,6 +249,7 @@ class VerificacionIntegracionWebV5(unittest.TestCase):
         for tipo in ("normal", "sensibilidad", "mapa", "segunda_ley"):
             with self.subTest(tipo=tipo):
                 ruta, original, metadata = self._informe(tipo)
+                bytes_guardados = ruta.read_bytes()
                 with patch.object(web_app, "main", side_effect=AssertionError("recalculo")), \
                      patch.object(web_app, "ejecutar_sensibilidad", side_effect=AssertionError("recalculo")), \
                      patch.object(web_app, "ejecutar_mapa", side_effect=AssertionError("recalculo")), \
@@ -251,8 +258,8 @@ class VerificacionIntegracionWebV5(unittest.TestCase):
                     descarga = self.cliente.get("/informes/" + ruta.name + "?descargar=1")
                 self.assertEqual(vista.status_code, 200)
                 self.assertEqual(descarga.status_code, 200)
-                self.assertEqual(descarga.get_data(as_text=True), original)
-                self.assertEqual(descarga.data, ruta.read_bytes())
+                self.assertEqual(descarga.data, bytes_guardados)
+                self.assertEqual(ruta.read_bytes(), bytes_guardados)
                 self.assertIn("attachment", descarga.headers["Content-Disposition"])
                 form = FormularioParser(); form.feed(vista.get_data(as_text=True))
                 for k, v in self.fisicos.items():
@@ -315,16 +322,27 @@ class VerificacionIntegracionWebV5(unittest.TestCase):
         referencia = self.raiz / "privado.html"
         referencia.write_bytes(ruta.read_bytes())
         alias = self.salidas / ("brayton_2026-10-23_08-00-00-000000_" + "c" * 32 + ".html")
-        alias.symlink_to(referencia)
+        enlace_disponible = True
+        try:
+            alias.symlink_to(referencia)
+        except OSError as error:
+            if getattr(error, "winerror", None) != 1314:
+                raise
+            enlace_disponible = False
         incompleto = self.salidas / ("brayton_2026-10-23_08-00-00-000000_" + "d" * 32 + ".html")
         incompleto.write_text(reporting.MARCA_INICIO + "sin marca final", encoding="utf-8")
         for nombre in ("web_app.py", "..%2Fprivado.html", alias.name, incompleto.name):
             with self.subTest(nombre=nombre):
+                if nombre == alias.name and not enlace_disponible:
+                    self.skipTest("Windows sin privilegios para enlace simbólico (1314)")
                 self.assertEqual(self.cliente.get("/informes/" + nombre).status_code, 404)
                 self.assertEqual(self.cliente.get("/informes/" + nombre + "?descargar=1").status_code, 404)
         for documento in ("main.py", "..%2Fmain.py", "AGENTS.md"):
             self.assertEqual(self.cliente.get("/documentacion/" + documento).status_code, 404)
-        self.assertIsNone(web_app.estudio_conservado(alias.name, self.fisicos))
+        with self.subTest(comprobacion="estudio desde enlace simbólico"):
+            if not enlace_disponible:
+                self.skipTest("Windows sin privilegios para enlace simbólico (1314)")
+            self.assertIsNone(web_app.estudio_conservado(alias.name, self.fisicos))
         self.assertIsNone(web_app.estudio_conservado(incompleto.name, self.fisicos))
 
     def test_excepcion_interna_del_mapa_no_se_presenta_como_fisica(self):

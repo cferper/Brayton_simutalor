@@ -1,6 +1,7 @@
 /* Mejora progresiva: sin JS el formulario HTML sigue pudiendo enviarse. */
 document.addEventListener('DOMContentLoaded',()=>{
-  /* Navegación exclusiva en clientes JS: sin JS, los siete apartados siguen
+  document.documentElement.classList.add('js');
+  /* Navegación exclusiva en clientes JS: sin JS, los seis apartados siguen
      visibles en vertical como respaldo accesible y el POST sigue operativo. */
   const paneles=[...document.querySelectorAll('.turbo-section[id]')];
   const enlaces=[...document.querySelectorAll('.section-nav a[href^="#"]')];
@@ -37,6 +38,33 @@ document.addEventListener('DOMContentLoaded',()=>{
   };
   window.addEventListener('popstate',sincronizarHistoria);
   window.addEventListener('hashchange',sincronizarHistoria);
+  /* M43: dos vistas del mismo contenido calculado, sin nueva petición al servidor.
+     Sin JavaScript se ven ambas, en orden: uso seguido de fundamentos. */
+  document.querySelectorAll('[data-edu-tabs]').forEach(group=>{
+    const botones=[...group.querySelectorAll(':scope > .edu-tabbar > [role="tab"]')];
+    const paneles=botones.map(b=>document.getElementById(b.getAttribute('aria-controls')));
+    const activar=(index,enfocar=false)=>{
+      botones.forEach((b,i)=>{
+        b.setAttribute('aria-selected',String(index===i));
+        b.tabIndex=index===i?0:-1;
+        paneles[i].hidden=index!==i;
+      });
+      if(enfocar)botones[index].focus();
+    };
+    botones.forEach((b,i)=>{
+      b.addEventListener('click',()=>activar(i));
+      b.addEventListener('keydown',e=>{
+        let indice;
+        if(e.key==='ArrowRight')indice=(i+1)%botones.length;
+        else if(e.key==='ArrowLeft')indice=(i+botones.length-1)%botones.length;
+        else if(e.key==='Home')indice=0;
+        else if(e.key==='End')indice=botones.length-1;
+        else return;
+        e.preventDefault();activar(indice,true);
+      });
+    });
+    activar(0);
+  });
   const form=document.getElementById('turbo-form');
   if(!form)return;
   const selectorTobera=form.querySelector('#tipo_tobera');

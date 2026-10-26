@@ -189,13 +189,14 @@ def ver_informe(nombre):
     if ruta.is_symlink() or not ruta.is_file() or ruta.resolve().parent != carpeta:
         abort(404)
     try:
-        contenido = ruta.read_text(encoding="utf-8")
+        contenido_bytes = ruta.read_bytes()
+        contenido = contenido_bytes.decode("utf-8")
     except (UnicodeError, FileNotFoundError):
         abort(404)
     if not contenido.startswith(MARCA_INICIO) or not contenido.endswith(MARCA_FINAL):
         abort(404)
     if request.args.get("descargar") == "1":
-        return Response(contenido, mimetype="text/html", headers={
+        return Response(contenido_bytes, mimetype="text/html", headers={
             "Content-Disposition": f'attachment; filename="{nombre}"',
         })
     presentacion = separar_presentacion(contenido)

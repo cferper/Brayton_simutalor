@@ -84,7 +84,7 @@ Brayton_Simulator/
 ├── main.py                     modelo, gráficas y coordinación
 ├── viabilidad.py               estados comunes, clasificación, fronteras y barridos
 ├── propiedades_aire.py          aire ideal de cp(T), h(T), s(T,p), gamma(T) e inversión; aislado
-├── tobera_convergente_divergente_cp.py  tobera C-D ideal con cp(T), sin interfaz (§4.77)
+├── tobera_convergente_divergente_cp.py  tobera C-D con cp(T), conectada a Flask y con choques (§§4.77–4.79)
 ├── ciclo_cp_variable.py         solucionador Brayton cp(T), usado por Flask
 ├── optimizacion_cp_variable.py  dominio y óptimos A/B de cp(T)
 ├── cp_variable_web.py           presentadores SVG y preparación del dashboard
@@ -716,7 +716,7 @@ def ver_informe(nombre):
 - **Llama:** `separar_presentacion`, `listar_informes`, `renderizar_dashboard` para informes nuevos; Flask la llama para `/informes/<nombre>`.
 - **Validación:** patrón completo de informes, archivo regular no simbólico, ruta resuelta dentro de `OUTPUTS_DIR` y marcas inicial/final. Nombre/ruta/archivo inexistente, no UTF-8 o informe incompleto devuelven 404 mediante `abort`.
 - **Errores:** fallos inesperados de lectura o código se registran como 500. Un informe antiguo eliminado por retención devuelve 404; no se inventa una copia de su contenido.
-- **PYTHON:** `.resolve`, `.read_text`, `.replace(..., 1)`, argumentos de URL, f-string, `Response` y cabeceras HTTP.
+- **PYTHON:** `.resolve`, `.read_bytes`, `.decode("utf-8")`, `.replace(..., 1)`, argumentos de URL, f-string, `Response` y cabeceras HTTP. `contenido_bytes` conserva los bytes del archivo y `contenido` es su representación de texto para validar/renderizar. La descarga usa los bytes originales: no normaliza CRLF de Windows a LF. La lectura y decodificación se hacen una sola vez; no se escribe ni recalcula el informe.
 - **Ejemplo:** `client.get("/informes/" + nombre)` y `client.get("/informes/" + nombre + "?descargar=1")`, usando un nombre real generado.
 - **INTERPRETACIÓN FÍSICA:** no recalcula; sirve exactamente la ejecución guardada. El contenido del dominio ya está calculado al servir el archivo.
 
@@ -1521,13 +1521,13 @@ La **verificación de software** afirma que, dentro de los casos y tolerancias e
 ### 4.55. Verificación V.5 de integración web — contrato histórico conservado
 
 **Situación vigente desde el milestone 30:** el archivo de esta etapa se
-conserva íntegramente en `legacy_tests/test_verificacion_integracion_web.py`.
+mantiene en `legacy_tests/test_verificacion_integracion_web.py`, con la adaptación de portabilidad del subcaso de enlace simbólico descrita a continuación.
 El siguiente relato describe **la antigua fachada Flask de nueve parámetros**,
 no la interfaz cp(T) actualmente conectada a `/`. El dashboard actual tiene
 siete parámetros, devuelve HTTP 200 con los resultados y no crea informes
 nuevos; su compatibilidad de lectura de los informes anteriores se comprueba
 con `tests/test_web_app.py` y `tests/test_integridad_historica_actual.py`.
-La organización y el comando de pruebas vigentes se explican en §4.68.
+La organización y el comando de pruebas vigentes se explican en §4.68. La prueba histórica de listado mantiene sus comprobaciones de metadatos y filtrado. La creación del enlace simbólico se aísla en `with self.subTest(...)`: sólo si Windows devuelve `winerror == 1314`, `self.skipTest(...)` registra la omisión de ese subcaso y continúan las demás comprobaciones. Otros errores se propagan; no se cambia la protección de producción contra enlaces simbólicos.
 
 **Estado.** La [verificación V.5](docs/milestones/17_verificacion_integracion_web.md)
 se preparó el **23/10/2026**, desde `mejoras/verificacion-numerica` en el commit
@@ -3164,11 +3164,11 @@ y [aprendizaje 30](docs/milestones/30_saneamiento_suite_historica_APRENDIZAJE.md
 | `preparar_vista_turborreactor(resultado)` | Dict M37 → dict `{estaciones,svg_componentes,svg_temperaturas,svg_presiones}`; llama tres funciones anteriores y lo utiliza Flask sólo tras cálculo. Ej.: `preparar_vista_turborreactor(r)['estaciones']`. |
 | `turborreactor()` | Controlador `@app.route('/turborreactor', methods=['GET','POST'])` sin argumentos Python (utiliza `request`); retorna `(HTML, 200/400)` generado por `render_template('turborreactor.html',...)`. GET no llama al motor; POST diferencia `accion='simular'`, `'sensibilidad'` y `'mapa'`, calcula el punto individual y, en las dos últimas, invoca `preparar_estudio` del M41; captura errores de rango, cálculo, dominio y aritmética sin mostrar trazas. El resultado de estudio y su error se guardan separados de los del cálculo individual. Prueba de uso: `app.test_client().get('/turborreactor').status_code == 200`. |
 
-**PYTHON — interfaz y flujo.** El archivo `templates/turborreactor.html` ofrece el formulario original HTTP POST, Jinja de resultados y **siete paneles**: Configuración, Resultados, Estaciones, Visualizaciones, Sensibilidad, Mapas de prestaciones y Fundamentos; los dos estudios nuevos se explican en §4.76. La página mantiene dos capas educativas diferenciadas: explicaciones contextuales y ocho bloques de fundamentos profundos, sin formularios anidados. `static/turborreactor.css` reutiliza fuentes y variables de `static/style.css`, y `static/turborreactor.js` introduce mejora progresiva: cuando hay JavaScript, desactiva y vacía el otro modo de ambiente y carga tres ejemplos sin calcular. También **muestra exactamente un panel por vez** con `hidden`, y resalta sólo su enlace lateral con `aria-current='page'`. `location.hash` permite enlaces directos a `#configuracion`, `#resultados`, `#estaciones`, `#graficas`, `#sensibilidad`, `#mapa` y `#fundamentos`; `history.pushState` registra cada navegación, mientras `popstate`/`hashchange` restauran la sección elegida con atrás/adelante del navegador. El identificador del panel inicial lo aporta Jinja mediante `data-initial-panel`: Configuración en GET/error de simulación, Resultados después de POST individual correcto, o Sensibilidad/Mapas después de solicitar el estudio (incluso con error propio de estudio). Los paneles ocultos permanecen en el mismo DOM y conservan campos y resultados; al cambiar por menú, se mueve el foco al encabezado visible para teclado. La rueda sólo desplaza el **contenido del panel activo**, no pasa a otro apartado. Sin JavaScript los siete paneles permanecen **apilados verticalmente** y los tres formularios HTTP POST siguen siendo utilizables (las entradas del motor para estudios son las ya reflejadas por el servidor). `request.form` es un mapping de cadenas; `float` convierte magnitudes e `isfinite` rechaza NaN/inf; `**argumentos` expande un dict a argumentos nombrados del motor. Jinja escapa las entradas por defecto. Sólo los SVG creados en servidor con números y etiquetas conocidas usan `|safe`. El enlace `/turborreactor` en `templates/index.html` está condicionado a **`modo_cp and modo_local`**, por lo que los informes históricos renderizados con `modo_cp=False` no lo incorporan ni cambian de formato. Las rutas `/`, `/informes/<nombre>`, descarga y las ocho secciones originales permanecen.
+**PYTHON — interfaz y flujo.** El archivo `templates/turborreactor.html` ofrece el formulario original HTTP POST, Jinja de resultados y **seis paneles**: Configuración, Resultados, Estaciones, Visualizaciones, Sensibilidad y Mapas de prestaciones; los dos estudios nuevos se explican en §4.76. Cada panel alberga dos pestañas (uso y fundamentos): la teoría se distribuye mediante macros Jinja, sin formularios anidados. `static/turborreactor.css` reutiliza fuentes y variables de `static/style.css`, y `static/turborreactor.js` introduce mejora progresiva: cuando hay JavaScript, desactiva y vacía el otro modo de ambiente y carga tres ejemplos sin calcular. También **muestra exactamente un panel por vez** con `hidden`, y resalta sólo su enlace lateral con `aria-current='page'`. `location.hash` permite enlaces directos a `#configuracion`, `#resultados`, `#estaciones`, `#graficas`, `#sensibilidad`, `#mapa`; `history.pushState` registra cada navegación, mientras `popstate`/`hashchange` restauran la sección elegida con atrás/adelante del navegador. El identificador del panel inicial lo aporta Jinja mediante `data-initial-panel`: Configuración en GET/error de simulación, Resultados después de POST individual correcto, o Sensibilidad/Mapas después de solicitar el estudio (incluso con error propio de estudio). Los paneles ocultos permanecen en el mismo DOM y conservan campos y resultados; al cambiar por menú, se mueve el foco al encabezado visible para teclado. La rueda sólo desplaza el **contenido del panel activo**, no pasa a otro apartado. Sin JavaScript los seis paneles y ambas vistas de cada uno permanecen **apilados verticalmente** y los tres formularios HTTP POST siguen siendo utilizables (las entradas del motor para estudios son las ya reflejadas por el servidor). `request.form` es un mapping de cadenas; `float` convierte magnitudes e `isfinite` rechaza NaN/inf; `**argumentos` expande un dict a argumentos nombrados del motor. Jinja escapa las entradas por defecto. Sólo los SVG creados en servidor con números y etiquetas conocidas usan `|safe`. El enlace `/turborreactor` en `templates/index.html` está condicionado a **`modo_cp and modo_local`**, por lo que los informes históricos renderizados con `modo_cp=False` no lo incorporan ni cambian de formato. Las rutas `/`, `/informes/<nombre>` y descarga permanecen; la navegación del turborreactor se reduce a seis secciones, sin perder teoría.
 
-**PYTHON — JavaScript y CSS accesibles.** En `static/turborreactor.js`, `elegir(id, moverFoco=false)` recibe un identificador de sección `string` y un indicador `boolean`, no devuelve un cálculo: para cada panel ejecuta `p.hidden=p.id!==id`, actualiza el único `aria-current` e, si el usuario inició el cambio, desplaza la vista al inicio y centra el foco en el título sin provocarle un nuevo salto de scroll. La función auxiliar `porUrl()` no recibe argumentos y retorna el identificador `string` extraído de `location.hash`. `sincronizarHistoria()` tampoco recibe argumentos ni retorna valores; se conecta a los eventos `popstate`/`hashchange` y llama a `elegir`. El callback `(evento)=>{...}` en cada enlace recibe un evento de clic: `preventDefault()` evita el salto nativo a un elemento oculto; `history.pushState` guarda un fragmento y `elegir` cambia pantalla. `document.body.dataset.initialPanel` permite inicializar correctamente GET, POST y errores, sin sesiones de servidor ni almacenamiento persistente. Los bloques explicativos `<details><summary>` se despliegan con ratón o teclado. Las regiones gráficas tienen `tabindex='0'`, `role='region'` y nombre accesible, y CSS `overflow-x:auto` más `min-width:660px` preservan texto legible en ventanas estrechas **dentro** del gráfico; los tres SVG mantienen sus mismas magnitudes y resultados. Los tres términos del empuje muestran ahora la unidad completa `N/(kg/s de aire)`. Los presets fijan `pi_d=1` (difusor ideal); referencias anteriores del M36/M37 con `pi_d=.97`/`.98` no corresponden exactamente a esos casos de interfaz.
+**PYTHON — JavaScript y CSS accesibles.** En `static/turborreactor.js`, `elegir(id, moverFoco=false)` recibe un identificador de sección `string` y un indicador `boolean`, no devuelve un cálculo: para cada panel ejecuta `p.hidden=p.id!==id`, actualiza el único `aria-current` e, si el usuario inició el cambio, desplaza la vista al inicio y centra el foco en el título sin provocarle un nuevo salto de scroll. La función auxiliar `porUrl()` no recibe argumentos y retorna el identificador `string` extraído de `location.hash`. `sincronizarHistoria()` tampoco recibe argumentos ni retorna valores; se conecta a los eventos `popstate`/`hashchange` y llama a `elegir`. El callback `(evento)=>{...}` en cada enlace recibe un evento de clic: `preventDefault()` evita el salto nativo a un elemento oculto; `history.pushState` guarda un fragmento y `elegir` cambia pantalla. `document.body.dataset.initialPanel` permite inicializar correctamente GET, POST y errores, sin sesiones de servidor ni almacenamiento persistente. Las seis parejas de pestañas con `role='tab'` alternan dos paneles con `hidden`, `aria-selected`, `tabIndex` y navegación por flechas/Home/End, sin volver a calcular el motor; sin JS se ven ambas vistas. Los bloques explicativos `<details><summary>` se despliegan con ratón o teclado. Las regiones gráficas tienen `tabindex='0'`, `role='region'` y nombre accesible, y CSS `overflow-x:auto` más `min-width:660px` preservan texto legible en ventanas estrechas **dentro** del gráfico; los tres SVG mantienen sus mismas magnitudes y resultados. Los tres términos del empuje muestran ahora la unidad completa `N/(kg/s de aire)`. Los presets fijan `pi_d=1` (difusor ideal); referencias anteriores del M36/M37 con `pi_d=.97`/`.98` no corresponden exactamente a esos casos de interfaz.
 
-**Comprobaciones y ejercicios.** Los ejemplos reproducibles con el formulario inicial dan Fs neto ≈958.257683 N/(kg/s) estático, ≈758.381570 a Mach 0.7 y ≈898.674568 a 10 km/Mach 0.5, con TSFC ≈0.105297, 0.126252 y 0.123240 kg/(N·h), respectivamente. En los tres casos la tobera convergente queda bloqueada; los valores proceden del solucionador original, no de la plantilla. La batería `tests/test_turborreactor_web_40.py` cubre POST/GET, modos incompatibles, salida indefinida, escape HTML, unidades, SVG, navegación por paneles, estados de GET/POST, educación y preservación del dashboard. Su inspección de estructuras HTML/JS no equivale a una revisión visual de un navegador real; esa comprobación deberá hacerse en Windows después de sincronizar. La prueba histórica `test_revision_educativa_cp.test_una_sola_plantilla_principal` exige ahora sólo las dos plantillas previstas (`index.html` para el dashboard y `turborreactor.html` separada), conservando su comprobación de la galería cp(T). Experimenta con el porcentaje de presión de cámara y compara bruto/neto: no deduzcas empuje absoluto ni comportamiento real fuera de diseño. Detalles completos en [milestone 40](docs/milestones/40_integracion_web_turborreactor_cp.md) y [aprendizaje 40](docs/milestones/40_integracion_web_turborreactor_cp_APRENDIZAJE.md).
+**Comprobaciones y ejercicios.** Los ejemplos reproducibles con el formulario inicial dan Fs neto ≈958.257683 N/(kg/s) estático, ≈758.381570 a Mach 0.7 y ≈898.674568 a 10 km/Mach 0.5, con TSFC ≈0.105297, 0.126252 y 0.123240 kg/(N·h), respectivamente. En los tres casos la tobera convergente queda bloqueada; los valores proceden del solucionador original, no de la plantilla. La batería `tests/test_turborreactor_web_40.py` cubre POST/GET, modos incompatibles, salida indefinida, escape HTML, unidades, SVG, navegación por paneles, estados de GET/POST, educación y preservación del dashboard. Su inspección de estructuras HTML/JS no equivale a una revisión visual de un navegador real; esa comprobación deberá hacerse en Windows después de sincronizar. La prueba `test_revision_educativa_cp.test_una_sola_plantilla_principal` exige la presencia de `index.html`, `turborreactor.html` y `turborreactor_teoria_43.html`, sin excluir otras plantillas legítimas; conserva la comprobación de la galería cp(T) (detalle en §4.80). Experimenta con el porcentaje de presión de cámara y compara bruto/neto: no deduzcas empuje absoluto ni comportamiento real fuera de diseño. Detalles completos en [milestone 40](docs/milestones/40_integracion_web_turborreactor_cp.md) y [aprendizaje 40](docs/milestones/40_integracion_web_turborreactor_cp_APRENDIZAJE.md).
 
 ### 4.76. Sensibilidad y mapas de prestaciones web del turborreactor — milestone 41
 
@@ -3346,11 +3346,78 @@ comparan conservación, gas perfecto independiente, fronteras y regresión;
 no constituyen validación experimental. Véanse [documento técnico](docs/milestones/42c_choque_normal_tobera_cd_cp.md)
 y [aprendizaje](docs/milestones/42c_choque_normal_tobera_cd_cp_APRENDIZAJE.md).
 
+### 4.80 — Milestone 43: interfaz educativa del turborreactor por apartado
+
+**PYTHON / JINJA — estructura sin duplicar cálculos.**
+`templates/turborreactor.html` mantiene **seis secciones funcionales**:
+configuración, resultados, estaciones, gráficas, sensibilidad y mapa. Cada
+una contiene `div[data-edu-tabs]`, dos botones `role="tab"` y dos paneles
+`role="tabpanel"` con `aria-controls` / `aria-labelledby` y `id` únicos.
+La teoría ya no es un séptimo destino de navegación: se encuentra junto a
+la función que explica. El HTML conserva los tres formularios POST
+separados (sin formularios anidados). Sus valores y datos del motor proceden
+de las mismas funciones de siempre; ninguna fórmula física se calcula en
+la plantilla. La única acción principal del formulario individual es
+«Simular turborreactor»; la misma respuesta incluye automáticamente la
+calculadora de adaptación C-D mediante `_adaptacion_cd(resultado)` cuando
+corresponde. La antigua acción HTTP `adaptacion` sigue admitida para
+compatibilidad, aunque ya no tiene botón propio.
+
+**JINJA — macros de contenido.** `templates/turborreactor_teoria_43.html`
+define `configuracion()`, `resultados()`, `estaciones()`, `graficas()`,
+`sensibilidad()` y `mapa()`: las seis macros no tienen argumentos, devuelven
+fragmentos HTML seguros redactados por el proyecto y no tienen unidades de
+salida ni validación de entradas porque son exclusivamente *presentación*.
+La sentencia `{% import 'turborreactor_teoria_43.html' as teoria %}` importa
+sus nombres en un espacio separado. Por ejemplo, `{{ teoria.resultados() }}`
+inserta las explicaciones de Fs, TSFC, dosado, escape y tobera junto a los
+indicadores calculados en el panel vecino. Las macros no llaman al motor
+ni conocen `resultado`: física y representación permanecen separadas.
+
+**JAVASCRIPT — pestañas accesibles.** Al cargar, el manejador existente de
+`DOMContentLoaded` recorre los seis grupos con `querySelectorAll` y crea
+las funciones locales `activar(index,enfocar=false)` (índice `number`,
+bandera `boolean`, sin valor de retorno). Lee los botones `role="tab"`,
+localiza sus paneles por `aria-controls` y alterna `hidden`, `aria-selected`
+y `tabIndex`; `click`, flechas izquierda/derecha, `Home` y `End` manejan
+el cambio y el foco. Es una acción de DOM, no una llamada Flask. Con JS
+ausente las dos vistas están presentes una tras otra; con JS, la clase
+`.js` activa los estilos de pestañas de `static/style.css`. El estado de
+sección sigue en `location.hash` y el estado de pestaña es local al DOM:
+los POST recargan la vista «Uso» del apartado solicitado, preservando los
+resultados en el HTML. Ejemplo: tras simular, abre `#resultados` y pulsa
+«Fundamentos teóricos y procesos» para leer la explicación del empuje,
+sin recalcular nada.
+
+**INTERPRETACIÓN FÍSICA / INGENIERÍA.** Resultados distingue empuje bruto,
+neto y resistencia de entrada, (f) [kg/kg], TSFC [kg/(N·h)] y velocidad
+de escape; la zona de tobera interpreta garganta sónica, choque, presión
+de adaptación y límites de Ae/Ag. Estaciones diferencia propiedades
+estáticas/totales a través de difusor, compresor, cámara, turbina y
+tobera. Los gráficos comparan estaciones discretas, OFAT modifica un
+parámetro y mapas dos; ni las curvas ni los mapas sustituyen ensayos.
+No se ha incorporado caudal másico ni empuje absoluto, y las ecuaciones
+de `cp(T)` y la resolución de choque siguen intactas. Las pruebas HTML
+del milestone verifican estructuras y resultados; una prueba automatizada
+de estructura no sustituye revisión visual real de escritorio/móvil.
+**Precisión física de la presentación.** El selector usa «Convergente-divergente (C-D)», sin atribuir reversibilidad a todo el flujo. Las regiones continuas son ideales e isentrópicas; los choques normales internos o en la salida conservan masa, cantidad de movimiento y energía, pero generan entropía y reducen presión total. El modelo puede dar salida subsónica o supersónica y mantiene sus límites físicos/numéricos. `eta_n` se valida por compatibilidad, pero no interviene en C-D. Una prestación `None` significa no disponible, no cero ni necesariamente un choque sin resolver; se conserva el diagnóstico específico de la tobera.
+
+**PYTHON — contrato flexible de plantillas.** El método existente `test_una_sola_plantilla_principal(self)` no recibe entradas externas ni devuelve magnitudes (retorno `None`, sin unidades); lo invoca `unittest` por descubrimiento. `necesarias` y `disponibles` son conjuntos de nombres únicos obtenidos con `Path.glob`. `necesarias.issubset(disponibles)` comprueba inclusión: `{'index.html'}.issubset({'index.html','otra.html'})` es verdadero. Si falta una requerida, `assertTrue` falla y `sorted(necesarias - disponibles)` muestra los nombres ausentes. Se mantiene `assertIn` para la galería Brayton; permitir otra plantilla no relaja esa integridad.
+
+**CSS — navegación estrecha del turborreactor.** M43 activa la clase `js` para sus pestañas. A ≤760 px, una regla específica en `static/turborreactor.css` mantiene `.section-nav` visible con `display:flex`, porque esta página no usa el botón de menú plegable de Brayton. La regla no cambia el dashboard ni el modelo físico.
+
+**PYTHON — recuperación y portabilidad final.** El método histórico `test_rutas_malformadas_symlink_e_informe_incompleto` conserva las verificaciones de rutas e informes aunque Windows no pueda crear el alias (error 1314); solo los dos subcasos que dependen realmente del enlace simbólico se marcan como omitidos mediante `subTest`/`skipTest`. El método `test_recuperacion_cuatro_informes_descarga_identica_sin_recalculo` conserva un `bytes` leído antes de la petición de descarga y comprueba `descarga.data == bytes_guardados` y que `ruta.read_bytes()` no cambie. Evita confundir igualdad textual con conservación byte a byte cuando hay saltos CRLF. Estas pruebas no alteran los informes ni los modelos físicos. Su regresión final está pendiente porque el entorno actual no dispone de Flask/Jinja2 y, por instrucción, no se instalaron dependencias.
+
+Documentos: [técnico 43](docs/milestones/43_interfaz_educativa_turborreactor.md)
+y [aprendizaje 43](docs/milestones/43_interfaz_educativa_turborreactor_APRENDIZAJE.md).
+
 ## Evolution of the project
 
 Estos hitos resumen capacidades ya implementadas en la versión analizada, sin atribuirles fechas ni reconstruir un historial de commits. Los detalles del funcionamiento actual se explican en las secciones anteriores.
 
-- **Choques normales cuasi-1D con cp(T) variable (milestone 42.C, sin commit).** Ingeniería: conservación y segunda ley, presión total decreciente, choque localizado por relación de áreas y salida subsónica. Python: raíces físicas acotadas, nuevos estados de salida y diagnóstico web/estudios. [Técnico](docs/milestones/42c_choque_normal_tobera_cd_cp.md) y [aprendizaje](docs/milestones/42c_choque_normal_tobera_cd_cp_APRENDIZAJE.md).
+- **Interfaz educativa del turborreactor (milestone 43, sin commit).** Ingeniería: interpretación conjunta de empuje, consumo, estaciones, expansión, OFAT y mapas, con límites explícitos. Jinja/JS: seis secciones con dos pestañas accesibles, macros educativas y único botón de simulación sin cambiar el modelo físico. [Técnico](docs/milestones/43_interfaz_educativa_turborreactor.md) y [aprendizaje](docs/milestones/43_interfaz_educativa_turborreactor_APRENDIZAJE.md).
+
+- **Choques normales cuasi-1D con cp(T) variable (milestone 42.C).** Ingeniería: conservación y segunda ley, presión total decreciente, choque localizado por relación de áreas y salida subsónica. Python: raíces físicas acotadas, nuevos estados de salida y diagnóstico web/estudios. [Técnico](docs/milestones/42c_choque_normal_tobera_cd_cp.md) y [aprendizaje](docs/milestones/42c_choque_normal_tobera_cd_cp_APRENDIZAJE.md).
 
 - **Tobera C-D ideal cp(T) independiente (milestone 42.A; revisión local).** Ingeniería: garganta crítica, ramas de área, contrapresión, adaptación, régimen de choque no resuelto y empuje específico de tobera; Python: bisección de flujos por área, diagnósticos explícitos y verificación de compatibilidad convergente. Sin conexión con Flask ni con el motor. [Técnico](docs/milestones/42a_tobera_convergente_divergente_cp.md) y [aprendizaje](docs/milestones/42a_tobera_convergente_divergente_cp_APRENDIZAJE.md).
 
