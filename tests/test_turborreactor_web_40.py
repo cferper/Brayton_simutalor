@@ -234,7 +234,8 @@ class TurborreactorWeb40(unittest.TestCase):
     def test_svg_legible_desplazable_y_foco(self):
         pagina=self._post().get_data(as_text=True)
         inspector=InspectorPaneles(); inspector.feed(pagina)
-        self.assertEqual(len(inspector.region_svg),3)
+        # Tres SVG originales, cuatro de M44.1/M44.2 y el balance de M44.3.
+        self.assertEqual(len(inspector.region_svg),8)
         self.assertTrue(all(r.get('tabindex')=='0' and r.get('role')=='region'
                             and 'aria-label' in r for r in inspector.region_svg))
         css=(RAIZ/'static/turborreactor.css').read_text(encoding='utf-8')
