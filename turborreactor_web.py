@@ -12,6 +12,12 @@ from combustible_cp_variable import resolver_turborreactor_con_combustible
 from dimensionamiento_turborreactor import (calcular_prestaciones_absolutas,
                                            dimensionar_tobera,
                                            validar_gasto_masico_aire)
+from geometria_tobera_conica import (calcular_geometria_conica,
+                                    svg_geometria_conica,
+                                    validar_semidivergencia)
+from perfil_axial_tobera_conica import proyectar_perfil_axial, svg_perfil_axial
+from estudio_geometrico_tobera import (estudiar_angulos_geometria,
+                                     svg_comparacion_conos, svg_longitud_angulo)
 from propiedades_aire import h
 from propiedades_aire import R_AIRE, T_MIN, s, s0
 from tobera_convergente_divergente_cp import _sonico, relacion_areas_adaptada
@@ -24,7 +30,7 @@ DEFAULTS_TURBO = {
     "T3": "1600", "delta_pct": "4", "eta_t": "0.90", "eta_m": "0.98",
     "eta_n": "0.95", "pi_d": "1", "eta_b": "0.99", "PCI": "43000",
     "tipo_tobera": "convergente", "epsilon": "1.5",
-    "gasto_masico_aire": "",
+    "gasto_masico_aire": "", "angulo_semidivergencia": "15",
 }
 
 EJEMPLOS_TURBO = {
@@ -57,6 +63,7 @@ GRUPOS_TURBO = (
         ("eta_b", "Rendimiento de combustión", "–", "Fracción efectiva del PCI que aporta energía."),
         ("PCI", "Poder calorífico inferior", "kJ/kg", "Energía química específica del combustible equivalente."),
         ("gasto_masico_aire", "Gasto másico de aire (opcional)", "kg/s", "Aire que entra al motor, antes de añadir combustible. Vacío: solo prestaciones específicas; ejemplo educativo: 20 kg/s. No predice el tamaño de un motor real."),
+        ("angulo_semidivergencia", "Semidivergencia del cono C-D", "°", "Hipótesis geométrica axisimétrica del tramo divergente; por defecto 15°. Sólo se usa si hay dimensiones físicas de tobera C-D."),
     )),
 )
 
@@ -65,7 +72,7 @@ def valores_turborreactor(formulario=None):
     """Devuelve dict de cadenas; conserva incluso las entradas erróneas en POST."""
     if formulario is None:
         return dict(DEFAULTS_TURBO)
-    return {clave: formulario.get(clave, DEFAULTS_TURBO[clave] if clave in ("tipo_tobera", "epsilon") else "")
+    return {clave: formulario.get(clave, DEFAULTS_TURBO[clave] if clave in ("tipo_tobera", "epsilon", "angulo_semidivergencia") else "")
             for clave in DEFAULTS_TURBO}
 
 
@@ -130,12 +137,25 @@ def simular_turborreactor(valores):
             raise ValueError("Gasto másico de aire: introduce un número positivo finito [kg/s], o deja el campo vacío.") from exc
     else:
         caudal = validar_gasto_masico_aire(bruto)
+    # El ángulo es irrelevante sin caudal o para una convergente: no debe
+    # impedir resolver un motor que no usa esta hipótesis geométrica.
+    angulo = None
+    if caudal is not None and argumentos["tipo_tobera"] == "convergente_divergente":
+        bruto_angulo = valores.get("angulo_semidivergencia", DEFAULTS_TURBO["angulo_semidivergencia"])
+        try:
+            angulo = validar_semidivergencia(float(bruto_angulo.strip()) if isinstance(bruto_angulo, str)
+                                              else bruto_angulo)
+        except (TypeError, ValueError, OverflowError) as exc:
+            raise ValueError("Semidivergencia: introduce un ángulo finito entre 0° y 90° (extremos excluidos).") from exc
     resultado = resolver_turborreactor_con_combustible(**argumentos)
     if caudal is not None:
         absoluto = calcular_prestaciones_absolutas(resultado, caudal)
         resultado["prestaciones_absolutas"] = absoluto
         resultado["dimensionamiento_tobera"] = dimensionar_tobera(
             resultado, caudal, absolutos=absoluto)
+        if angulo is not None:
+            resultado["geometria_conica"] = calcular_geometria_conica(
+                resultado["dimensionamiento_tobera"], angulo)
     return resultado
 
 
@@ -649,6 +669,8 @@ def preparar_vista_turborreactor(resultado):
     datos_tobera = datos_tobera_graficas(resultado)
     balance = datos_balance_energetico(resultado)
     perfil = perfil_tobera_cp_variable(resultado)
+    perfil_axial = proyectar_perfil_axial(perfil, resultado.get("geometria_conica"))
+    estudio_geometrico = estudiar_angulos_geometria(resultado.get("geometria_conica"))
     return {"estaciones": estados,
             "adaptacion_cd": _adaptacion_cd(resultado),
             "svg_componentes": svg_componentes(resultado["diagnosticos"].get("tipo_tobera")),
@@ -656,11 +678,18 @@ def preparar_vista_turborreactor(resultado):
             "svg_presiones": svg_evolucion(estados,"p","Presión total","kPa"),
             "svg_empuje": svg_descomposicion_empuje(resultado),
             "svg_empuje_absoluto": svg_descomposicion_empuje(resultado, absoluto=True),
+            "svg_geometria_conica": svg_geometria_conica(resultado.get("geometria_conica")),
             "svg_ts": svg_ts_turborreactor(estados),
             "datos_tobera_graficas": datos_tobera,
             "svg_mach_tobera": svg_estados_tobera(datos_tobera, 'mach'),
             "svg_presion_tobera": svg_estados_tobera(datos_tobera, 'presion'),
             "perfil_tobera": perfil,
+            "perfil_axial_tobera": perfil_axial,
+            "svg_mach_axial": svg_perfil_axial(perfil_axial, "mach"),
+            "svg_presion_axial": svg_perfil_axial(perfil_axial, "presion"),
+            "estudio_geometrico": estudio_geometrico,
+            "svg_longitud_angulo": svg_longitud_angulo(estudio_geometrico),
+            "svg_comparacion_conos": svg_comparacion_conos(estudio_geometrico),
             "svg_mach_perfil_tobera": svg_perfil_tobera(perfil, "mach"),
             "svg_presion_perfil_tobera": svg_perfil_tobera(perfil, "presion"),
             "balance_energetico": balance,

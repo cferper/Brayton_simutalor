@@ -3157,11 +3157,11 @@ y [aprendizaje 30](docs/milestones/30_saneamiento_suite_historica_APRENDIZAJE.md
 | --- | --- |
 | `valores_turborreactor(formulario=None)` | `None` o mapping de entradas de usuario `str` → `dict[str,str]` sin unidades convertidas. La llama `web_app.turborreactor`; copia constantes o preserva entradas; sin cálculos físicos. Ej.: `valores_turborreactor()['mach']=='0'`. |
 | `leer_turborreactor(valores)` | `dict[str,str]` → `dict` de números finitos con `mach,rp,eta_c,T3,delta,eta_t,eta_m,eta_n,pi_d,eta_b,PCI` y ambiente directo (`T_amb,p_amb`) o ISA (`altitud_geopotencial`); K, kPa, m, kJ/kg y fracciones. Lanza `ValueError` por combinación de modos, texto, no finitos, `%` fuera de `[0,100)` o `rp<=1` con mensaje específico **antes** de invocar M37; las demás restricciones se contrastan en el motor. La llama `simular_turborreactor`. Ej.: `leer_turborreactor(valores_turborreactor())['delta']==0.04`; con `rp='0'` lanza `ValueError('La relación de compresión rp debe ser mayor que 1.')`. |
-| `simular_turborreactor(valores)` | Dict de cadenas → dict científico de M37 con ambiente, difusor, compresor, cámara, turbina, tobera, prestaciones y diagnósticos [K, kPa, kJ/kg, m/s, kg/(N·h)]. Llama al lector y **una sola vez** a `resolver_turborreactor_con_combustible(**argumentos)`; los errores físicos y numéricos se propagan a la ruta. Desde M45, si `gasto_masico_aire` contiene un número positivo [kg/s], añade `prestaciones_absolutas` y `dimensionamiento_tobera` sin recalcular el motor; con el campo vacío conserva las salidas específicas originales. Ej.: `simular_turborreactor(valores_turborreactor())['combustor']['f']≈0.028028`. |
+| `simular_turborreactor(valores)` | Dict de cadenas → dict científico de M37 con ambiente, difusor, compresor, cámara, turbina, tobera, prestaciones y diagnósticos [K, kPa, kJ/kg, m/s, kg/(N·h)]. Llama al lector y **una sola vez** a `resolver_turborreactor_con_combustible(**argumentos)`; los errores físicos y numéricos se propagan a la ruta. Desde M45, si `gasto_masico_aire` contiene un número positivo [kg/s], añade `prestaciones_absolutas` y `dimensionamiento_tobera` sin recalcular el motor; con el campo vacío conserva las salidas específicas originales. Desde M46.1, valida `angulo_semidivergencia` [°] y, con caudal, añade `geometria_conica` (disponible sólo para C-D). Ej.: `simular_turborreactor(valores_turborreactor())['combustor']['f']≈0.028028`. |
 | `estaciones_turborreactor(resultado)` | Resultado M37 → lista de seis `dict` (siete si existe estado de garganta C-D) con `nombre,tipo,T,p,h` (K, kPa, kJ/kg), `None` para salida de tobera inexistente. Usa `h` de `propiedades_aire` sólo para registrar estaciones ya resueltas. La llama `preparar_vista_turborreactor`. Ej.: `estaciones_turborreactor(r)[0]['tipo']=='Estático'`. |
 | `svg_componentes(tipo_tobera="convergente")` | Tipo de tobera `str` → `str` SVG con cinco componentes y eje mecánico, sin datos termodinámicos ni errores habituales. La llama el preparador de vista. Ej.: `'Difusor' in svg_componentes()`. |
 | `svg_evolucion(estaciones,clave,etiqueta,unidad)` | Lista de estaciones y tres `str` (clave `T`/`p`, nombre, unidad) → SVG `str` con eje y cuatro valores de remanso, no modelos termodinámicos. Se llama dos veces desde preparador; requiere estaciones físicas correctas. Ej.: `svg_evolucion(estaciones_turborreactor(r),'T','Temperatura total','K')`. |
-| `preparar_vista_turborreactor(resultado)` | Dict M37 → dict con `estaciones`, `adaptacion_cd`, `datos_tobera_graficas` y los diez SVG previos (`svg_componentes`, `svg_temperaturas`, `svg_presiones`, `svg_empuje`, `svg_ts`, `svg_mach_tobera`, `svg_presion_tobera`, `svg_balance_energetico`, `svg_mach_perfil_tobera`, `svg_presion_perfil_tobera`), además de `balance_energetico` y `perfil_tobera`, que pueden ser `None` según disponibilidad. Desde M45 incorpora el undécimo SVG opcional `svg_empuje_absoluto` [N], sólo con caudal indicado. Llama a las funciones de estaciones, adaptación y dibujo; lo utiliza Flask sólo tras cálculo. Véanse §§4.81–4.85. Ej.: `preparar_vista_turborreactor(r)['estaciones']`. |
+| `preparar_vista_turborreactor(resultado)` | Dict M37 → dict con `estaciones`, `adaptacion_cd`, `datos_tobera_graficas` y los diez SVG previos (`svg_componentes`, `svg_temperaturas`, `svg_presiones`, `svg_empuje`, `svg_ts`, `svg_mach_tobera`, `svg_presion_tobera`, `svg_balance_energetico`, `svg_mach_perfil_tobera`, `svg_presion_perfil_tobera`), además de `balance_energetico` y `perfil_tobera`, que pueden ser `None` según disponibilidad. Desde M45 incorpora `svg_empuje_absoluto` [N]; M46.1 añade `svg_geometria_conica` [m] o `None`; M46.2 añade `perfil_axial_tobera`, `svg_mach_axial` y `svg_presion_axial` o `None`, sin recalcular el flujo. Llama a las funciones de estaciones, adaptación y dibujo; lo utiliza Flask sólo tras cálculo. Véanse §§4.81–4.87. Ej.: `preparar_vista_turborreactor(r)['estaciones']`. |
 | `turborreactor()` | Controlador `@app.route('/turborreactor', methods=['GET','POST'])` sin argumentos Python (utiliza `request`); retorna `(HTML, 200/400)` generado por `render_template('turborreactor.html',...)`. GET no llama al motor; POST diferencia `accion='simular'`, `'sensibilidad'` y `'mapa'`, calcula el punto individual y, en las dos últimas, invoca `preparar_estudio` del M41; captura errores de rango, cálculo, dominio y aritmética sin mostrar trazas. El resultado de estudio y su error se guardan separados de los del cálculo individual. Prueba de uso: `app.test_client().get('/turborreactor').status_code == 200`. |
 
 **PYTHON — interfaz y flujo.** El archivo `templates/turborreactor.html` ofrece el formulario original HTTP POST, Jinja de resultados y **seis paneles**: Configuración, Resultados, Estaciones, Visualizaciones, Sensibilidad y Mapas de prestaciones; los dos estudios nuevos se explican en §4.76. Cada panel alberga dos pestañas (uso y fundamentos): la teoría se distribuye mediante macros Jinja, sin formularios anidados. `static/turborreactor.css` reutiliza fuentes y variables de `static/style.css`, y `static/turborreactor.js` introduce mejora progresiva: cuando hay JavaScript, desactiva y vacía el otro modo de ambiente y carga tres ejemplos sin calcular. También **muestra exactamente un panel por vez** con `hidden`, y resalta sólo su enlace lateral con `aria-current='page'`. `location.hash` permite enlaces directos a `#configuracion`, `#resultados`, `#estaciones`, `#graficas`, `#sensibilidad`, `#mapa`; `history.pushState` registra cada navegación, mientras `popstate`/`hashchange` restauran la sección elegida con atrás/adelante del navegador. El identificador del panel inicial lo aporta Jinja mediante `data-initial-panel`: Configuración en GET/error de simulación, Resultados después de POST individual correcto, o Sensibilidad/Mapas después de solicitar el estudio (incluso con error propio de estudio). Los paneles ocultos permanecen en el mismo DOM y conservan campos y resultados; al cambiar por menú, se mueve el foco al encabezado visible para teclado. La rueda sólo desplaza el **contenido del panel activo**, no pasa a otro apartado. Sin JavaScript los seis paneles y ambas vistas de cada uno permanecen **apilados verticalmente** y los tres formularios HTTP POST siguen siendo utilizables (las entradas del motor para estudios son las ya reflejadas por el servidor). `request.form` es un mapping de cadenas; `float` convierte magnitudes e `isfinite` rechaza NaN/inf; `**argumentos` expande un dict a argumentos nombrados del motor. Jinja escapa las entradas por defecto. Sólo los SVG creados en servidor con números y etiquetas conocidas usan `|safe`. El enlace `/turborreactor` en `templates/index.html` está condicionado a **`modo_cp and modo_local`**, por lo que los informes históricos renderizados con `modo_cp=False` no lo incorporan ni cambian de formato. Las rutas `/`, `/informes/<nombre>` y descarga permanecen; la navegación del turborreactor se reduce a seis secciones, sin perder teoría.
@@ -3846,7 +3846,187 @@ y el [aprendizaje 45](docs/milestones/45_gasto_masico_dimensionamiento_turborrea
 para resultados, ejemplos y límites; las baterías previas de desarrollo no se
 presentan como pruebas repetidas en esta revisión.
 
+### 4.86 — Milestone 46.1: geometría del divergente cónico
+
+**PYTHON.** `geometria_tobera_conica.py` contiene tres funciones nuevas y no
+importa módulos de termodinámica:
+
+- `validar_semidivergencia(angulo_grados)` recibe un `Real` numérico, no
+  booleano, y devuelve `float` [°]. Rechaza con `ValueError` valores no
+  finitos y ángulos fuera de `(0,90)`; lo invocan el formulario y la función
+  geométrica.
+- `calcular_geometria_conica(dimensionamiento, angulo_grados)` recibe el
+  `dict` del M45 y ángulo [°] y devuelve `dict` con `disponible`, `motivo`,
+  `radio_garganta`, `radio_salida`, `diametro_garganta`, `diametro_salida`,
+  `longitud_divergente` [m], ambas áreas [m²], relación y residuos [m²].
+  Llama al validador y a `sqrt`, `tan`, `radians`; para C-D no dimensionada
+  o convergente conserva los resultados como `None` y explica el motivo;
+  rechaza áreas finitas no positivas o `Ae<Ag` mediante `ValueError`.
+  El caso límite `Ae=Ag` no genera longitud y devuelve indisponibilidad:
+  el solver puede admitirlo sin que exista un divergente geométrico.
+- `svg_geometria_conica(geometria)` recibe el dict anterior y devuelve SVG
+  en texto o `None`. Lo llama `preparar_vista_turborreactor`; las líneas y
+  el polígono se trazan con **la misma escala en x e y**. No interpola
+  estados físicos. Las cotas textuales expresan las dimensiones calculadas.
+
+El `DEFAULTS_TURBO` añade `angulo_semidivergencia='15'`, ángulo que no es
+un óptimo. `valores_turborreactor` conserva este valor predeterminado al
+recibir un POST antiguo sin ese campo; `simular_turborreactor` convierte el
+texto a `float` y comprueba el dominio **sólo con caudal y tobera C-D**:
+una entrada de ángulo inválida no bloquea simulaciones sin esa geometría.
+Llama **una sola vez** al solucionador y añade `geometria_conica` tras
+`dimensionamiento_tobera` si hay caudal y C-D. La plantilla muestra el esquema en los resultados existentes;
+el resto de secciones no cambia. El uso de `dict.get`, `None` y una bandera
+de disponibilidad evita inventar longitud cuando no hay datos.
+
+**INTERPRETACIÓN FÍSICA / INGENIERÍA.** La geometría es una hipótesis
+axisimétrica construida sobre los **diámetros circulares equivalentes**
+del M45. En el divergente recto, `rg = √(Ag/π)`, `re = √(Ae/π)` y
+`Ld = (re−rg)/tan(α)` [m], siendo `α` la semidivergencia desde el eje,
+no el ángulo total entre paredes. Con áreas fijas reducir `α` alarga el
+divergente; con `ṁaire` cuatro veces mayor y termodinámica fija, áreas ×4,
+radios ×2 y longitud ×2. No se especifica entrada del convergente, por
+lo que **no existe longitud total calculada de la tobera**. Tampoco se
+calcula efecto de α sobre Mach, presión, separación, rozamiento ni empuje;
+esto requeriría un modelo aerodinámico adicional y validación separada.
+
+```python
+from turborreactor_web import DEFAULTS_TURBO, simular_turborreactor
+v = {**DEFAULTS_TURBO, 'tipo_tobera':'convergente_divergente',
+     'gasto_masico_aire':'20', 'angulo_semidivergencia':'15'}
+r = simular_turborreactor(v)
+Ld = r['geometria_conica']['longitud_divergente']  # m
+```
+
+**VERIFICACIÓN.** `tests/test_geometria_tobera_conica_46_1.py` comprueba
+longitud analítica, conservación de áreas, radios y relación de áreas,
+escalado, monotonicidad, ángulos inválidos, disponibilidad, SVG XML y
+conservación de resultados termodinámicos. Ver [técnico 46.1](docs/milestones/46_1_geometria_conica_tobera.md)
+y [aprendizaje 46.1](docs/milestones/46_1_geometria_conica_tobera_APRENDIZAJE.md)
+para la verificación realmente ejecutada y las limitaciones.
+
+### 4.87 — Milestone 46.2: proyección axial de perfiles cuasi-1D
+
+**PYTHON.** El módulo nuevo `perfil_axial_tobera_conica.py` no llama
+al solucionador termodinámico. Contiene tres funciones:
+
+- `posicion_axial_por_area(area_relativa, geometria)` recibe `a=A/Ag`
+  adimensional y el `dict` de geometría M46.1. Comprueba finitud y el
+  intervalo `[1,Ae/Ag]` con tolerancia relativa compartida `2e-6`;
+  retorna `x` [m] y lanza `ValueError` con diferencias fuera de rango.
+  Para los extremos y sus redondeos aceptados retorna `0.0` o `Ld`.
+  La llaman las comprensiones del proyector y la localización del choque.
+- `proyectar_perfil_axial(perfil, geometria)` recibe el `dict` científico
+  del M44.4 y el del M46.1. Comprueba compatibilidad de área con la misma
+  tolerancia de la conversión, y retorna un
+  `dict` con `disponible`, `motivo`, `segmentos` (tuplas de estados),
+  `choque` (dos estados o `None`), `x_choque` [m],
+  `longitud_divergente` [m], `regimen` y `p_ambiente` [kPa]. Cada estado se
+  copia como `{**estado, 'x': posicion_axial_por_area(...)}`: se añade
+  distancia sin alterar Mach, presión ni el objeto M44.4 original. Se llama
+  desde `preparar_vista_turborreactor` después de `perfil_tobera_cp_variable`.
+  Cuando no hay perfil o geometría, devuelve indisponibilidad explícita.
+- `svg_perfil_axial(datos, magnitud)` acepta `'mach'` o `'presion'` y
+  devuelve SVG o `None`; lo llama el adaptador web dos veces. Cada segmento
+  físico tiene su propia `<polyline>`. El choque tiene **dos puntos a la
+  misma abscisa** y una marca vertical, sin unirlos como una trayectoria
+  continua de estados imposibles. Los ejes tienen marcas numéricas y
+  referencias `M=1` o presión ambiente [kPa]. No interpola valores en Python.
+
+**INTERPRETACIÓN FÍSICA / INGENIERÍA.** Para cono axisimétrico,
+`r(x)=rg+x tan α` y `A(x)=πr(x)²`, por lo que
+`x=(√(Ag·(A/Ag)/π)−rg)/tan α`. La garganta es `x=0` y la salida `x=Ld`.
+Como los estados del M44.4 ya son discretos en `A/Ag`, asignamos una
+coordenada `x` a **cada estado calculado**. No inferimos nuevas
+propiedades físicas. Con choque normal interior o en salida, la misma
+área física y la misma `x` corresponden a valores diferentes antes y
+después del salto; no se representa una rampa de presión ficticia.
+Modificar caudal o α cambia longitudes y abscisas, pero no la
+distribución física frente a relación de áreas si los demás parámetros
+del motor permanecen fijos. Sin caudal, C-D resuelta o divergente positivo,
+no hay coordenadas longitudinales para estas curvas. Los gráficos antiguos
+frente a `A/Ag` se mantienen para distinguir solución de hipótesis.
+
+```python
+from turborreactor_web import DEFAULTS_TURBO, simular_turborreactor, preparar_vista_turborreactor
+v = {**DEFAULTS_TURBO, 'tipo_tobera':'convergente_divergente',
+     'gasto_masico_aire':'20', 'angulo_semidivergencia':'15'}
+vista = preparar_vista_turborreactor(simular_turborreactor(v))
+xs = [p['x'] for p in vista['perfil_axial_tobera']['segmentos'][0]]  # m
+```
+
+**VERIFICACIÓN.** `tests/test_perfiles_axiales_tobera_46_2.py` verifica
+conversión e inversa analítica, extremos, monotonía, conservación exacta
+de Mach y presión, choque en misma x con SVG por ramas, rangos inválidos,
+sensibilidad geométrica y compatibilidad con 46.1. Las pruebas de 46.1
+también cubren la validación condicional de α y el caso `Ae/Ag=1`.
+Ver [técnico 46.2](docs/milestones/46_2_perfiles_axiales_tobera.md)
+y [aprendizaje 46.2](docs/milestones/46_2_perfiles_axiales_tobera_APRENDIZAJE.md).
+Estas pruebas son verificación interna, no validación experimental.
+
+### 4.88 — Milestone 46.3: sensibilidad geométrica de la longitud
+
+**PYTHON.** `estudio_geometrico_tobera.py` contiene tres funciones nuevas,
+sin llamadas al solucionador termodinámico:
+
+- `estudiar_angulos_geometria(geometria, *, angulos=ANGULOS_EDUCATIVOS)`
+  recibe el `dict` de geometría M46.1 y una secuencia de ángulos [°]
+  (por defecto, 5°, 10°, 15°, 20°, 25°). Devuelve otro `dict` con
+  `disponible`, `motivo`, `filas` (tupla de dicts), `seleccionado` [°]
+  y `comparacion` (tres geometrías con α=10°, 15° y 20°). Cada fila incluye
+  `angulo_grados` [°], `longitud_divergente` [m], radios y diámetros [m],
+  `relacion_areas` adimensional y `seleccionado` booleano. Llama a
+  `calcular_geometria_conica` repetidamente **manteniendo constantes las
+  dos áreas**, no al motor científico. Si falta geometría devuelve
+  indisponibilidad con filas vacías; `*` obliga a escribir `angulos=` por
+  nombre. `set` quita duplicados y `sorted` ordena los ángulos, incluyendo
+  siempre el valor elegido en el formulario. Lo llama el preparador web.
+- `svg_longitud_angulo(estudio)` recibe el estudio anterior y devuelve
+  una cadena SVG graduada o `None`. Los valores horizontales son grados,
+  los verticales metros, y se marca en rojo el ángulo del formulario.
+- `svg_comparacion_conos(estudio)` recibe el mismo estudio y devuelve SVG
+  o `None`; usa una sola escala px/m en x e y para tres conos (10°,15°,20°),
+  con radios idénticos y distintas longitudes. Ambas funciones SVG son
+  invocadas desde `preparar_vista_turborreactor` y no modifican los datos.
+
+`preparar_vista_turborreactor` añade `estudio_geometrico`,
+`svg_longitud_angulo`, `svg_comparacion_conos` a su diccionario de vista.
+El bloque de Visualizaciones usa esas claves y muestra una tabla con las
+áreas equivalentes, diámetros y ángulo elegido; si falta geometría,
+explica la indisponibilidad en lugar de inventar una longitud.
+
+**INTERPRETACIÓN FÍSICA / INGENIERÍA.** Con `Ag`, `Ae` y, por tanto,
+`rg`, `re` constantes, `Ld(α)=(re−rg)/tan(α)` decrece al aumentar α.
+Los diámetros, la relación `Ae/Ag` y los estados físicos del motor
+permanecen iguales. Minimizar Ld en un intervalo docente cerrado
+como `[5°,25°]` elegiría el límite superior, **solamente como mínimo
+geométrico condicionado**. No implica un ángulo óptimo de empuje:
+faltan pérdidas por divergencia, fricción, separación, aerodinámica
+externa y penalizaciones de estructura y masa.
+
+```python
+from turborreactor_web import DEFAULTS_TURBO, simular_turborreactor, preparar_vista_turborreactor
+v = {**DEFAULTS_TURBO, 'tipo_tobera':'convergente_divergente',
+     'gasto_masico_aire':'20', 'angulo_semidivergencia':'15'}
+vista = preparar_vista_turborreactor(simular_turborreactor(v))
+filas = vista['estudio_geometrico']['filas']
+```
+
+**VERIFICACIÓN.** `tests/test_estudio_geometrico_tobera_46_3.py` verifica
+longitudes analíticas, monotonía, conservación de diámetros y estados
+físicos, selección, dibujo a escala común e indisponibilidad. Dos
+pruebas de `tests/test_perfiles_axiales_tobera_46_2.py` cubren las
+tolerancias compatibles y graduaciones. Véanse [técnico 46.3](docs/milestones/46_3_estudio_angulo_longitud.md),
+[aprendizaje 46.3](docs/milestones/46_3_estudio_angulo_longitud_APRENDIZAJE.md)
+y [cierre M46](docs/milestones/46_cierre_geometria_tobera.md).
+
 ## Evolution of the project
+
+- **Sensibilidad geométrica de la semidivergencia (milestone 46.3, sin commit).** Gráfica y tabla de longitud frente a α manteniendo áreas fijas, tres conos a escala común, selección explícita y ejes/tolerancias axiales corregidos; ninguna afirmación de óptimo aerodinámico. [Técnico](docs/milestones/46_3_estudio_angulo_longitud.md) y [aprendizaje](docs/milestones/46_3_estudio_angulo_longitud_APRENDIZAJE.md).
+
+- **Perfiles axiales de Mach y presión (milestone 46.2, sin commit).** Transformación geométrica de A/Ag a x [m] para los estados físicos del M44.4 mediante el cono 46.1; discontinuidades de choque conservadas y gráficos coordinados sin modificar el solver. [Técnico](docs/milestones/46_2_perfiles_axiales_tobera.md) y [aprendizaje](docs/milestones/46_2_perfiles_axiales_tobera_APRENDIZAJE.md).
+
+- **Geometría cónica axisimétrica del divergente (milestone 46.1, sin commit).** Conversión educativa de áreas físicas del M45 en radios y longitud del tramo divergente a partir de semidivergencia validada, dibujo proporcional y resultados no disponibles explícitos; sin alterar el flujo ni optimizar rendimiento. [Técnico](docs/milestones/46_1_geometria_conica_tobera.md) y [aprendizaje](docs/milestones/46_1_geometria_conica_tobera_APRENDIZAJE.md).
 
 - **Caudal, empuje absoluto y dimensionamiento mínimo (milestone 45, preparado para revisión, sin commit).** Extensión algebraica opcional que escala el motor existente con un caudal de aire, cierra fuerzas y continuidad y dimensiona áreas y diámetros equivalentes de garganta y salida para toberas convergentes y C-D; la interfaz conserva el funcionamiento específico previo. [Técnico](docs/milestones/45_gasto_masico_dimensionamiento_turborreactor.md) y [aprendizaje](docs/milestones/45_gasto_masico_dimensionamiento_turborreactor_APRENDIZAJE.md).
 
