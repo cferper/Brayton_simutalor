@@ -3157,11 +3157,11 @@ y [aprendizaje 30](docs/milestones/30_saneamiento_suite_historica_APRENDIZAJE.md
 | --- | --- |
 | `valores_turborreactor(formulario=None)` | `None` o mapping de entradas de usuario `str` → `dict[str,str]` sin unidades convertidas. La llama `web_app.turborreactor`; copia constantes o preserva entradas; sin cálculos físicos. Ej.: `valores_turborreactor()['mach']=='0'`. |
 | `leer_turborreactor(valores)` | `dict[str,str]` → `dict` de números finitos con `mach,rp,eta_c,T3,delta,eta_t,eta_m,eta_n,pi_d,eta_b,PCI` y ambiente directo (`T_amb,p_amb`) o ISA (`altitud_geopotencial`); K, kPa, m, kJ/kg y fracciones. Lanza `ValueError` por combinación de modos, texto, no finitos, `%` fuera de `[0,100)` o `rp<=1` con mensaje específico **antes** de invocar M37; las demás restricciones se contrastan en el motor. La llama `simular_turborreactor`. Ej.: `leer_turborreactor(valores_turborreactor())['delta']==0.04`; con `rp='0'` lanza `ValueError('La relación de compresión rp debe ser mayor que 1.')`. |
-| `simular_turborreactor(valores)` | Dict de cadenas → dict científico de M37 con ambiente, difusor, compresor, cámara, turbina, tobera, prestaciones y diagnósticos [K, kPa, kJ/kg, m/s, kg/(N·h)]. Llama al lector y **una sola vez** a `resolver_turborreactor_con_combustible(**argumentos)`; los errores físicos y numéricos se propagan a la ruta. Ej.: `simular_turborreactor(valores_turborreactor())['combustor']['f']≈0.028028`. |
+| `simular_turborreactor(valores)` | Dict de cadenas → dict científico de M37 con ambiente, difusor, compresor, cámara, turbina, tobera, prestaciones y diagnósticos [K, kPa, kJ/kg, m/s, kg/(N·h)]. Llama al lector y **una sola vez** a `resolver_turborreactor_con_combustible(**argumentos)`; los errores físicos y numéricos se propagan a la ruta. Desde M45, si `gasto_masico_aire` contiene un número positivo [kg/s], añade `prestaciones_absolutas` y `dimensionamiento_tobera` sin recalcular el motor; con el campo vacío conserva las salidas específicas originales. Ej.: `simular_turborreactor(valores_turborreactor())['combustor']['f']≈0.028028`. |
 | `estaciones_turborreactor(resultado)` | Resultado M37 → lista de seis `dict` (siete si existe estado de garganta C-D) con `nombre,tipo,T,p,h` (K, kPa, kJ/kg), `None` para salida de tobera inexistente. Usa `h` de `propiedades_aire` sólo para registrar estaciones ya resueltas. La llama `preparar_vista_turborreactor`. Ej.: `estaciones_turborreactor(r)[0]['tipo']=='Estático'`. |
 | `svg_componentes(tipo_tobera="convergente")` | Tipo de tobera `str` → `str` SVG con cinco componentes y eje mecánico, sin datos termodinámicos ni errores habituales. La llama el preparador de vista. Ej.: `'Difusor' in svg_componentes()`. |
 | `svg_evolucion(estaciones,clave,etiqueta,unidad)` | Lista de estaciones y tres `str` (clave `T`/`p`, nombre, unidad) → SVG `str` con eje y cuatro valores de remanso, no modelos termodinámicos. Se llama dos veces desde preparador; requiere estaciones físicas correctas. Ej.: `svg_evolucion(estaciones_turborreactor(r),'T','Temperatura total','K')`. |
-| `preparar_vista_turborreactor(resultado)` | Dict M37 → dict con `estaciones`, `adaptacion_cd`, `datos_tobera_graficas` y diez SVG (`svg_componentes`, `svg_temperaturas`, `svg_presiones`, `svg_empuje`, `svg_ts`, `svg_mach_tobera`, `svg_presion_tobera`, `svg_balance_energetico`, `svg_mach_perfil_tobera`, `svg_presion_perfil_tobera`), además de `balance_energetico` y `perfil_tobera`, que pueden ser `None` según disponibilidad. Llama a las funciones de estaciones, adaptación y dibujo; lo utiliza Flask sólo tras cálculo. Véanse §§4.81–4.82 para los contratos gráficos actuales. Ej.: `preparar_vista_turborreactor(r)['estaciones']`. |
+| `preparar_vista_turborreactor(resultado)` | Dict M37 → dict con `estaciones`, `adaptacion_cd`, `datos_tobera_graficas` y los diez SVG previos (`svg_componentes`, `svg_temperaturas`, `svg_presiones`, `svg_empuje`, `svg_ts`, `svg_mach_tobera`, `svg_presion_tobera`, `svg_balance_energetico`, `svg_mach_perfil_tobera`, `svg_presion_perfil_tobera`), además de `balance_energetico` y `perfil_tobera`, que pueden ser `None` según disponibilidad. Desde M45 incorpora el undécimo SVG opcional `svg_empuje_absoluto` [N], sólo con caudal indicado. Llama a las funciones de estaciones, adaptación y dibujo; lo utiliza Flask sólo tras cálculo. Véanse §§4.81–4.85. Ej.: `preparar_vista_turborreactor(r)['estaciones']`. |
 | `turborreactor()` | Controlador `@app.route('/turborreactor', methods=['GET','POST'])` sin argumentos Python (utiliza `request`); retorna `(HTML, 200/400)` generado por `render_template('turborreactor.html',...)`. GET no llama al motor; POST diferencia `accion='simular'`, `'sensibilidad'` y `'mapa'`, calcula el punto individual y, en las dos últimas, invoca `preparar_estudio` del M41; captura errores de rango, cálculo, dominio y aritmética sin mostrar trazas. El resultado de estudio y su error se guardan separados de los del cálculo individual. Prueba de uso: `app.test_client().get('/turborreactor').status_code == 200`. |
 
 **PYTHON — interfaz y flujo.** El archivo `templates/turborreactor.html` ofrece el formulario original HTTP POST, Jinja de resultados y **seis paneles**: Configuración, Resultados, Estaciones, Visualizaciones, Sensibilidad y Mapas de prestaciones; los dos estudios nuevos se explican en §4.76. Cada panel alberga dos pestañas (uso y fundamentos): la teoría se distribuye mediante macros Jinja, sin formularios anidados. `static/turborreactor.css` reutiliza fuentes y variables de `static/style.css`, y `static/turborreactor.js` introduce mejora progresiva: cuando hay JavaScript, desactiva y vacía el otro modo de ambiente y carga tres ejemplos sin calcular. También **muestra exactamente un panel por vez** con `hidden`, y resalta sólo su enlace lateral con `aria-current='page'`. `location.hash` permite enlaces directos a `#configuracion`, `#resultados`, `#estaciones`, `#graficas`, `#sensibilidad`, `#mapa`; `history.pushState` registra cada navegación, mientras `popstate`/`hashchange` restauran la sección elegida con atrás/adelante del navegador. El identificador del panel inicial lo aporta Jinja mediante `data-initial-panel`: Configuración en GET/error de simulación, Resultados después de POST individual correcto, o Sensibilidad/Mapas después de solicitar el estudio (incluso con error propio de estudio). Los paneles ocultos permanecen en el mismo DOM y conservan campos y resultados; al cambiar por menú, se mueve el foco al encabezado visible para teclado. La rueda sólo desplaza el **contenido del panel activo**, no pasa a otro apartado. Sin JavaScript los seis paneles y ambas vistas de cada uno permanecen **apilados verticalmente** y los tres formularios HTTP POST siguen siendo utilizables (las entradas del motor para estudios son las ya reflejadas por el servidor). `request.form` es un mapping de cadenas; `float` convierte magnitudes e `isfinite` rechaza NaN/inf; `**argumentos` expande un dict a argumentos nombrados del motor. Jinja escapa las entradas por defecto. Sólo los SVG creados en servidor con números y etiquetas conocidas usan `|safe`. El enlace `/turborreactor` en `templates/index.html` está condicionado a **`modo_cp and modo_local`**, por lo que los informes históricos renderizados con `modo_cp=False` no lo incorporan ni cambian de formato. Las rutas `/`, `/informes/<nombre>` y descarga permanecen; la navegación del turborreactor se reduce a seis secciones, sin perder teoría.
@@ -3429,7 +3429,7 @@ axial ni una entropía química rigurosa de combustión.
 `(salida, -entrada, presion, neto)` con cuatro `float` en
 N/(kg/s de aire), o `None` si alguna magnitud falta, no es real o no es finita. Comprueba el cierre de
 la suma con escala relativa `1e-8` y lanza `ValueError` si el resultado es
-incoherente. `svg_descomposicion_empuje(resultado)` recibe el mismo diccionario
+incoherente. `svg_descomposicion_empuje(resultado, *, absoluto=False)` recibe el mismo diccionario
 y retorna una cadena SVG o `None`. `datos_ts_turborreactor(estaciones)`
 recibe la lista de dicts con `nombre`, `tipo`, `T` [K] y `p` [kPa], y retorna
 tuplas `(nombre, entropia, T, tipo)` para los cuatro estados de remanso y
@@ -3737,7 +3737,118 @@ con invariantes y con el solver es verificación interna, no validación experim
 Comandos, parámetros, integración compatible e incidencias: [técnico 44.4](docs/milestones/44_4_perfiles_cuasidimensionales_tobera.md)
 y [aprendizaje 44.4](docs/milestones/44_4_perfiles_cuasidimensionales_tobera_APRENDIZAJE.md).
 
+### 4.85 — Milestone 45: caudal másico, empuje absoluto y dimensionamiento de toberas
+
+La organización de la entrega es:
+
+- **45.1:** gasto másico de aire, combustible y gases; consumo horario.
+- **45.2:** empuje absoluto en N/kN y sus contribuciones firmadas.
+- **45.3:** áreas de garganta/salida y diámetros circulares equivalentes.
+
+La integración web, las pruebas y la documentación son actividades transversales
+del milestone completo, no una entrega 45.3 diferente.
+
+**PYTHON — Datos y contratos.** El archivo nuevo
+`dimensionamiento_turborreactor.py` es una capa algebraica sobre la solución
+científica del milestone 37; no resuelve de nuevo el motor. El formulario de
+`/turborreactor` incorpora el campo **opcional** `gasto_masico_aire` [kg/s].
+Su cadena vacía (incluso con espacios) deja los resultados específicos tal
+como estaban. Una cifra debe ser real, finita y estrictamente positiva:
+`validar_gasto_masico_aire(gasto_masico_aire)` devuelve `float` o lanza `ValueError`.
+No se interpreta como caudal de combustible ni de gases de escape.
+
+`calcular_prestaciones_absolutas(resultado, gasto_masico_aire)` recibe el
+diccionario ya resuelto y devuelve otro con caudales [kg/s], términos
+firmados de empuje [N], empuje neto [N y kN], consumo horario [kg/h], TSFC
+[kg/(N·h)] y residuos de cierre. La entrada de aire, la masa de combustible
+y el escape satisfacen `ṁf = f ṁa` y `ṁe = (1 + f) ṁa`.
+Los términos de empuje absoluto multiplican por `ṁa` los correspondientes
+términos *específicos* del solucionador; su suma ha de reproducir
+`ṁa F_específico`. El consumo específico absoluto sólo se muestra cuando
+el empuje neto es positivo y está disponible.
+
+`dimensionar_tobera(resultado, gasto_masico_aire, *, absolutos=None)` usa
+los estados estáticos reales de salida `ρe` [kg/m³] y `Ve` [m/s] para
+calcular `Ae = ṁe/(ρe Ve)` [m²]. Para tobera convergente, garganta y
+salida coinciden en área incluso sin bloqueo. Para convergente-divergente,
+la garganta emplea el flujo másico superficial real `Gg` [kg/(m²·s)]
+del solver (crítico solo si está bloqueada): `Ag = ṁe/Gg`. Las áreas sólo se publican cuando existe una
+solución física suficiente. Ambos diámetros son **circulares equivalentes**
+`D = √(4A/π)` [m], no una geometría axial ni una longitud de tobera.
+Un choque normal no se interpola: se utilizan las propiedades de salida
+resueltas por el modelo, ya aguas abajo del choque cuando corresponde.
+
+`simular_turborreactor` llama una vez al solver M37 y sólo entonces
+incorpora `resultado['prestaciones_absolutas']` y
+`resultado['dimensionamiento_tobera']` si se indica un caudal válido. El
+adaptador `preparar_vista_turborreactor` genera un SVG adicional con
+`svg_descomposicion_empuje(resultado, absoluto=True)`; la llamada original
+sin ese argumento continúa dibujando el empuje específico [N/(kg/s)].
+Jinja muestra los caudales, la identidad de empuje, el consumo horario,
+áreas y diámetros disponibles. No hay cambios en JavaScript, CSS o
+algoritmos termodinámicos.
+
+**INTERPRETACIÓN FÍSICA / INGENIERÍA.** El empuje específico permite
+comparar motores sin fijar su tamaño; el empuje absoluto responde a
+cuántos newtons desarrolla el motor al procesar un caudal concreto. Para
+un punto operativo fijo, duplicar `ṁa` duplica empuje, combustible y
+secciones, pero **no** duplica los diámetros (crecen con la raíz cuadrada
+del área). El término de presión puede ser negativo cuando `pe < p∞`:
+no se ha de eliminar su signo para obtener un resultado estético. Tampoco
+debe calcularse TSFC físico si el empuje no es positivo. La garganta
+crítica de una C-D y la salida no son intercambiables; la relación de
+áreas procede del régimen realmente resuelto. El dimensionamiento es
+continuidad cuasi-1D de un punto, no un diseño mecánico detallado ni
+validación de motor real.
+
+```python
+from dimensionamiento_turborreactor import (
+    calcular_prestaciones_absolutas, dimensionar_tobera
+)
+from turborreactor_web import simular_turborreactor, valores_turborreactor
+
+valores = valores_turborreactor()
+valores['gasto_masico_aire'] = '20'  # kg/s; ejemplo docente, no dato de diseño
+resultado = simular_turborreactor(valores)
+F = resultado['prestaciones_absolutas']['empuje_neto']  # N
+Ae = resultado['dimensionamiento_tobera']['area_salida']  # m²
+```
+
+**PYTHON — llamadas y presentación.** La validación recibe un real (`int`
+o `float`, sin `bool`) y devuelve `float` [kg/s]; la llaman el adaptador web,
+el escalado y el dimensionamiento. `_finito(valor)` recibe un objeto y devuelve
+`bool`: por ejemplo, `_finito(20.0)` es `True` y `_finito(True)` es `False`.
+La usan `calcular_prestaciones_absolutas` y `dimensionar_tobera` para comprobar
+números del resultado. La primera llama al validador; la segunda llama al
+validador y, si no recibe `absolutos`, al escalado. Ambas se llaman desde
+`simular_turborreactor`; el argumento `absolutos=a` permite reutilizar el dict.
+Sus claves, unidades y errores se detallan en el técnico 45. Las claves
+científicas obligatorias ausentes pueden producir `KeyError`; las entradas o
+cierres incoherentes producen `ValueError`. No se alteran estados del solver.
+
+`svg_descomposicion_empuje(resultado, *, absoluto=False)` retorna `str` SVG
+o `None` si no hay fuerza disponible. La llama el preparador de vista dos
+veces: modo específico original y modo absoluto; reutiliza los datos ya
+calculados. Un cero con signo se muestra como cero en tabla/SVG (`valor or 0.0`),
+sin alterar el dict numérico: `or` conserva cualquier número no nulo, también
+negativo. El argumento después de `*` se pasa por nombre. Las unidades están
+en las etiquetas; la cadena SVG no añade un cálculo físico.
+
+**VERIFICACIÓN WINDOWS — 28/10/2026.** 19/19 pruebas específicas y 74/74 web
+M40/M41/M42.B/M43 correctas. Tras normalizar el cero se repiten juntas las
+93, sin fallos, errores ni omisiones. No se ejecuta la regresión científica
+histórica. Se comprueban GET/POST y el campo vacío, 20/40 kg/s y entradas
+inválidas. Las extensivas se duplican y los diámetros crecen por √2, conservando
+las magnitudes específicas. Se revisan escritorio y pantalla estrecha.
+Es verificación interna y de integración, no validación experimental.
+Véanse el [técnico 45](docs/milestones/45_gasto_masico_dimensionamiento_turborreactor.md)
+y el [aprendizaje 45](docs/milestones/45_gasto_masico_dimensionamiento_turborreactor_APRENDIZAJE.md)
+para resultados, ejemplos y límites; las baterías previas de desarrollo no se
+presentan como pruebas repetidas en esta revisión.
+
 ## Evolution of the project
+
+- **Caudal, empuje absoluto y dimensionamiento mínimo (milestone 45, preparado para revisión, sin commit).** Extensión algebraica opcional que escala el motor existente con un caudal de aire, cierra fuerzas y continuidad y dimensiona áreas y diámetros equivalentes de garganta y salida para toberas convergentes y C-D; la interfaz conserva el funcionamiento específico previo. [Técnico](docs/milestones/45_gasto_masico_dimensionamiento_turborreactor.md) y [aprendizaje](docs/milestones/45_gasto_masico_dimensionamiento_turborreactor_APRENDIZAJE.md).
 
 - **Perfiles cuasi-1D de Mach y presión en tobera C-D (milestone 44.4, sin commit).** Cálculo de estados intermedios con cp(T) variable frente a `A/Ag`, selección de rama física, conservación regional y choque normal discontinuo con crítica posterior propia. Sin geometría axial inventada; gráfico discreto conservado. [Técnico](docs/milestones/44_4_perfiles_cuasidimensionales_tobera.md) y [aprendizaje](docs/milestones/44_4_perfiles_cuasidimensionales_tobera_APRENDIZAJE.md).
 

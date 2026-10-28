@@ -9,6 +9,9 @@ from math import exp, isfinite
 from numbers import Real
 
 from combustible_cp_variable import resolver_turborreactor_con_combustible
+from dimensionamiento_turborreactor import (calcular_prestaciones_absolutas,
+                                           dimensionar_tobera,
+                                           validar_gasto_masico_aire)
 from propiedades_aire import h
 from propiedades_aire import R_AIRE, T_MIN, s, s0
 from tobera_convergente_divergente_cp import _sonico, relacion_areas_adaptada
@@ -21,6 +24,7 @@ DEFAULTS_TURBO = {
     "T3": "1600", "delta_pct": "4", "eta_t": "0.90", "eta_m": "0.98",
     "eta_n": "0.95", "pi_d": "1", "eta_b": "0.99", "PCI": "43000",
     "tipo_tobera": "convergente", "epsilon": "1.5",
+    "gasto_masico_aire": "",
 }
 
 EJEMPLOS_TURBO = {
@@ -52,6 +56,7 @@ GRUPOS_TURBO = (
     ("Combustible equivalente", (
         ("eta_b", "Rendimiento de combustión", "–", "Fracción efectiva del PCI que aporta energía."),
         ("PCI", "Poder calorífico inferior", "kJ/kg", "Energía química específica del combustible equivalente."),
+        ("gasto_masico_aire", "Gasto másico de aire (opcional)", "kg/s", "Aire que entra al motor, antes de añadir combustible. Vacío: solo prestaciones específicas; ejemplo educativo: 20 kg/s. No predice el tamaño de un motor real."),
     )),
 )
 
@@ -113,9 +118,25 @@ def leer_turborreactor(valores):
 
 
 def simular_turborreactor(valores):
-    """Dict de resultados científicos: llama una vez al solucionador M37."""
+    """Llama una vez al solver; escala resultados solo con caudal opcional."""
     argumentos = leer_turborreactor(valores)
-    return resolver_turborreactor_con_combustible(**argumentos)
+    bruto = valores.get("gasto_masico_aire", "")
+    if bruto is None or (isinstance(bruto, str) and not bruto.strip()):
+        caudal = None
+    elif isinstance(bruto, str):
+        try:
+            caudal = validar_gasto_masico_aire(float(bruto.strip()))
+        except (ValueError, OverflowError) as exc:
+            raise ValueError("Gasto másico de aire: introduce un número positivo finito [kg/s], o deja el campo vacío.") from exc
+    else:
+        caudal = validar_gasto_masico_aire(bruto)
+    resultado = resolver_turborreactor_con_combustible(**argumentos)
+    if caudal is not None:
+        absoluto = calcular_prestaciones_absolutas(resultado, caudal)
+        resultado["prestaciones_absolutas"] = absoluto
+        resultado["dimensionamiento_tobera"] = dimensionar_tobera(
+            resultado, caudal, absolutos=absoluto)
+    return resultado
 
 
 def estaciones_turborreactor(resultado):
@@ -208,12 +229,19 @@ def datos_empuje_grafica(resultado):
     return (salida, -resistencia if resistencia else 0.0, presion, neto)
 
 
-def svg_descomposicion_empuje(resultado):
-    """Barras firmadas de contribuciones y resultante, sin nueva física."""
-    datos = datos_empuje_grafica(resultado)
+def svg_descomposicion_empuje(resultado, *, absoluto=False):
+    """Barras firmadas específicas o absolutas, sin recalcular el motor."""
+    if absoluto:
+        a = resultado.get("prestaciones_absolutas")
+        datos = None if not a or a["empuje_neto"] is None else (
+            a["empuje_momento_salida"], a["resistencia_entrada"] or 0.0,
+            a["empuje_presion"], a["empuje_neto"])
+    else:
+        datos = datos_empuje_grafica(resultado)
     if datos is None:
         return None
-    nombres = ('Salida (1+f) Ve', 'Entrada −V0', 'Presión (pe−p∞)', 'Neto Fs')
+    nombres = ('Salida (1+f) Ve', 'Entrada −V0', 'Presión (pe−p∞)',
+               'Neto F' if absoluto else 'Neto Fs')
     colores = ('#267c72', '#b05c47', '#8c64ac', '#225f9b')
     escala = max(abs(v) for v in datos) or 1
     cero, amplitud = 365, 258
@@ -228,10 +256,11 @@ def svg_descomposicion_empuje(resultado):
         texto_x = min(690, cero+largo+8) if valor >= 0 else max(8, cero-largo-8)
         ancla = 'start' if valor >= 0 else 'end'
         piezas.append(f'<text x="{texto_x:.2f}" y="{y+17}" text-anchor="{ancla}" font-size="12">{valor:+.2f}</text>')
+    unidad = 'N' if absoluto else 'N/(kg/s de aire)'
     return ('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 710 300" '
-            'role="img" aria-label="Descomposición firmada del empuje específico neto">'
+            f'role="img" aria-label="Descomposición firmada del empuje neto en {unidad}">'
             '<g font-family="sans-serif" fill="#172b42">'
-            '<text x="14" y="289" font-size="13">Contribuciones y neto [N/(kg/s de aire)]</text>'
+            f'<text x="14" y="289" font-size="13">Contribuciones y neto [{unidad}]</text>'
             + ''.join(piezas) + '</g></svg>')
 
 
@@ -626,6 +655,7 @@ def preparar_vista_turborreactor(resultado):
             "svg_temperaturas": svg_evolucion(estados,"T","Temperatura total","K"),
             "svg_presiones": svg_evolucion(estados,"p","Presión total","kPa"),
             "svg_empuje": svg_descomposicion_empuje(resultado),
+            "svg_empuje_absoluto": svg_descomposicion_empuje(resultado, absoluto=True),
             "svg_ts": svg_ts_turborreactor(estados),
             "datos_tobera_graficas": datos_tobera,
             "svg_mach_tobera": svg_estados_tobera(datos_tobera, 'mach'),
