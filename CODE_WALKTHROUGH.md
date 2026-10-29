@@ -4020,7 +4020,126 @@ tolerancias compatibles y graduaciones. Véanse [técnico 46.3](docs/milestones/
 [aprendizaje 46.3](docs/milestones/46_3_estudio_angulo_longitud_APRENDIZAJE.md)
 y [cierre M46](docs/milestones/46_cierre_geometria_tobera.md).
 
+### 4.89 — Milestone 47.1: inversión del problema de caudal de tobera
+
+**INGENIERÍA.** En el milestone 45 conocíamos el gasto de aire y se
+dimensionaban las secciones. Ahora, con garganta `Ag` y salida `Ae`
+prescritas, el gasto compatible con las condiciones de remanso se
+obtiene de `ṁg = (ρV)g Ag`. La C-D utiliza el flujo superficial de
+garganta **ya resuelto** en M42–M44.4: puede ser subsónico y depender
+de contrapresión, o sónico si se bloquea. La convergente utiliza su
+sección de salida, coincidente con garganta. Se coteja continuidad
+`(ρV)g Ag ≈ (ρV)e Ae` y se distingue el gas del aire y combustible:
+`ṁa = ṁg/(1+f)`; `ṁf = f ṁa`.
+
+**PYTHON.** `caudal_tobera_geometria_fija.py` añade una función pública
+de resolución directa y otra que adapta el resultado de un solucionador
+existente sin volver a ejecutar el núcleo. `simular_turborreactor`
+interpreta `modo_caudal=impuesto|fijo`, valida las áreas, deduce
+`epsilon=Ae/Ag` antes del cálculo C-D y convierte el caudal de gases en
+aire para reutilizar los escalados absolutos M45. El formulario oculta
+y deshabilita los campos incompatibles; mantiene el modo histórico y
+las seis secciones de la página. Los estados no resueltos se muestran
+como indisponibles (`None`), nunca como caudal cero.
+
+**VERIFICACIÓN Y LÍMITES.** Nueve métodos nuevos prueban regímenes
+bloqueado, subsónico, choque, continuidad, escalado, combustible,
+áreas, referencia aproximada de gas perfecto y regresión web. Se
+requiere un remanso suministrado externamente: todavía no hay solución
+acoplada con mapas de compresor y turbina, ni validación experimental.
+Documentos: [técnico 47.1](docs/milestones/47_1_caudal_geometria_fija.md)
+y [aprendizaje 47.1](docs/milestones/47_1_caudal_geometria_fija_APRENDIZAJE.md).
+
+### 4.90 — Milestone 47.2: continuidad de admisión condicionada
+
+**INGENIERÍA.** El flujo de corriente libre `ρ∞V∞A_cap` permite relacionar
+caudal conocido con área de captación en vuelo; no predice la aspiración
+en estático, donde `V∞=0`. Una sección interna `A2` del compresor, junto
+con Mach local prescrito, sí permite calcular `ρ2V2A2` desde el remanso
+posterior al difusor (`pt2=πd·pt∞`). Esto es una condición local y no
+un punto operativo cerrado. Si coexiste un caudal de tobera, se informa
+del residuo de continuidad sin alterar ningún dato.
+
+**PYTHON.** `admision_caudal_cp.py` utiliza `h(T)`, `s0(T)` y `gamma(T)`;
+resuelve `h(Tt2)=h(T2)+M2²gamma(T2)RT2/2000` mediante bisección,
+deduce presión y densidad estáticas, y devuelve disponibilidad y
+diagnósticos estructurados. Tres campos opcionales del formulario web
+activan la comparación, con conservación de resultados previos cuando
+están vacíos. [Técnico 47.2](docs/milestones/47_2_admision_y_caudal.md)
+y [guía educativa 47.2](docs/milestones/47_2_admision_y_caudal_APRENDIZAJE.md).
+
+### 4.91 — Milestone 47.3: mapas públicos de turbomáquinas escalados
+
+**INGENIERÍA.** Dos mapas tabulados de NASA T-MATS (`HPC.map` y `HPT.map`)
+se emplean como **formas educativas**, no como arquitectura JT9D. El
+turborreactor sigue siendo monoeje: comparte `N` mecánico, mientras cada
+`Ncorr=N/sqrt(Tt/Tref)` utiliza su propia temperatura de entrada. El
+caudal corregido es `ṁcorr=ṁsqrt(Tt/Tref)/(pt/pref)`. Cuatro factores
+por componente escalan nudo interior de cada mapa a un diseño
+verificable del motor existente (20 kg/s de aire, rp=10, T3=1600 K,
+ηc=.85, ηt=.90, N=20 000 rpm de referencia educativa).
+
+**PYTHON.** Un script transforma mecánicamente tablas NASA originales
+en JSON trazable. `interpolar_bilineal` rechaza extrapolación;
+`calibrar_mapas` conserva ecuaciones del núcleo y calcula escalas;
+`consultar_compresor` y `consultar_turbina` usan un único N real con
+conversiones de referencia distintas. Verificación contra nudos y
+punto de diseño en `tests/test_mapas_turbomaquinaria_47_3.py`.
+[Técnico 47.3](docs/milestones/47_3_mapas_turbomaquinaria.md) y
+[aprendizaje 47.3](docs/milestones/47_3_mapas_turbomaquinaria_APRENDIZAJE.md).
+
+### 4.92 — Milestone 47.4: un punto estacionario con un solo eje
+
+**INGENIERÍA.** El punto de diseño de 47.3 calibra dos mapas independientes,
+pero ambos reciben la misma velocidad mecánica `N`. El compresor aporta
+`mdot_a`, `PRc` y `ηc`, la cámara calcula el combustible `f` a `Tt3`
+prescrita y la turbina entrega la potencia requerida con `ηm`. Tres
+incógnitas `N`, `Rline` y `PRt` se cierran mediante tres residuos:
+coincidencia entre expansión exigida por el eje y mapa; continuidad
+`mdot_a(1+f)=mdot_g,mapa`; y gasto del gas igual al de la garganta
+`Gg·Ag`. Se prohíbe imponer simultáneamente el gasto o la compresión.
+
+**PYTHON.** `acoplamiento_motor_mapa_47.py` contiene `punto_diseno_47`,
+`_resultado_punto` (estado y tres residuos), `_resolver_3x3` (Gauss con
+pivotado) y `resolver_motor_acoplado` (Newton amortiguado con prueba de
+descenso, chequeo de residuos y dominio de mapa). En fallo retorna
+`disponible=False` y explica la causa; **no** rellena prestaciones.
+`turborreactor_web.py` incorpora el modo C sin reescribir los modos A/B,
+ni los solucionadores térmicos. El formulario oculta parámetros derivados
+y solo muestra resultados con cierres verificados. La admisión con Mach y
+área local opcionales debe transportar el mismo caudal.
+
+La calibración educativa reproduce 20 kg/s, 20 000 rpm, compresión 10 y
+garganta fija de 0,0473481164 m² en estático. Esta igualdad de diseño
+es verificación, **no** validación experimental.
+[Técnico 47.4](docs/milestones/47_4_acoplamiento_motor.md) y
+[aprendizaje 47.4](docs/milestones/47_4_acoplamiento_motor_APRENDIZAJE.md).
+
+### 4.93 — Milestone 47.5: verificación y cierre acumulado
+
+**INGENIERÍA.** Diferenciamos los tres problemas: A dimensiona tobera a
+caudal prescrito, B calcula caudal compatible con tobera de geometría fija
+y remanso dado, C busca equilibrio estacionario de mapas/eslabones.
+El balance del eje, continuidad en turbina/tobera, límites de los mapas,
+regímenes de tobera y cambios de vuelo se prueban sin presentar el
+motor educativo como un motor real validado.
+
+**PYTHON.** `unittest` verifica nuevas ramas y regresiones relacionadas,
+incluidos rechazos físicos; `compileall` y el analizador de JavaScript
+separan fallos de sintaxis de defectos científicos. La suite histórica
+completa y la inspección HTTP/visual quedan para la integración en Windows.
+[Cierre 47.5](docs/milestones/47_5_verificacion_cierre.md) y
+[aprendizaje 47.5](docs/milestones/47_5_verificacion_cierre_APRENDIZAJE.md).
+
 ## Evolution of the project
+
+- **Milestones 47.4–47.5: solución estacionaria monoeje y cierre (sin commit).** Tres ecuaciones y tres incógnitas de mapa/eje/tobera resueltas con Newton amortiguado y límites físicos; conservación de las tres modalidades, regresión dirigida y registro de límites de verificación. [Técnico 47.4](docs/milestones/47_4_acoplamiento_motor.md), [aprendizaje 47.4](docs/milestones/47_4_acoplamiento_motor_APRENDIZAJE.md) y [cierre 47.5](docs/milestones/47_5_verificacion_cierre.md).
+
+- **Milestone 47.3: mapas NASA T-MATS escalados al monoeje (sin commit).** Datos HPC/HPT públicos atribuidos, interpolación bilineal acotada y reproducción exacta de un punto de diseño didáctico, sin copiar la arquitectura original JT9D. [Técnico](docs/milestones/47_3_mapas_turbomaquinaria.md) y [aprendizaje](docs/milestones/47_3_mapas_turbomaquinaria_APRENDIZAJE.md).
+
+- **Milestone 47.2: admisión y caudal condicionado (sin commit).** Captación exterior en vuelo y sección local de compresor a Mach prescrito; recuperación de presión total y diagnóstico de continuidad, sin fabricar aspiración en estático. [Técnico](docs/milestones/47_2_admision_y_caudal.md) y [aprendizaje](docs/milestones/47_2_admision_y_caudal_APRENDIZAJE.md).
+
+- **Milestone 47.1: caudal de gases con geometría de tobera fija (sin commit).** Nueva alternativa al caudal impuesto; continuidad en garganta/salida cp(T), dosado aire/gas y régimen subsónico/bloqueado/choque sin reescribir solucionadores. [Técnico](docs/milestones/47_1_caudal_geometria_fija.md) y [aprendizaje](docs/milestones/47_1_caudal_geometria_fija_APRENDIZAJE.md).
 
 - **Sensibilidad geométrica de la semidivergencia (milestone 46.3, sin commit).** Gráfica y tabla de longitud frente a α manteniendo áreas fijas, tres conos a escala común, selección explícita y ejes/tolerancias axiales corregidos; ninguna afirmación de óptimo aerodinámico. [Técnico](docs/milestones/46_3_estudio_angulo_longitud.md) y [aprendizaje](docs/milestones/46_3_estudio_angulo_longitud_APRENDIZAJE.md).
 

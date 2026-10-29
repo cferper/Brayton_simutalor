@@ -68,14 +68,32 @@ document.addEventListener('DOMContentLoaded',()=>{
   const form=document.getElementById('turbo-form');
   if(!form)return;
   const selectorTobera=form.querySelector('#tipo_tobera');
+  const selectorCaudal=form.querySelector('#modo_caudal');
   const syncTobera=()=>{
     const tipo=selectorTobera?.value||'convergente';
     form.querySelectorAll('[data-tobera]').forEach(b=>{
-      b.hidden=b.dataset.tobera!==tipo;
+      b.hidden=b.dataset.tobera!==tipo || (b.dataset.caudal && !b.dataset.caudal.split(/\s+/).includes(selectorCaudal?.value||'impuesto'));
       /* Conservamos el valor oculto al alternar el tipo de tobera. */
     });
   };
   selectorTobera?.addEventListener('change',syncTobera);
+  const syncCaudal=()=>{
+    const modo=selectorCaudal?.value||'impuesto';
+    form.querySelectorAll('[data-caudal]').forEach(b=>{
+      const activo=b.dataset.caudal.split(/\s+/).includes(modo) && (!b.dataset.tobera || b.dataset.tobera===(selectorTobera?.value||'convergente'));
+      b.hidden=!activo;
+      b.querySelectorAll('input').forEach(input=>input.disabled=!activo);
+    });
+    form.querySelectorAll('[data-no-acoplado]').forEach(b=>{
+      const activo=modo!=='acoplado';
+      b.hidden=!activo;
+      b.querySelectorAll('input').forEach(input=>input.disabled=!activo);
+    });
+    syncTobera();
+  };
+  selectorCaudal?.addEventListener('change',syncCaudal);
+  selectorTobera?.addEventListener('change',syncCaudal);
+  syncCaudal();
   const modos=[...form.querySelectorAll('input[name="modo_ambiente"]')];
   const sync=()=>{
     const modo=modos.find(r=>r.checked)?.value||'directo';
@@ -98,7 +116,7 @@ document.addEventListener('DOMContentLoaded',()=>{
     vuelo:{modo_ambiente:'directo',T_amb:'288.15',p_amb:'100',altitud_geopotencial:'',mach:'0.7'},
     isa:{modo_ambiente:'ISA',T_amb:'',p_amb:'',altitud_geopotencial:'10000',mach:'0.5'}
   };
-  const base={rp:'10',eta_c:'0.85',T3:'1600',delta_pct:'4',eta_t:'0.90',eta_m:'0.98',eta_n:'0.95',pi_d:'1',eta_b:'0.99',PCI:'43000',tipo_tobera:'convergente',epsilon:'1.5'};
+  const base={rp:'10',eta_c:'0.85',T3:'1600',delta_pct:'4',eta_t:'0.90',eta_m:'0.98',eta_n:'0.95',pi_d:'1',eta_b:'0.99',PCI:'43000',tipo_tobera:'convergente',epsilon:'1.5',modo_caudal:'impuesto'};
   document.querySelectorAll('[data-ejemplo]').forEach(b=>b.addEventListener('click',()=>{
     const caso=casos[b.dataset.ejemplo];if(!caso)return;
     Object.entries({...base,...caso}).forEach(([k,v])=>{
@@ -106,7 +124,7 @@ document.addEventListener('DOMContentLoaded',()=>{
       else if(form.elements[k])form.elements[k].value=v;
     });
     sync();
-    syncTobera();
+    syncCaudal();
   }));
   /* Los estudios son formularios hermanos (HTML no admite forms anidados).
      Al enviar se capturan todos los valores *actuales* del formulario M40;

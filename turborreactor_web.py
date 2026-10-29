@@ -12,6 +12,10 @@ from combustible_cp_variable import resolver_turborreactor_con_combustible
 from dimensionamiento_turborreactor import (calcular_prestaciones_absolutas,
                                            dimensionar_tobera,
                                            validar_gasto_masico_aire)
+from caudal_tobera_geometria_fija import caudal_desde_estado_tobera, validar_area
+from admision_caudal_cp import evaluar_admision
+from acoplamiento_motor_mapa_47 import punto_diseno_47, resolver_motor_acoplado
+from vuelo_cp_variable import atmosfera_estandar
 from geometria_tobera_conica import (calcular_geometria_conica,
                                     svg_geometria_conica,
                                     validar_semidivergencia)
@@ -31,6 +35,8 @@ DEFAULTS_TURBO = {
     "eta_n": "0.95", "pi_d": "1", "eta_b": "0.99", "PCI": "43000",
     "tipo_tobera": "convergente", "epsilon": "1.5",
     "gasto_masico_aire": "", "angulo_semidivergencia": "15",
+    "modo_caudal": "impuesto", "area_garganta_fija": "", "area_salida_fija": "",
+    "area_captacion": "", "area_entrada_compresor": "", "mach_entrada_compresor": "",
 }
 
 EJEMPLOS_TURBO = {
@@ -43,6 +49,9 @@ EJEMPLOS_TURBO = {
 GRUPOS_TURBO = (
     ("Ambiente y vuelo", (
         ("mach", "Mach de vuelo", "–", "Velocidad respecto a la del sonido; sólo régimen subsónico."),
+        ("area_captacion", "Área de captación exterior (opcional)", "m²", "En vuelo se obtiene el flujo exterior ρ∞V∞A; en estático no predice la aspiración."),
+        ("area_entrada_compresor", "Sección de entrada al compresor (opcional)", "m²", "Sección interna tras el difusor, distinta de la captación exterior."),
+        ("mach_entrada_compresor", "Mach local de entrada al compresor (opcional)", "–", "Condición prescrita del flujo subsónico local; no se deduce de la geometría sola."),
         ("T_amb", "Temperatura ambiente", "K", "Temperatura estática; sólo en modo directo."),
         ("p_amb", "Presión ambiente", "kPa", "Presión estática; sólo en modo directo."),
         ("altitud_geopotencial", "Altitud ISA", "m", "Altitud geopotencial de 0 a 20 000 m; sólo modo ISA."),
@@ -72,7 +81,7 @@ def valores_turborreactor(formulario=None):
     """Devuelve dict de cadenas; conserva incluso las entradas erróneas en POST."""
     if formulario is None:
         return dict(DEFAULTS_TURBO)
-    return {clave: formulario.get(clave, DEFAULTS_TURBO[clave] if clave in ("tipo_tobera", "epsilon", "angulo_semidivergencia") else "")
+    return {clave: formulario.get(clave, DEFAULTS_TURBO[clave] if clave in ("tipo_tobera", "epsilon", "angulo_semidivergencia", "modo_caudal") else "")
             for clave in DEFAULTS_TURBO}
 
 
@@ -90,7 +99,7 @@ def leer_turborreactor(valores):
         raise ValueError("Selecciona una tobera convergente o convergente-divergente.")
     activos = ["mach", "rp", "eta_c", "T3", "delta_pct", "eta_t",
                "eta_m", "eta_n", "pi_d", "eta_b", "PCI"]
-    if tipo == "convergente_divergente":
+    if tipo == "convergente_divergente" and valores.get("modo_caudal", "impuesto") != "fijo":
         activos.append("epsilon")
     if modo == "directo":
         if valores["altitud_geopotencial"].strip():
@@ -118,7 +127,7 @@ def leer_turborreactor(valores):
         raise ValueError("La pérdida de presión debe estar entre 0 % y menos de 100 %.")
     datos["delta"] = porcentaje / 100
     datos["tipo_tobera"] = tipo
-    if tipo == "convergente_divergente":
+    if tipo == "convergente_divergente" and "epsilon" in datos:
         if datos["epsilon"] < 1:
             raise ValueError("Ae/Ag debe ser mayor o igual a 1.")
     return datos
@@ -126,8 +135,28 @@ def leer_turborreactor(valores):
 
 def simular_turborreactor(valores):
     """Llama una vez al solver; escala resultados solo con caudal opcional."""
+    modo_caudal = valores.get("modo_caudal", "impuesto")
+    if modo_caudal == "acoplado":
+        return _simular_motor_acoplado_web(valores)
+    if modo_caudal not in ("impuesto", "fijo"):
+        raise ValueError("Selecciona caudal impuesto, geometría fija o motor acoplado.")
     argumentos = leer_turborreactor(valores)
-    bruto = valores.get("gasto_masico_aire", "")
+    area_g = area_e = None
+    if modo_caudal == "fijo":
+        if str(valores.get("gasto_masico_aire", "")).strip():
+            raise ValueError("En geometría fija el caudal de aire es un resultado, no una entrada.")
+        try:
+            area_g = validar_area(float(valores.get("area_garganta_fija", "")), "Área de garganta")
+            if argumentos["tipo_tobera"] == "convergente_divergente":
+                area_e = validar_area(float(valores.get("area_salida_fija", "")), "Área de salida")
+                if area_e < area_g:
+                    raise ValueError("La tobera C-D necesita Ae ≥ Ag.")
+                argumentos["epsilon"] = area_e/area_g
+            else:
+                area_e = area_g
+        except (TypeError, ValueError, OverflowError) as exc:
+            raise ValueError(f"Geometría fija inválida: {exc}") from exc
+    bruto = valores.get("gasto_masico_aire", "") if modo_caudal == "impuesto" else ""
     if bruto is None or (isinstance(bruto, str) and not bruto.strip()):
         caudal = None
     elif isinstance(bruto, str):
@@ -140,7 +169,7 @@ def simular_turborreactor(valores):
     # El ángulo es irrelevante sin caudal o para una convergente: no debe
     # impedir resolver un motor que no usa esta hipótesis geométrica.
     angulo = None
-    if caudal is not None and argumentos["tipo_tobera"] == "convergente_divergente":
+    if (caudal is not None or modo_caudal == "fijo") and argumentos["tipo_tobera"] == "convergente_divergente":
         bruto_angulo = valores.get("angulo_semidivergencia", DEFAULTS_TURBO["angulo_semidivergencia"])
         try:
             angulo = validar_semidivergencia(float(bruto_angulo.strip()) if isinstance(bruto_angulo, str)
@@ -148,15 +177,124 @@ def simular_turborreactor(valores):
         except (TypeError, ValueError, OverflowError) as exc:
             raise ValueError("Semidivergencia: introduce un ángulo finito entre 0° y 90° (extremos excluidos).") from exc
     resultado = resolver_turborreactor_con_combustible(**argumentos)
+    if modo_caudal == "fijo":
+        resultado["modo_caudal"] = modo_caudal
+        calculo = caudal_desde_estado_tobera(resultado["tobera"], argumentos["tipo_tobera"],
+                                            area_g, area_e, dosado=resultado["combustor"]["f"])
+        resultado["caudal_geometria_fija"] = calculo
+        if calculo["disponible"]:
+            caudal = calculo["gasto_masico_aire"]
     if caudal is not None:
         absoluto = calcular_prestaciones_absolutas(resultado, caudal)
         resultado["prestaciones_absolutas"] = absoluto
         resultado["dimensionamiento_tobera"] = dimensionar_tobera(
             resultado, caudal, absolutos=absoluto)
+        if modo_caudal == "fijo" and resultado["dimensionamiento_tobera"]["disponible"]:
+            dimension = resultado["dimensionamiento_tobera"]
+            if any(abs(dimension[clave]-entrada) > 2e-6*max(entrada, dimension[clave])
+                   for clave, entrada in (("area_garganta", area_g), ("area_salida", area_e))):
+                raise ValueError("Las áreas dimensionadas no coinciden con la geometría fija.")
         if angulo is not None:
             resultado["geometria_conica"] = calcular_geometria_conica(
                 resultado["dimensionamiento_tobera"], angulo)
+    parametros_admision = {}
+    for campo in ("area_captacion", "area_entrada_compresor", "mach_entrada_compresor"):
+        bruto_entrada = valores.get(campo, "")
+        if bruto_entrada is not None and str(bruto_entrada).strip():
+            try:
+                parametros_admision[campo] = float(bruto_entrada)
+            except (TypeError, ValueError, OverflowError) as exc:
+                raise ValueError(f"{campo}: introduce un número real finito.") from exc
+    if parametros_admision:
+        resultado["estudio_admision"] = evaluar_admision(
+            resultado, gasto_masico_aire=caudal, **parametros_admision)
     return resultado
+
+
+def _simular_motor_acoplado_web(valores):
+    """Modo C: entradas independientes, rp/eta y caudal son resultados."""
+    def numero(campo):
+        try:
+            valor=float(valores.get(campo,""))
+        except (TypeError,ValueError,OverflowError) as exc:
+            raise ValueError(f"{campo}: introduce un número real.") from exc
+        if not isfinite(valor):
+            raise ValueError(f"{campo}: introduce un número finito.")
+        return valor
+    tipo=valores.get("tipo_tobera","convergente")
+    if tipo not in ("convergente","convergente_divergente"):
+        raise ValueError("Tipo de tobera no válido.")
+    modo_ambiente=valores.get("modo_ambiente","directo")
+    if modo_ambiente == "directo":
+        if str(valores.get("altitud_geopotencial","")).strip():
+            raise ValueError("No combines altitud ISA con ambiente directo.")
+        T,p=numero("T_amb"),numero("p_amb")
+        altitud=None
+    elif modo_ambiente == "ISA":
+        if str(valores.get("T_amb","")).strip() or str(valores.get("p_amb","")).strip():
+            raise ValueError("En modo ISA deja vacíos T_amb y p_amb.")
+        altitud=numero("altitud_geopotencial")
+        at=atmosfera_estandar(altitud)
+        T,p=at["temperatura"],at["presion"]
+    else:
+        raise ValueError("Modo de ambiente inválido.")
+    if str(valores.get("gasto_masico_aire","")).strip():
+        raise ValueError("En motor acoplado el caudal es resultado, no entrada.")
+    ref=punto_diseno_47()
+    area_bruta=str(valores.get("area_garganta_fija","")).strip()
+    area_g=validar_area(float(area_bruta),"Área de garganta") if area_bruta else ref["area_garganta_diseno"]
+    area_e=area_g
+    if tipo=="convergente_divergente":
+        area_e=validar_area(numero("area_salida_fija"),"Área de salida")
+        if area_e < area_g:
+            raise ValueError("En C-D se requiere Ae≥Ag.")
+    parametros=dict(T_amb=T,p_amb=p,mach=numero("mach"),T3=numero("T3"),
+                    pi_d=numero("pi_d"),delta=numero("delta_pct")/100,
+                    eta_b=numero("eta_b"),PCI=numero("PCI"),eta_m=numero("eta_m"),
+                    eta_n=numero("eta_n"),tipo_tobera=tipo,epsilon=area_e/area_g,
+                    area_garganta=area_g)
+    acoplado=resolver_motor_acoplado(referencia=ref,**parametros)
+    if not acoplado["disponible"]:
+        raise ValueError("Motor acoplado sin solución verificada: "+acoplado["motivo"])
+    # Se reusa el contrato de presentación histórico, sin introducir un
+    # segundo modelo físico: los parámetros rp, ηc, ηt proceden de mapas.
+    parametros_hist=dict(mach=parametros["mach"],rp=acoplado["compresor_mapa"]["rp"],
+        eta_c=acoplado["compresor_mapa"]["eta"],T3=parametros["T3"],
+        delta=parametros["delta"],eta_t=acoplado["turbina_mapa"]["eta"],
+        eta_m=parametros["eta_m"],eta_n=parametros["eta_n"],
+        pi_d=parametros["pi_d"],eta_b=parametros["eta_b"],PCI=parametros["PCI"],
+        T_amb=T,p_amb=p,tipo_tobera=tipo,epsilon=parametros["epsilon"])
+    r=resolver_turborreactor_con_combustible(**parametros_hist)
+    if (r["tobera"] is None or abs(r["turbina"]["p4"]-acoplado["turbina"]["p4"])
+            > 1e-8*acoplado["turbina"]["p4"]):
+        raise ValueError("El presentador no reproduce el estado acoplado.")
+    ma=acoplado["caudal_aire"]
+    absoluto=calcular_prestaciones_absolutas(r,ma)
+    r.update(modo_caudal="acoplado",motor_acoplado=acoplado,
+             prestaciones_absolutas=absoluto,
+             dimensionamiento_tobera=dimensionar_tobera(r,ma,absolutos=absoluto))
+    d=r["dimensionamiento_tobera"]
+    if not d["disponible"] or abs(d["area_garganta"]-area_g)>2e-6*area_g:
+        raise ValueError("La geometría prescrita no cierra la continuidad del motor.")
+    if tipo == "convergente_divergente":
+        if abs(d["area_salida"]-area_e)>2e-6*area_e:
+            raise ValueError("La salida C-D no cierra la continuidad del motor.")
+        angulo=validar_semidivergencia(numero("angulo_semidivergencia"))
+        r["geometria_conica"]=calcular_geometria_conica(d,angulo)
+    if altitud is not None:
+        r["origen_ambiente"]="ISA"
+        r["ambiente"]["altitud_geopotencial"]=altitud
+    parametros_admision={}
+    for campo in ("area_captacion", "area_entrada_compresor", "mach_entrada_compresor"):
+        bruto=valores.get(campo, "")
+        if bruto is not None and str(bruto).strip():
+            parametros_admision[campo]=numero(campo)
+    if parametros_admision:
+        admision=evaluar_admision(r,gasto_masico_aire=ma,**parametros_admision)
+        if admision["estado"]=="incompatible_con_caudal_impuesto":
+            raise ValueError("La sección y el Mach locales de entrada no admiten el caudal acoplado.")
+        r["estudio_admision"]=admision
+    return r
 
 
 def estaciones_turborreactor(resultado):
