@@ -70,7 +70,7 @@ class GraficasSensibilidad31(unittest.TestCase):
         self.assertIn('[K]',svg)
 
     def test_web_cinco_graficas_y_sin_calculos_ajenos(self):
-        r=app.test_client().post('/',data=FORM)
+        r=app.test_client().post('/brayton',data=FORM)
         self.assertEqual(r.status_code,200)
         html=r.get_data(as_text=True)
         self.assertIn('Variaciones relativas',html)
@@ -79,7 +79,7 @@ class GraficasSensibilidad31(unittest.TestCase):
         self.assertGreaterEqual(html.count('data-serie='),14)
 
     def test_web_delta_cero_muestra_diagnostico(self):
-        r=app.test_client().post('/',data={**FORM,'delta':'0',
+        r=app.test_client().post('/brayton',data={**FORM,'delta':'0',
                                             'sens_cp_parametro':'delta',
                                             'sens_cp_minimo':'0',
                                             'sens_cp_maximo':'0.1'})

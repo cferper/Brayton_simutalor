@@ -22,12 +22,12 @@ class RevisionEducativaCP(unittest.TestCase):
         self.client = app.test_client()
 
     def _post(self, accion, **extra):
-        result = self.client.post('/', data={**BASE, 'accion': accion, **extra})
+        result = self.client.post('/brayton', data={**BASE, 'accion': accion, **extra})
         self.assertEqual(result.status_code, 200)
         return result.get_data(as_text=True)
 
     def test_ocho_secciones_con_dos_vistas_educativas(self):
-        html = self.client.get('/').get_data(as_text=True)
+        html = self.client.get('/brayton').get_data(as_text=True)
         for seccion in SECCIONES:
             with self.subTest(seccion=seccion):
                 self.assertIn(f'data-edu-tabs="{seccion}"', html)
@@ -57,7 +57,7 @@ class RevisionEducativaCP(unittest.TestCase):
         self.assertIn('supremo', CONTENIDOS['optimizacion']['fundamentos'][5][1])
 
     def test_teoria_ampliada_aparece_en_html_sin_cargar_uso(self):
-        html = self.client.get('/').get_data(as_text=True)
+        html = self.client.get('/brayton').get_data(as_text=True)
         for texto in ('Qué es un ciclo Brayton', 'Balances de las turbomáquinas',
                       'Gouy–Stodola', 'sensibilidad normalizada', 'malla bidimensional',
                       'estado muerto', 'validación'):
@@ -66,7 +66,7 @@ class RevisionEducativaCP(unittest.TestCase):
         self.assertEqual(html.count('class="edu-deep-grid"'), 8)
 
     def test_siete_ayudas_y_seis_mapa_sin_repetir_modelos(self):
-        html = self.client.get('/').get_data(as_text=True)
+        html = self.client.get('/brayton').get_data(as_text=True)
         self.assertEqual(len(AYUDAS_CP), 7)
         self.assertEqual(len(AYUDAS_MAPA), 6)
         for campo in AYUDAS_CP:
@@ -122,7 +122,7 @@ class RevisionEducativaCP(unittest.TestCase):
         self.assertIn('exclusivamente a las dos turbomáquinas', html)
 
     def test_informes_historicos_no_se_confunden_con_cp(self):
-        html = self.client.get('/').get_data(as_text=True)
+        html = self.client.get('/brayton').get_data(as_text=True)
         self.assertIn('data-edu-tabs="informes"', html)
         self.assertIn('Historial de gas perfecto', html)
         self.assertIn('no son resultados cp(T)', html)
@@ -130,7 +130,7 @@ class RevisionEducativaCP(unittest.TestCase):
 
     def test_visor_svg_y_imagen_sin_perder_teclado(self):
         script = (ROOT / 'static/dashboard.js').read_text(encoding='utf-8')
-        html = self.client.get('/').get_data(as_text=True)
+        html = self.client.get('/brayton').get_data(as_text=True)
         for expresion in ('img, svg', 'cloneNode(true)', 'showModal()',
                           "opener?.focus()", "dialog.close()", "ArrowRight"):
             self.assertIn(expresion, script)

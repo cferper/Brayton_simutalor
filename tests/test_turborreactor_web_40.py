@@ -143,7 +143,7 @@ class TurborreactorWeb40(unittest.TestCase):
         self.assertEqual(vista['svg_temperaturas'].count('<circle'),4)
 
     def test_ruta_original_ocho_secciones_y_educacion(self):
-        r=self.cliente.get('/')
+        r=self.cliente.get('/brayton')
         self.assertEqual(r.status_code,200)
         pagina=r.get_data(as_text=True)
         self.assertIn('href="/turborreactor"',pagina)
@@ -163,7 +163,7 @@ class TurborreactorWeb40(unittest.TestCase):
     def test_no_hay_llamadas_cientificas_get(self):
         with patch('turborreactor_web.resolver_turborreactor_con_combustible') as solver:
             self.cliente.get('/turborreactor')
-            self.cliente.get('/')
+            self.cliente.get('/brayton')
         solver.assert_not_called()
 
     def test_pantallas_actuales_y_enlaces_univocos(self):

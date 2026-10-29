@@ -37,7 +37,7 @@ class DashboardTests(unittest.TestCase):
         self.datos = {k: str(v) for k, v in web_app.valores_formulario().items()}
 
     def test_ocho_secciones_y_siete_parametros_cp_sin_duplicar(self):
-        html = self.client.get('/').get_data(as_text=True)
+        html = self.client.get('/brayton').get_data(as_text=True)
         for clave, nombre in dashboard.SECCIONES:
             self.assertIn(f'id="{clave}"', html)
             self.assertIn(f'href="#{clave}"', html)
@@ -68,7 +68,7 @@ class DashboardTests(unittest.TestCase):
         tarjeta = dashboard.tarjeta_kpi('x', 'Valor', None, '%', 'Sin punto motor')
         self.assertIn('No disponible', tarjeta)
         self.assertNotIn('0.000', tarjeta)
-        respuesta = self.client.post('/', data={**self.datos, 'T3': '400'})
+        respuesta = self.client.post('/brayton', data={**self.datos, 'T3': '400'})
         self.assertEqual(respuesta.status_code, 400)
         self.assertNotIn('data-kpi=', respuesta.get_data(as_text=True))
 
@@ -146,7 +146,7 @@ class DashboardTests(unittest.TestCase):
         ruta = reporting.guardar_informe_html(antiguo, self.carpeta, self.args[8])
         ajeno = self.carpeta/'notas.html'; ajeno.write_text('personal', encoding='utf-8')
         antes = {p.name: p.read_bytes() for p in self.carpeta.iterdir()}
-        html = self.client.get('/').get_data(as_text=True)
+        html = self.client.get('/brayton').get_data(as_text=True)
         self.assertIn(ruta.name, html)
         self.assertIn('Informe anterior', html)
         self.assertNotIn('notas.html', html)
@@ -156,7 +156,7 @@ class DashboardTests(unittest.TestCase):
     def test_acciones_no_se_ejecutan_al_navegar(self):
         with patch.object(web_app, 'preparar_resultados') as ejecutar:
             for clave, _ in dashboard.SECCIONES:
-                self.assertEqual(self.client.get('/#'+clave).status_code, 200)
+                self.assertEqual(self.client.get('/brayton#'+clave).status_code, 200)
         ejecutar.assert_not_called()
 
     def test_ayuda_documentos_sin_rutas_arbitrarias(self):

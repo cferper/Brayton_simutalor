@@ -19,7 +19,7 @@ class IntegracionMapaVariableCP(unittest.TestCase):
 
     def test_dashboard_get_sin_calcular(self):
         with patch('web_app.preparar_mapa') as preparar:
-            r=self.client.get('/')
+            r=self.client.get('/brayton')
             preparar.assert_not_called()
         self.assertEqual(r.status_code,200)
         t=r.get_data(as_text=True)
@@ -30,7 +30,7 @@ class IntegracionMapaVariableCP(unittest.TestCase):
         self.assertNotIn('/modelo-cp-variable',t)
 
     def test_dos_mapas_unidades_mascaras_y_tooltips(self):
-        r=self.client.post('/',data=FORM)
+        r=self.client.post('/brayton',data=FORM)
         self.assertEqual(r.status_code,200)
         t=r.get_data(as_text=True)
         self.assertIn('data-initial-section="mapa"',t)
@@ -44,12 +44,12 @@ class IntegracionMapaVariableCP(unittest.TestCase):
 
     def test_mapa_no_llama_simulacion_normal_ni_sensibilidad(self):
         with patch('web_app.preparar_resultados') as normal,patch('web_app.preparar_sensibilidad') as ofat:
-            self.assertEqual(self.client.post('/',data=FORM).status_code,200)
+            self.assertEqual(self.client.post('/brayton',data=FORM).status_code,200)
             normal.assert_not_called()
             ofat.assert_not_called()
 
     def test_sin_motor_no_dibuja_colores_ficticios(self):
-        r=self.client.post('/',data={**FORM,'mapa_cp_T3_min':'210',
+        r=self.client.post('/brayton',data={**FORM,'mapa_cp_T3_min':'210',
                                      'mapa_cp_T3_max':'215','mapa_cp_n_rp':'5','mapa_cp_n_T3':'5'})
         self.assertEqual(r.status_code,200)
         t=r.get_data(as_text=True)
@@ -63,7 +63,7 @@ class IntegracionMapaVariableCP(unittest.TestCase):
                    {'mapa_cp_T3_min':'nan'},{'mapa_cp_T3_max':'3001'})
         for change in variantes:
             with self.subTest(change=change):
-                r=self.client.post('/',data={**FORM,**change})
+                r=self.client.post('/brayton',data={**FORM,**change})
                 self.assertEqual(r.status_code,400)
                 t=r.get_data(as_text=True)
                 self.assertIn('data-initial-section="mapa"',t)

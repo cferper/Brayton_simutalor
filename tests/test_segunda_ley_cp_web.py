@@ -18,7 +18,7 @@ class SegundaLeyCPWeb(unittest.TestCase):
         self.client=app.test_client()
 
     def test_panel_activo_y_unica_plantilla(self):
-        r=self.client.get('/')
+        r=self.client.get('/brayton')
         html=r.get_data(as_text=True)
         self.assertEqual(r.status_code,200)
         self.assertEqual(html.count('id="segunda_ley"'),1)
@@ -32,7 +32,7 @@ class SegundaLeyCPWeb(unittest.TestCase):
     def test_valores_web_corresponden_a_calculo_cp(self):
         c=resolver_ciclo(**DEFAULTS)
         e=analizar_segunda_ley_cp_variable(c)
-        r=self.client.post('/',data={**BASE,'accion':'segunda_ley','T0':'288.15','p0':'100'})
+        r=self.client.post('/brayton',data={**BASE,'accion':'segunda_ley','T0':'288.15','p0':'100'})
         texto=r.get_data(as_text=True)
         self.assertEqual(r.status_code,200)
         for valor in (*e['entropias'],*e['exergias'],*e['destruccion']):
@@ -46,8 +46,8 @@ class SegundaLeyCPWeb(unittest.TestCase):
         cp_variable_web._ciclo_para_segunda_ley.cache_clear()
         with patch.object(cp_variable_web,'resolver_ciclo', wraps=resolver_ciclo) as solucionar:
             with patch.object(cp_variable_web,'estudiar_cp_variable') as optimizar:
-                uno=self.client.post('/',data={**BASE,'accion':'segunda_ley','T0':'288.15','p0':'100'})
-                dos=self.client.post('/',data={**BASE,'accion':'segunda_ley','T0':'300','p0':'120'})
+                uno=self.client.post('/brayton',data={**BASE,'accion':'segunda_ley','T0':'288.15','p0':'100'})
+                dos=self.client.post('/brayton',data={**BASE,'accion':'segunda_ley','T0':'300','p0':'120'})
         self.assertEqual(uno.status_code,200)
         self.assertEqual(dos.status_code,200)
         solucionar.assert_called_once()
@@ -60,7 +60,7 @@ class SegundaLeyCPWeb(unittest.TestCase):
                         {'p0':'-2'},{'p0':'0'},{'p0':'inf'},
                         {'T1':'1900','rp':'5'}):
             with self.subTest(cambios=cambios):
-                r=self.client.post('/',data={**BASE,'accion':'segunda_ley',**cambios})
+                r=self.client.post('/brayton',data={**BASE,'accion':'segunda_ley',**cambios})
                 self.assertEqual(r.status_code,400)
                 t=r.get_data(as_text=True)
                 self.assertIn('data-initial-section="segunda_ley"',t)
@@ -68,7 +68,7 @@ class SegundaLeyCPWeb(unittest.TestCase):
                 self.assertNotIn('Traceback',t)
 
     def test_no_motor_conserva_datos_sin_rendimiento(self):
-        r=self.client.post('/',data={**BASE,'rp':'1','delta':'0','accion':'segunda_ley'})
+        r=self.client.post('/brayton',data={**BASE,'rp':'1','delta':'0','accion':'segunda_ley'})
         self.assertEqual(r.status_code,200)
         t=r.get_data(as_text=True)
         self.assertIn('Ciclo no motor',t)
@@ -84,11 +84,11 @@ class SegundaLeyCPWeb(unittest.TestCase):
         self.assertEqual(svg.count('<rect '),2)
 
     def test_mismos_siete_parametros_y_rutas_anteriores(self):
-        r=self.client.post('/',data={**BASE,'accion':'normal'})
+        r=self.client.post('/brayton',data={**BASE,'accion':'normal'})
         self.assertEqual(r.status_code,200)
         for ruta in ('/modelo-cp-variable','/segunda-ley'):
             self.assertEqual(self.client.get(ruta).status_code,404)
-        self.assertIn('href="#mapa"',self.client.get('/').get_data(as_text=True))
+        self.assertIn('href="#mapa"',self.client.get('/brayton').get_data(as_text=True))
 
 
 if __name__=='__main__':

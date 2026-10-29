@@ -96,7 +96,7 @@ class GraficasSegundaLey33(unittest.TestCase):
     def test_integracion_web_cuatro_figuras_y_visor(self):
         form={**{k:str(v) for k,v in DEFAULTS.items()},
               'accion':'segunda_ley','T0':'288.15','p0':'100'}
-        r=app.test_client().post('/',data=form)
+        r=app.test_client().post('/brayton',data=form)
         self.assertEqual(r.status_code,200)
         t=r.get_data(as_text=True)
         for nombre in ('Exergía destruida','Exergía física de los cuatro estados',

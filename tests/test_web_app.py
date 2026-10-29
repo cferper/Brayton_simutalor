@@ -24,7 +24,7 @@ class WebTests(unittest.TestCase):
         self.client = web_app.app.test_client()
 
     def test_formulario_seven_campos_y_staticos(self):
-        respuesta = self.client.get('/')
+        respuesta = self.client.get('/brayton')
         texto = respuesta.get_data(as_text=True)
         self.assertEqual(respuesta.status_code, 200)
         self.assertEqual(texto.count('type="number"'), 18)  # 7 del ciclo + 3 OFAT + 6 mapa + ambiente
@@ -38,7 +38,7 @@ class WebTests(unittest.TestCase):
     def test_post_sin_informes_constantes(self):
         datos = {**BASE, 'accion':'normal'}
         p = resolver_ciclo(288.15,1600,10,100,.85,.9,.05)
-        respuesta = self.client.post('/', data=datos)
+        respuesta = self.client.post('/brayton', data=datos)
         self.assertEqual(respuesta.status_code, 200)
         self.assertIn(f'{p["trabajo_neto"]:.3f}', respuesta.get_data(as_text=True))
         self.assertFalse(self.carpeta.exists())
@@ -46,18 +46,18 @@ class WebTests(unittest.TestCase):
     def test_parametros_invalidos_y_acciones_vetadas(self):
         for field,value in [('T1',''),('T3','nan'),('p1','inf'),('eta_t','0')]:
             with self.subTest(field=field):
-                respuesta = self.client.post('/', data={**BASE,'accion':'normal',field:value})
+                respuesta = self.client.post('/brayton', data={**BASE,'accion':'normal',field:value})
                 self.assertEqual(respuesta.status_code, 400)
                 self.assertNotIn('data-kpi=',respuesta.get_data(as_text=True))
         for accion in ('acción_desconocida',):
             with self.subTest(accion=accion):
-                self.assertEqual(self.client.post('/',data={**BASE,'accion':accion}).status_code,400)
+                self.assertEqual(self.client.post('/brayton',data={**BASE,'accion':accion}).status_code,400)
         self.assertFalse(self.carpeta.exists())
 
     def test_error_inesperado_es_500_sin_traza_visible(self):
         with patch.object(web_app, 'preparar_resultados', side_effect=RuntimeError('SECRETO_INTERNO')):
             with self.assertLogs(web_app.app.logger, level='ERROR'):
-                r = self.client.post('/',data={**BASE,'accion':'normal'})
+                r = self.client.post('/brayton',data={**BASE,'accion':'normal'})
         self.assertEqual(r.status_code,500)
         self.assertIn('error interno',r.get_data(as_text=True))
         self.assertNotIn('SECRETO_INTERNO',r.get_data(as_text=True))
@@ -66,7 +66,7 @@ class WebTests(unittest.TestCase):
         contenido = reporting.MARCA_INICIO + '<html>histórico gas perfecto</html>' + reporting.MARCA_FINAL
         ruta = reporting.guardar_informe_html(contenido,self.carpeta,datetime.now(timezone.utc))
         antes = ruta.read_bytes()
-        portada = self.client.get('/').get_data(as_text=True)
+        portada = self.client.get('/brayton').get_data(as_text=True)
         self.assertIn(ruta.name,portada)
         self.assertIn('histórico',portada)
         r = self.client.get('/informes/'+ruta.name)

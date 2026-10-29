@@ -15,7 +15,7 @@ class IntegracionWebCPVariable(unittest.TestCase):
         self.client = app.test_client()
 
     def test_get_dashboard_original_con_siete_entradas(self):
-        respuesta = self.client.get('/')
+        respuesta = self.client.get('/brayton')
         texto = respuesta.get_data(as_text=True)
         self.assertEqual(respuesta.status_code, 200)
         for seccion in ('simulacion','resultados','optimizacion','sensibilidad',
@@ -29,7 +29,7 @@ class IntegracionWebCPVariable(unittest.TestCase):
 
     def test_caso_base_coincide_con_solucionador_2b(self):
         p = resolver_ciclo(288.15,1600,10,100,.85,.9,.05)
-        respuesta = self.client.post('/', data=BASE)
+        respuesta = self.client.post('/brayton', data=BASE)
         self.assertEqual(respuesta.status_code, 200)
         texto = respuesta.get_data(as_text=True)
         self.assertIn(f'{p["trabajo_neto"]:.3f}', texto)
@@ -40,14 +40,14 @@ class IntegracionWebCPVariable(unittest.TestCase):
 
     def test_optimos_de_2c_sin_duplicar(self):
         estudio = estudiar_cp_variable(288.15,1600,100,.85,.9,.05)
-        texto = self.client.post('/', data={**BASE,'accion':'optimizar'}).get_data(as_text=True)
+        texto = self.client.post('/brayton', data={**BASE,'accion':'optimizar'}).get_data(as_text=True)
         for clave in ('A','B'):
             self.assertIn(f'{estudio[clave]["rp"]:.6f}', texto)
         self.assertIn('Fronteras excluidas', texto)
         self.assertEqual(texto.count('Máximo interior alcanzado'), 2)
 
     def test_supremo_reversible_no_se_anuncia_como_maximo_alcanzado(self):
-        respuesta = self.client.post('/', data={**BASE, 'eta_c':'1',
+        respuesta = self.client.post('/brayton', data={**BASE, 'eta_c':'1',
                                                 'eta_t':'1', 'delta':'0',
                                                 'accion':'optimizar'})
         self.assertEqual(respuesta.status_code, 200)
@@ -58,19 +58,19 @@ class IntegracionWebCPVariable(unittest.TestCase):
     def test_errores_de_entrada_y_fuera_de_rango(self):
         for valores in ({'rp':'nan'},{'T3':'inf'},{'eta_c':'0'},{'T1':'1900','rp':'5'}):
             with self.subTest(valores=valores):
-                respuesta = self.client.post('/', data={**BASE,**valores})
+                respuesta = self.client.post('/brayton', data={**BASE,**valores})
                 self.assertEqual(respuesta.status_code, 400)
                 self.assertNotIn('Traceback', respuesta.get_data(as_text=True))
                 self.assertNotIn('data-kpi=', respuesta.get_data(as_text=True))
 
     def test_no_motor_no_atribuye_rendimiento(self):
-        respuesta = self.client.post('/',data={**BASE,'rp':'1','delta':'0'})
+        respuesta = self.client.post('/brayton',data={**BASE,'rp':'1','delta':'0'})
         self.assertEqual(respuesta.status_code,200)
         self.assertIn('Ciclo calculable, no motor', respuesta.get_data(as_text=True))
         self.assertIn('No aplicable', respuesta.get_data(as_text=True))
 
     def test_ausencia_de_dominio_motor(self):
-        respuesta = self.client.post('/',data={**BASE,'T3':'288.15','rp':'1','delta':'0'})
+        respuesta = self.client.post('/brayton',data={**BASE,'T3':'288.15','rp':'1','delta':'0'})
         self.assertEqual(respuesta.status_code,200)
         self.assertIn('No existe dominio motor',respuesta.get_data(as_text=True))
 
@@ -78,11 +78,11 @@ class IntegracionWebCPVariable(unittest.TestCase):
         with patch('web_app.preparar_resultados') as ejecutar:
             for accion in ('desconocida',):
                 with self.subTest(accion=accion):
-                    respuesta = self.client.post('/',data={**BASE,'accion':accion})
+                    respuesta = self.client.post('/brayton',data={**BASE,'accion':accion})
                     self.assertEqual(respuesta.status_code,400)
                     self.assertIn('aún no está adaptado',respuesta.get_data(as_text=True))
             ejecutar.assert_not_called()
-        respuesta = self.client.get('/').get_data(as_text=True)
+        respuesta = self.client.get('/brayton').get_data(as_text=True)
         for titulo in ('Sensibilidad','Mapa de diseño','Segunda ley'):
             self.assertIn(titulo,respuesta)
         self.assertNotIn('Funcionalidad desactivada temporalmente',respuesta)
@@ -95,7 +95,7 @@ class IntegracionWebCPVariable(unittest.TestCase):
 
     def test_no_genera_informes_ni_calcula_al_navegar(self):
         with patch('web_app.preparar_resultados') as preparar:
-            self.assertEqual(self.client.get('/').status_code,200)
+            self.assertEqual(self.client.get('/brayton').status_code,200)
             preparar.assert_not_called()
 
 if __name__=='__main__':

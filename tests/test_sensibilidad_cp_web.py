@@ -16,7 +16,7 @@ class IntegracionSensibilidadCP(unittest.TestCase):
 
     def test_aparece_en_index_misma_navegacion_y_no_ejecuta_get(self):
         with patch('web_app.preparar_sensibilidad') as preparar:
-            response=self.client.get('/')
+            response=self.client.get('/brayton')
             self.assertEqual(response.status_code,200)
             preparar.assert_not_called()
         texto=response.get_data(as_text=True)
@@ -27,7 +27,7 @@ class IntegracionSensibilidadCP(unittest.TestCase):
         self.assertNotIn('Funcionalidad desactivada temporalmente',texto)
 
     def test_post_muestra_graficas_locales_y_estados(self):
-        response=self.client.post('/',data=FORM)
+        response=self.client.post('/brayton',data=FORM)
         self.assertEqual(response.status_code,200)
         texto=response.get_data(as_text=True)
         self.assertIn('data-initial-section="sensibilidad"',texto)
@@ -40,12 +40,12 @@ class IntegracionSensibilidadCP(unittest.TestCase):
 
     def test_post_reutiliza_resolver_y_no_optimizador(self):
         with patch('web_app.preparar_resultados') as normal:
-            r=self.client.post('/',data=FORM)
+            r=self.client.post('/brayton',data=FORM)
             self.assertEqual(r.status_code,200)
             normal.assert_not_called()
 
     def test_rango_fuera_estado_no_contamina_graficas(self):
-        r=self.client.post('/',data={**FORM,'sens_cp_parametro':'T1',
+        r=self.client.post('/brayton',data={**FORM,'sens_cp_parametro':'T1',
                                      'sens_cp_minimo':'300','sens_cp_maximo':'1900'})
         self.assertEqual(r.status_code,200)
         t=r.get_data(as_text=True)
@@ -53,7 +53,7 @@ class IntegracionSensibilidadCP(unittest.TestCase):
         self.assertIn('Fuera de rango',t)
 
     def test_punto_no_motor_no_publica_rendimiento(self):
-        r=self.client.post('/',data={**FORM,'sens_cp_parametro':'rp',
+        r=self.client.post('/brayton',data={**FORM,'sens_cp_parametro':'rp',
                                      'sens_cp_minimo':'0.5','sens_cp_maximo':'2'})
         self.assertEqual(r.status_code,200)
         t=r.get_data(as_text=True)
@@ -67,7 +67,7 @@ class IntegracionSensibilidadCP(unittest.TestCase):
                         {'sens_cp_parametro':'__dict__'},
                         {'sens_cp_minimo':'nan'}):
             with self.subTest(changes=changes):
-                response=self.client.post('/',data={**FORM,**changes})
+                response=self.client.post('/brayton',data={**FORM,**changes})
                 self.assertEqual(response.status_code,400)
                 texto=response.get_data(as_text=True)
                 self.assertIn('data-initial-section="sensibilidad"',texto)

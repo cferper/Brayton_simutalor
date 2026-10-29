@@ -72,7 +72,7 @@ class GraficasMapa32(unittest.TestCase):
               'mapa_cp_rp_min':'2','mapa_cp_rp_max':'20',
               'mapa_cp_T3_min':'1200','mapa_cp_T3_max':'1800',
               'mapa_cp_n_rp':'7','mapa_cp_n_T3':'7'}
-        r=app.test_client().post('/',data=form)
+        r=app.test_client().post('/brayton',data=form)
         self.assertEqual(r.status_code,200)
         t=r.get_data(as_text=True)
         for k in ('Mapa de viabilidad','Cortes · Trabajo neto','Cortes · Rendimiento',
@@ -84,7 +84,7 @@ class GraficasMapa32(unittest.TestCase):
               'mapa_cp_rp_min':'1.1','mapa_cp_rp_max':'20',
               'mapa_cp_T3_min':'210','mapa_cp_T3_max':'215',
               'mapa_cp_n_rp':'5','mapa_cp_n_T3':'5'}
-        r=app.test_client().post('/',data=form)
+        r=app.test_client().post('/brayton',data=form)
         t=r.get_data(as_text=True)
         self.assertEqual(r.status_code,200)
         self.assertIn('Mapa de viabilidad',t)

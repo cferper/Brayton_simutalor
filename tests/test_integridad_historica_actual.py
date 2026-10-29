@@ -179,7 +179,7 @@ class IntegridadHistoricaActual(unittest.TestCase):
         original = ruta.read_bytes()
         entradas = {clave: str(valor) for clave, valor in web_app.DEFAULTS.items()}
         with patch.object(web_app, "preparar_resultados", wraps=web_app.preparar_resultados) as preparar:
-            respuesta = self.cliente.post("/", data={**entradas, "accion": "normal",
+            respuesta = self.cliente.post("/brayton", data={**entradas, "accion": "normal",
                                                   "informe_origen": ruta.name})
         self.assertEqual(respuesta.status_code, 200)
         preparar.assert_called_once()

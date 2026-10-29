@@ -310,7 +310,7 @@ class PrestacionesWeb41(unittest.TestCase):
         self.addCleanup(app.config.__setitem__, 'OUTPUTS_DIR', anterior)
         with TemporaryDirectory() as carpeta:
             app.config['OUTPUTS_DIR'] = Path(carpeta)
-            get_br = self.cliente.get('/')
+            get_br = self.cliente.get('/brayton')
             get_inf = self.cliente.get('/informes/informe_inexistente.html')
             r = self._post('mapa',dict(mapa_nx='2',mapa_ny='2'))
             self.assertEqual(r.status_code,200)

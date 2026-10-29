@@ -1,6 +1,7 @@
 """Dashboard Flask cp(T) y consulta de informes históricos de solo lectura."""
 
 from html import escape
+import json
 from pathlib import Path
 
 from flask import Flask, Response, abort, redirect, request, url_for, render_template
@@ -28,6 +29,87 @@ app.config["MAX_CONTENT_LENGTH"] = 16 * 1024
 def valores_formulario():
     """Las siete entradas del modelo cp(T), sin cp ni gamma constantes."""
     return DEFAULTS.copy()
+
+
+def _render_turborreactor(valores, resultado=None, vista=None, *, error=None,
+                         estudio=None, error_estudio=None, controles=None,
+                         accion=None):
+    """Misma plantilla y estados para POST tradicional y respuesta de API."""
+    return render_template("turborreactor.html", valores=valores,
+                           grupos=GRUPOS_TURBO, ejemplos=EJEMPLOS_TURBO,
+                           resultado=resultado, vista=vista, error=error,
+                           estudio=estudio, error_estudio=error_estudio,
+                           controles=valores_estudios() if controles is None else controles,
+                           accion=accion, parametros_ofat=PARAMETROS_OFAT,
+                           estados_web=ESTADOS_WEB)
+
+
+def _respuesta_json_api(datos, estado=200):
+    """Serializa estrictamente: NaN e infinitos nunca salen como JSON válido."""
+    return Response(json.dumps(datos, ensure_ascii=False, allow_nan=False),
+                    status=estado, mimetype="application/json")
+
+
+@app.route("/api/turborreactor/simular", methods=["POST"])
+def api_turborreactor_simular():
+    """Simulación única A/B/C; devuelve datos, SVG y página Jinja reutilizable.
+
+    Acepta objeto JSON plano o FormData. No calcula sensibilidad ni mapas.
+    No sustituye los parámetros incompletos por un ejemplo silencioso.
+    """
+    if request.is_json:
+        carga=request.get_json(silent=True)
+        if not isinstance(carga,dict):
+            return _respuesta_json_api({"ok":False,"error":{"tipo":"formato",
+                "mensaje":"Se espera un objeto JSON de parámetros."}},400)
+    elif request.mimetype in ("application/x-www-form-urlencoded", "multipart/form-data"):
+        carga=request.form.to_dict()
+    else:
+        return _respuesta_json_api({"ok":False,"error":{"tipo":"formato",
+            "mensaje":"Envía JSON o datos de formulario."}},415)
+    if (any(k not in valores_turborreactor() and k!="accion" for k in carga)
+            or any(not isinstance(v,(str,int,float)) or isinstance(v,bool) for v in carga.values())
+            or carga.get("accion","simular")!="simular"):
+        return _respuesta_json_api({"ok":False,"error":{"tipo":"formato",
+            "mensaje":"Solo se admiten campos simples del formulario principal y la acción simular."}},400)
+    valores=valores_turborreactor({k:str(v) for k,v in carga.items() if k!="accion"})
+    try:
+        resultado=simular_turborreactor(valores)
+        tobera=resultado.get("tobera")
+        if tobera is None or tobera.get("resuelto") is False:
+            raise ValueError("La tobera no dispone de una solución física de salida para estas condiciones.")
+        vista=preparar_vista_turborreactor(resultado)
+        # Se renderiza la plantilla actual con los mismos datos y sin estudios OFAT/mapa.
+        pagina=_render_turborreactor(valores,resultado,vista,accion="simular")
+        absoluto=resultado.get("prestaciones_absolutas") or {}
+        acoplado=resultado.get("motor_acoplado") or {}
+        contenido={
+            "ok":True, "modo":resultado.get("modo_caudal","impuesto"),
+            "magnitudes":{
+                "empuje_especifico_neto":resultado["prestaciones"]["empuje_especifico_neto"],
+                "empuje_especifico_bruto":resultado["prestaciones"]["empuje_especifico_bruto"],
+                "TSFC_kg_N_h":resultado["prestaciones"]["TSFC_kg_N_h"],
+                "empuje_absoluto_N":absoluto.get("empuje_neto"),
+                "gasto_masico_aire_kg_s":absoluto.get("gasto_masico_aire"),
+                "gasto_masico_combustible_kg_s":absoluto.get("gasto_masico_combustible"),
+                "gasto_masico_gases_kg_s":absoluto.get("gasto_masico_gases"),
+                "rpm_eje":acoplado.get("rpm"),
+                "regimen_tobera":resultado["diagnosticos"].get("regimen_tobera"),
+            },
+            "estaciones":vista["estaciones"],
+            "diagnosticos":resultado["diagnosticos"],
+            "svg":{k:v for k,v in vista.items() if k.startswith("svg_")},
+            "html_documento":pagina,
+        }
+        return _respuesta_json_api(contenido)
+    except EstadoFueraDeRango:
+        mensaje="Alguna temperatura calculada sale del dominio de 200 a 2000 K."
+    except ErrorNumericoCiclo:
+        mensaje="El cálculo numérico no ha convergido con esta configuración."
+    except (ValueError,ArithmeticError) as exc:
+        mensaje=str(exc) if isinstance(exc,ValueError) else "Cálculo físicamente inadmisible."
+    return _respuesta_json_api({"ok":False,"error":{"tipo":"simulacion",
+                              "mensaje":mensaje},"modo":valores.get("modo_caudal")},422)
 
 
 @app.route("/turborreactor", methods=["GET", "POST"])
@@ -59,13 +141,9 @@ def turborreactor():
                 error_estudio = str(exc)
         elif accion not in ("simular", "adaptacion"):
             error_estudio = "Acción de formulario desconocida."
-    return render_template("turborreactor.html", valores=valores,
-                           grupos=GRUPOS_TURBO, ejemplos=EJEMPLOS_TURBO,
-                           resultado=resultado, vista=vista, error=error,
-                           estudio=estudio, error_estudio=error_estudio,
-                           controles=controles, accion=accion,
-                           parametros_ofat=PARAMETROS_OFAT,
-                           estados_web=ESTADOS_WEB), (400 if error or error_estudio else 200)
+    return _render_turborreactor(valores,resultado,vista,error=error,
+                                 estudio=estudio,error_estudio=error_estudio,
+                                 controles=controles,accion=accion), (400 if error or error_estudio else 200)
 
 
 def listar_informes():
@@ -112,7 +190,13 @@ def ver_documentacion(nombre):
     return Response(ruta.read_text(encoding="utf-8"), mimetype="text/plain")
 
 
-@app.route("/", methods=["GET", "POST"])
+@app.route("/")
+def portada():
+    """Punto de entrada: el turborreactor es la herramienta principal."""
+    return redirect(url_for("turborreactor"))
+
+
+@app.route("/brayton", methods=["GET", "POST"])
 def index():
     """Único formulario activo: calcula exclusivamente con cp(T)."""
     valores = valores_formulario() if request.method == "GET" else {
@@ -205,7 +289,7 @@ def ver_informe(nombre):
                  '<p>El JSON conservado no puede recuperarse con seguridad. '
                  'Esto no implica inviabilidad física del ciclo. El archivo histórico no se ha modificado.</p>'
                  f'<p><a href="{url_for("ver_informe", nombre=nombre, descargar=1)}">Descargar HTML original</a></p>'
-                 '<p><a href="/">Volver al formulario</a></p></main>')
+                 f'<p><a href="{url_for("index")}">Volver al formulario</a></p></main>')
         return Response(aviso, status=422, mimetype="text/html")
     if presentacion is not None:
         metadata, paneles = presentacion
@@ -227,7 +311,7 @@ def ver_informe(nombre):
             f'<p>{escape(str(metadata.get("fecha", "No disponible")))}</p>'
             f'<p>Commit Git: <code>{escape(version.get("commit") or "No disponible")}</code></p>'
             f'<p class="version-warning">{aviso}</p>'
-            f'<nav><a href="/">Volver al formulario</a> · <a href="/informes/{nombre}?descargar=1">Descargar informe HTML</a></nav></div>')
+            f'<nav><a href="{url_for("index")}">Volver al formulario</a> · <a href="/informes/{nombre}?descargar=1">Descargar informe HTML</a></nav></div>')
         if metadata.get('segunda_ley') is not None and not validar_estudio_reutilizable(metadata['segunda_ley'], metadata['parametros']):
             actual += ('<div class="card metadata"><p><strong>Estudio de Segunda Ley no verificable:</strong> '
                        'los datos JSON de este informe no se reutilizarán. El HTML original se conserva; '

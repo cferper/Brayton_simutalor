@@ -159,7 +159,7 @@ class GraficasCPVariable(unittest.TestCase):
         for accion in ("normal", "optimizar"):
             with self.subTest(accion=accion):
                 respuesta = cliente.post(
-                    "/", data={**{k: str(v) for k, v in DEFAULTS.items()}, "accion": accion}
+                    "/brayton", data={**{k: str(v) for k, v in DEFAULTS.items()}, "accion": accion}
                 )
                 self.assertEqual(respuesta.status_code, 200)
                 html = respuesta.get_data(as_text=True)

@@ -4131,7 +4131,144 @@ completa y la inspección HTTP/visual quedan para la integración en Windows.
 [Cierre 47.5](docs/milestones/47_5_verificacion_cierre.md) y
 [aprendizaje 47.5](docs/milestones/47_5_verificacion_cierre_APRENDIZAJE.md).
 
+### 4.94 — Milestone 48.1: navegación principal y API HTTP del turborreactor
+
+**PYTHON / FLASK.** En `web_app.py`, `portada()` (`GET /`) utiliza
+`redirect(url_for('turborreactor'))` para seleccionar el turborreactor
+como portada. `index()` conserva su contrato `GET/POST` y todo el ciclo
+Brayton en `/brayton`; las rutas de informes y descargas siguen
+independientes. Los enlaces del simulador apuntan ahora a esas rutas.
+
+`_render_turborreactor(valores, resultado=None, vista=None, *, error=None,
+estudio=None, error_estudio=None, controles=None, accion=None)` recibe
+los valores del formulario (cadenas), el resultado físico y presentación
+o `None`, y los diagnósticos/estudios opcionales. Devuelve HTML como
+`str` mediante la plantilla existente y lo utilizan tanto el endpoint
+tradicional como la API. `*` significa que los argumentos siguientes
+deben indicarse por nombre; evita confundir un error con un estudio.
+
+`api_turborreactor_simular()` (`POST /api/turborreactor/simular`) recibe
+un objeto JSON plano o un formulario `FormData`; devuelve JSON con
+`ok`, `modo`, `magnitudes`, `estaciones`, `diagnosticos`, `svg` y
+`html_documento`. Este último conserva el HTML de los paneles actuales
+para que JavaScript pueda extraer las secciones `#resultados`,
+`#estaciones` y `#graficas` sin reescribir las tarjetas; no desencadena
+estudios OFAT ni mapas. Los errores devuelven `ok:false` y
+`error:{tipo,mensaje}` sin inventar prestaciones: 400 para formato, 415
+para tipo de contenido no admitido y 422 para entradas o soluciones no
+admisibles. `_respuesta_json_api(datos, estado=200)` serializa con
+`json.dumps(...,allow_nan=False)` para no publicar NaN ni infinitos.
+
+**INTERPRETACIÓN FÍSICA / INGENIERÍA.** Esta etapa no añade ecuaciones.
+Ambas vías (`POST /turborreactor` y API) llaman una sola vez a
+`simular_turborreactor` (A: caudal impuesto; B: geometría fija; C: motor
+monoeje acoplado) y después a `preparar_vista_turborreactor`. Los
+resultados y SVG pertenecen al mismo cálculo. Las restricciones y
+unidades físicas permanecen en Python. No hay todavía listeners
+automáticos ni sliders: corresponden a 48.2.
+
+Ejemplo: `client.post('/api/turborreactor/simular', data=DEFAULTS_TURBO)`.
+Los tests antiguos que pedían Brayton en `/` pasan ahora a `/brayton`
+sin cambiar sus referencias científicas. [Técnico 48.1](docs/milestones/48_1_navegacion_y_api_interactiva.md)
+y [aprendizaje 48.1](docs/milestones/48_1_navegacion_y_api_interactiva_APRENDIZAJE.md).
+
+### 4.95 — Milestone 48.2: control deslizante y simulación automática
+
+**PYTHON / INGENIERÍA.** No cambian los solucionadores. Mach (`0≤M<1`) y
+T3 (`200–2000 K`, además del margen frente al compresor) son entradas
+en A, B y C. Se añadió `regimen_tobera` a `magnitudes` de la API 48.1
+para representar el régimen sin deducirlo en el navegador. Los caudales,
+temperaturas, empujes y gráficos siguen siendo resultados coherentes de
+una sola llamada a `simular_turborreactor` y su presentador Python.
+
+**JAVASCRIPT.** `static/turborreactor_interactivo.js` introduce tres
+funciones: `acoplarControl48({numero,deslizador,lectura,unidad,onCambio})`
+conecta los eventos `input` de campo exacto y rango, y devuelve tres
+funciones auxiliares para actualización; `crearControlador48({solicitar,
+onEstado,onRespuesta,onError,demora=350,setTimer,clearTimer,Abort})`
+devuelve `cambiar`, `invalidar`, `cancelar` y `version`, usa `setTimeout`
+para esperar 350 ms sin bloquear la página, `AbortController` y un
+identificador de versión que impide respuestas obsoletas; por último
+`inicializar48(documento,fetcher)` prepara el formulario, indicadores,
+regiones de HTML y las tres previsualizaciones SVG, o devuelve `null` si
+no existe la interfaz. Las entradas `documento` y `fetcher` son objetos
+del navegador (o dobles de prueba); no contienen unidades físicas.
+
+`FormData` transmite los campos activos a la API existente. `DOMParser`
+lee el HTML generado por Jinja y solo se reemplaza el contenido de uso
+en `#resultados`, `#estaciones` y `#graficas`, manteniendo las pestañas
+y los estudios independientes. El resumen junto a los deslizadores
+enseña N, N/(kg/s), kg/s, kg/(N·h), rpm y régimen cuando proceden; para
+`null` muestra «No aplicable» y en error borra resultados antiguos.
+La variable de Mach exacto puede superar 0,999 del deslizador, pero sigue
+sujeta al límite estricto `M<1` del solver.
+
+**VERIFICACIÓN.** `tests/js/test_interaccion_48_2.cjs` ejercita seis
+casos de sincronización, temporización, orden de respuestas y reintentos
+con `node:test`, sin instalar dependencias. La prueba HTTP de los modos
+A/B/C y el render final Jinja requieren el entorno Flask. Esta etapa
+no implementa nuevos mapas ni pérdidas físicas, ni el milestone 48.3.
+[Técnico 48.2](docs/milestones/48_2_actualizacion_automatica.md) y
+[aprendizaje 48.2](docs/milestones/48_2_actualizacion_automatica_APRENDIZAJE.md).
+
+### 4.96 — Milestone 48.3: cierre de la interacción inicial
+
+**PYTHON / INGENIERÍA.** El recorrido de Mach y T3 desde los campos HTML
+hasta `POST /api/turborreactor/simular` sigue utilizando los mismos nombres,
+unidades y restricciones del cálculo tradicional. La API realiza **una sola**
+simulación `simular_turborreactor(valores)` y presenta ese mismo `resultado`
+mediante `preparar_vista_turborreactor(resultado)`; los indicadores estructurados,
+SVG y paneles Jinja corresponden a la misma ejecución. A (caudal prescrito),
+B (garganta prescrita) y C (mapas de motor monoeje) siguen siendo modelos
+diferentes. Ningún cálculo aerotermodinámico se mueve al navegador.
+
+**JAVASCRIPT.** `crearControlador48` expone `cancelar()` sin argumentos ni
+retorno. Desde este cierre, el método incrementa la versión **además** de
+cancelar temporizador y `AbortController`: el `submit` manual lo invoca y
+deja definitivamente obsoleta cualquier respuesta automática pendiente. Esto
+complementa `invalidar()` para editar campos no automáticos y `cambiar()`
+para los deslizadores (350 ms); todos conservan un orden único de peticiones.
+Ejemplo: si `cambiar()` inició una petición y acto seguido el usuario pulsa
+«Simular», `cancelar()` invalida el identificador; ni una respuesta que
+ignore el aborto ni un error tardío volverán a modificar esa página.
+
+**Integridad de interfaz.** Solo se sustituyen los hijos de los tres paneles
+«Uso» de resultados, estaciones y gráficas: no sus elementos contenedores,
+las pestañas, controles, enlaces o formularios de sensibilidad y mapas. Las
+previsualizaciones SVG y cifras usan un mismo JSON; se borran los resultados
+obsoletos durante la espera o un error. El texto de los ejemplos distingue
+ahora el cálculo automático con JavaScript del POST manual sin JavaScript.
+
+**Verificación y límites.** Las ocho pruebas sin dependencias de
+`tests/js/test_interaccion_48_2.cjs` cubren sincronización, espera,
+reordenación, errores, invalidación de otros campos y envío manual. Las
+pruebas HTTP 48.1 y la inspección visual están preparadas, pero no se
+ejecutan en este entorno sin Flask/Jinja2; no equivalen a validación de
+un motor real. [Técnico 48.3](docs/milestones/48_3_cierre_primera_etapa_interactiva.md)
+y [aprendizaje 48.3](docs/milestones/48_3_cierre_primera_etapa_interactiva_APRENDIZAJE.md).
+
+**Correcciones finales del milestone 48.** Los POST del Brayton original
+en `tests/test_graficas_cp_variable.py` y la navegación histórica en
+`tests/test_dashboard.py` usan `/brayton`; el `GET /` permanece como
+redirección. En la plantilla del turborreactor, el atributo
+`data-simulacion-inicial` del `<body>` indica `pendiente`, `resuelta` o
+`error`: `inicializar48(documento,fetcher)` llama a `controlador.cambiar()`
+una sola vez al abrir un GET pendiente (espera habitual de 350 ms), sin
+duplicar el cálculo cuando ya hubo un POST manual resuelto o fallido.
+La función local `estudioDesactualizado()` no recibe argumentos ni devuelve
+un valor; muestra los avisos `.turbo-study-stale` existentes al modificar
+entradas del motor. Los estudios previos **no se recalculan**. Tras una
+respuesta automática correcta, se elimina únicamente el error del formulario
+principal (`#turbo-configuracion-vista-uso > .error-summary`), sin alterar
+diagnósticos de estudios independientes. Estas operaciones son de interfaz:
+no se cambian propiedades del gas ni balances físicos.
+
 ## Evolution of the project
+
+- **Milestone 48.3: cierre focalizado de la etapa interactiva (pendiente de commit).** Protección del POST manual frente a peticiones tardías, pruebas de cancelación e invalidación y comprobación del flujo físico único; pendiente de pruebas HTTP/visuales en Windows. [Técnico](docs/milestones/48_3_cierre_primera_etapa_interactiva.md) y [aprendizaje](docs/milestones/48_3_cierre_primera_etapa_interactiva_APRENDIZAJE.md).
+- **Milestone 48.2: primera simulación interactiva (pendiente de commit).** Controles Mach/T3, espera de 350 ms, cancelación y orden de respuestas, KPIs y SVG sincronizados con una ejecución Python; no modifica los solucionadores ni recalcula estudios independientes. [Técnico](docs/milestones/48_2_actualizacion_automatica.md) y [aprendizaje](docs/milestones/48_2_actualizacion_automatica_APRENDIZAJE.md).
+
+- **Milestone 48.1: portada del turborreactor y API HTTP (pendiente de commit).** Flask separa `/`, `/turborreactor`, `/brayton` y JSON; reutiliza los cálculos físicos y la plantilla actual, preparando datos y HTML para el navegador sin recálculo automático ni cambios de ecuaciones. [Técnico](docs/milestones/48_1_navegacion_y_api_interactiva.md) y [aprendizaje](docs/milestones/48_1_navegacion_y_api_interactiva_APRENDIZAJE.md).
 
 - **Milestones 47.4–47.5: solución estacionaria monoeje y cierre (sin commit).** Tres ecuaciones y tres incógnitas de mapa/eje/tobera resueltas con Newton amortiguado y límites físicos; conservación de las tres modalidades, regresión dirigida y registro de límites de verificación. [Técnico 47.4](docs/milestones/47_4_acoplamiento_motor.md), [aprendizaje 47.4](docs/milestones/47_4_acoplamiento_motor_APRENDIZAJE.md) y [cierre 47.5](docs/milestones/47_5_verificacion_cierre.md).
 
