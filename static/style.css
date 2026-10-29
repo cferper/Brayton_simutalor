@@ -146,3 +146,7 @@ details{min-width:0}details.card{padding:0}details.card>summary{padding:16px 20p
  .cp-figure .cp-plot svg{max-height:360px}
 }
 @media print{.cp-gallery .plot-grid{grid-template-columns:1fr}.edu-deep-grid{grid-template-columns:1fr}}
+.interface-switcher{display:flex;flex-direction:column;gap:5px;margin:12px 0;padding:8px;border:1px solid #bccedb;border-radius:8px}
+.interface-switcher a{display:block;padding:8px 10px;border-radius:5px;text-decoration:none;color:inherit;font-size:13px}
+.interface-switcher a[aria-current="page"]{background:#174a70;color:#fff;font-weight:700}
+.interface-switcher a:focus-visible{outline:2px solid #397eaa;outline-offset:2px}

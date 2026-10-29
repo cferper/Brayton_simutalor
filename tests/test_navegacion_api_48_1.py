@@ -22,7 +22,7 @@ class NavegacionApi48(unittest.TestCase):
     def test_portada_redirige_al_turborreactor(self):
         r = self.cliente.get('/', follow_redirects=False)
         self.assertEqual(r.status_code, 302)
-        self.assertTrue(r.headers['Location'].endswith('/turborreactor'))
+        self.assertTrue(r.headers['Location'].endswith('/turborreactor/interactivo'))
         self.assertEqual(self.cliente.get('/turborreactor').status_code, 200)
 
     def test_brayton_independiente_y_formulario_post(self):

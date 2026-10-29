@@ -33,7 +33,7 @@ def valores_formulario():
 
 def _render_turborreactor(valores, resultado=None, vista=None, *, error=None,
                          estudio=None, error_estudio=None, controles=None,
-                         accion=None):
+                         accion=None, interfaz="clasico"):
     """Misma plantilla y estados para POST tradicional y respuesta de API."""
     return render_template("turborreactor.html", valores=valores,
                            grupos=GRUPOS_TURBO, ejemplos=EJEMPLOS_TURBO,
@@ -41,7 +41,7 @@ def _render_turborreactor(valores, resultado=None, vista=None, *, error=None,
                            estudio=estudio, error_estudio=error_estudio,
                            controles=valores_estudios() if controles is None else controles,
                            accion=accion, parametros_ofat=PARAMETROS_OFAT,
-                           estados_web=ESTADOS_WEB)
+                           estados_web=ESTADOS_WEB, interfaz=interfaz)
 
 
 def _respuesta_json_api(datos, estado=200):
@@ -113,7 +113,9 @@ def api_turborreactor_simular():
 
 
 @app.route("/turborreactor", methods=["GET", "POST"])
-def turborreactor():
+@app.route("/turborreactor/interactivo", methods=["GET", "POST"],
+           defaults={"interfaz":"interactivo"}, endpoint="turborreactor_interactivo")
+def turborreactor(interfaz="clasico"):
     """Página independiente: simulación M37 y estudios OFAT/mapas con M38."""
     valores = valores_turborreactor(request.form if request.method == "POST" else None)
     controles = valores_estudios(request.form if request.method == "POST" else None)
@@ -143,7 +145,7 @@ def turborreactor():
             error_estudio = "Acción de formulario desconocida."
     return _render_turborreactor(valores,resultado,vista,error=error,
                                  estudio=estudio,error_estudio=error_estudio,
-                                 controles=controles,accion=accion), (400 if error or error_estudio else 200)
+                                 controles=controles,accion=accion,interfaz=interfaz), (400 if error or error_estudio else 200)
 
 
 def listar_informes():
@@ -193,7 +195,7 @@ def ver_documentacion(nombre):
 @app.route("/")
 def portada():
     """Punto de entrada: el turborreactor es la herramienta principal."""
-    return redirect(url_for("turborreactor"))
+    return redirect(url_for("turborreactor_interactivo"))
 
 
 @app.route("/brayton", methods=["GET", "POST"])

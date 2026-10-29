@@ -3,17 +3,19 @@
 <html lang="es">
 <head>
  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
- <title>Turborreactor · Brayton Simulator</title>
+ <title>{{ 'Banco interactivo' if interfaz=='interactivo' else 'Turborreactor clásico' }} · Brayton Simulator</title>
  <link rel="stylesheet" href="{{ url_for('static',filename='style.css') }}">
  <link rel="stylesheet" href="{{ url_for('static',filename='turborreactor.css') }}">
  <script src="{{ url_for('static',filename='turborreactor.js') }}" defer></script>
  <script src="{{ url_for('static',filename='turborreactor_interactivo.js') }}" defer></script>
 </head>
-<body class="turbo-page" data-initial-panel="{{ accion if accion in ('sensibilidad','mapa') else ('configuracion' if error or not resultado else 'resultados') }}" data-simulacion-inicial="{{ 'resuelta' if resultado and not error else ('error' if error else 'pendiente') }}">
+<body class="turbo-page" data-interfaz="{{ interfaz }}" data-initial-panel="{{ 'configuracion' if interfaz=='interactivo' else (accion if accion in ('sensibilidad','mapa') else ('configuracion' if error or not resultado else 'resultados')) }}" data-simulacion-inicial="{{ 'resuelta' if resultado and not error else ('error' if error else 'pendiente') }}">
 <a class="skip-link" href="#contenido">Ir al contenido</a>
 <aside class="sidebar">
- <a class="brand" href="{{ url_for('turborreactor') }}"><span class="brand-mark">B</span><span>Brayton<small>Engineering simulator</small></span></a>
+ <a class="brand" href="{{ url_for('turborreactor_interactivo') }}"><span class="brand-mark">B</span><span>Brayton<small>Engineering simulator</small></span></a>
  <p class="side-label">Área de propulsión</p>
+ <nav class="interface-switcher" aria-label="Elegir simulador"><a href="{{ url_for('turborreactor_interactivo') }}" {% if interfaz=='interactivo' %}aria-current="page"{% endif %}>Banco interactivo</a><a href="{{ url_for('turborreactor') }}" {% if interfaz!='interactivo' %}aria-current="page"{% endif %}>Turborreactor clásico</a><a href="{{ url_for('index') }}">Ciclo Brayton</a></nav>
+ {% if interfaz!='interactivo' %}
  <nav class="section-nav" aria-label="Navegación del turborreactor">
   <a href="#configuracion" aria-current="page"><span>01</span>Configuración</a>
   <a href="#resultados"><span>02</span>Resultados</a>
@@ -23,11 +25,12 @@
   <a href="#mapa"><span>06</span>Mapas de prestaciones</a>
   <a href="{{ url_for('index') }}"><span>↩</span>Volver a Brayton</a>
  </nav>
+ {% endif %}
  <div class="side-footer"><strong>Turborreactor cp(T)</strong>Modelo educativo de aire equivalente, flujo subsónico y combustible simplificado</div>
 </aside>
-<div class="workspace"><div class="topbar"><span><strong>Laboratorio de ciclos</strong> / Propulsión / Turborreactor</span><a href="{{ url_for('index') }}">← Ciclo Brayton</a></div>
+<div class="workspace"><div class="topbar"><span><strong>Laboratorio de ciclos</strong> / Propulsión / {{ 'Banco interactivo' if interfaz=='interactivo' else 'Turborreactor clásico' }}</span><a href="{{ url_for('index') }}">← Ciclo Brayton</a></div>
 <main class="main-content" id="contenido">
- <header class="technical-header turbo-intro"><div class="intro"><p class="eyebrow">Modelo de propulsión · fase inicial</p><h1>Turborreactor</h1><p>Del ambiente al empuje neto: difusor, compresor, cámara, turbina y tobera convergente o convergente-divergente.</p></div><span class="turbo-hero-mark" aria-hidden="true">✈</span></header>
+ <header class="technical-header turbo-intro"><div class="intro"><p class="eyebrow">Modelo de propulsión · fase inicial</p><h1>{{ 'Banco de ensayos interactivo' if interfaz=='interactivo' else 'Turborreactor clásico' }}</h1><p>Del ambiente al empuje neto: difusor, compresor, cámara, turbina y tobera convergente o convergente-divergente.</p></div><span class="turbo-hero-mark" aria-hidden="true">✈</span></header>
  <div class="turbo-disclaimer">Modelo científico educativo con propiedades variables del aire. El combustible se representa mediante un aporte energético, no mediante química detallada. No predice las prestaciones de un motor certificado.</div>
  <section id="configuracion" class="turbo-section" tabindex="-1" aria-labelledby="titulo-turbo-configuracion"><div class="page-heading"><div><p class="eyebrow">01 · Preparación</p><h2 id="titulo-turbo-configuracion">Uso y configuración</h2><p>Selecciona el ambiente, ajusta los componentes y ejecuta el cálculo.</p></div><span class="badge">Gasto másico opcional</span></div>
 <div class="edu-section-tabs" data-edu-tabs="configuracion">
@@ -36,7 +39,7 @@
   <div class="card turbo-guide"><h3>Cómo utilizar esta simulación</h3><ol><li>Escoge ambiente directo (temperatura y presión estáticas) o atmósfera estándar ISA (altitud geopotencial).</li><li>Introduce Mach y los parámetros del núcleo, difusor, tobera y combustible.</li><li>Ejecuta el cálculo para obtener empuje específico, consumo y estaciones termodinámicas.</li><li>Contrasta los diagnósticos: en una convergente el bloqueo ocurre en la salida; en una C-D, en la garganta, sin fijar necesariamente el régimen de salida.</li></ol><p>El <strong>empuje específico</strong> es fuerza por unidad de caudal másico de aire [N/(kg/s)], equivalente dimensionalmente a m/s. El <strong>TSFC</strong> es combustible consumido por empuje y hora [kg/(N·h)]. Sin caudal absoluto no se obtiene fuerza en newtons.</p></div>
   <div class="turbo-examples" aria-label="Casos predeterminados"><span>Ejemplos:</span><button type="button" data-ejemplo="estatico">Motor estático</button><button type="button" data-ejemplo="vuelo">Mach 0,7</button><button type="button" data-ejemplo="isa">10 km · Mach 0,5</button><small>Con JavaScript, elegir un ejemplo actualiza automáticamente la simulación; sin JavaScript, pulsa «Simular». Los tres fijan <strong>πd = 1</strong>, recuperación ideal sin pérdidas de presión total en el difusor. Algunas referencias de milestones anteriores utilizaron <strong>πd = 0,97</strong> a Mach 0,7 y <strong>πd = 0,98</strong> a 10 km/Mach 0,5; por eso los resultados no coinciden exactamente. No se han cambiado los valores predeterminados.</small></div>
   {% if error %}<div class="error-summary" role="alert"><h3>Simulación no disponible</h3><p>{{ error }}</p><p>Se han conservado los valores introducidos. Revísalos y vuelve a ejecutar.</p></div>{% endif %}
-  <form id="turbo-form" method="post" action="/turborreactor" novalidate>
+  <form id="turbo-form" method="post" action="{{ url_for('turborreactor_interactivo') if interfaz=='interactivo' else url_for('turborreactor') }}" novalidate>
    <div class="card turbo-modes"><h3>Cómo determinar el caudal</h3><div class="field"><label for="modo_caudal">Modalidad de cálculo</label><select id="modo_caudal" name="modo_caudal"><option value="impuesto" {% if valores.modo_caudal=='impuesto' %}selected{% endif %}>Caudal impuesto — dimensionar tobera</option><option value="fijo" {% if valores.modo_caudal=='fijo' %}selected{% endif %}>Geometría fija — calcular caudal</option><option value="acoplado" {% if valores.modo_caudal=='acoplado' %}selected{% endif %}>Motor acoplado — mapas monoeje educativos</option></select><small>Con geometría fija, el remanso del núcleo se prescribe y el caudal de gases se obtiene por continuidad. En motor acoplado, la velocidad del eje, el caudal y los rendimientos se resuelven simultáneamente con mapas NASA escalados; no se trata de un motor validado.</small></div></div>
    <div class="card turbo-modes"><h3>Origen del ambiente</h3><div class="turbo-mode-options"><label><input type="radio" name="modo_ambiente" value="directo" {% if valores.modo_ambiente=='directo' %}checked{% endif %}> Temperatura y presión directas</label><label><input type="radio" name="modo_ambiente" value="ISA" {% if valores.modo_ambiente=='ISA' %}checked{% endif %}> Atmósfera ISA (0–20 km)</label></div><p class="note">Los campos del modo no utilizado deben quedar vacíos. ISA es una atmósfera de referencia, no meteorología real.</p></div>
    <div class="turbo-fieldsets">

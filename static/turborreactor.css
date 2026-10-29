@@ -80,3 +80,4 @@
 .turbo-live-preview svg{width:100%;height:auto;min-width:350px;max-height:230px}
 .turbo-live[data-estado=error] #turbo-live-status,.turbo-live[data-estado=fuera-mapa] #turbo-live-status{color:#9f2d2d}
 .turbo-live[data-estado=actualizando] #turbo-live-status{color:#805500}
+.turbo-page[data-interfaz="interactivo"] .turbo-section:not(#configuracion){display:none!important}

@@ -4263,8 +4263,49 @@ principal (`#turbo-configuracion-vista-uso > .error-summary`), sin alterar
 diagnósticos de estudios independientes. Estas operaciones son de interfaz:
 no se cambian propiedades del gas ni balances físicos.
 
+### 4.97 — Milestone 49.1: separación de vistas y navegación del simulador
+
+**PYTHON.** `portada()` sigue sin argumentos y devuelve una redirección
+HTTP, ahora a `url_for('turborreactor_interactivo')`. En un mismo servidor,
+`/turborreactor/interactivo` y `/turborreactor` están registrados sobre
+`turborreactor(interfaz="clasico")`: su argumento `interfaz` es una cadena
+con valores `"interactivo"` o `"clasico"` y no tiene unidades. La función
+acepta GET o POST, lee `request.form`, ejecuta los mismos solucionadores y
+devuelve `(html, codigo_http)` como antes; no hay nuevo motor. La función
+`_render_turborreactor(valores, resultado=None, vista=None, *, error=None,
+estudio=None, error_estudio=None, controles=None, accion=None,
+interfaz="clasico")` recibe también la modalidad visual, la pasa a Jinja y
+devuelve HTML. Los demás argumentos y sus unidades **no cambian**; las
+entradas científicas conservan sus nombres (`mach`, `T3`, `modo_caudal`, etc.).
+La ruta `/api/turborreactor/simular` sigue ejecutando una única simulación
+para las modalidades físicas A/B/C, independientemente de la vista.
+
+**JINJA/HTML.** Una única `templates/turborreactor.html` genera ambas
+interfaces usando la variable `interfaz`: cambia título, menú activo y
+destino del POST tradicional. El banco conserva en el DOM los paneles
+clásicos que reutiliza `DOMParser`, pero CSS solo presenta `#configuracion`
+con los controles y el panel-resumen interactivo; las otras cinco secciones
+continúan íntegras y visibles desde `/turborreactor`. Esto permite a 49.2
+rediseñar el banco sin romper los identificadores de la API. El ciclo Brayton
+usa la misma `templates/index.html` de siempre, ahora con tres enlaces y
+acción del formulario local `/brayton` (los informes offline conservan `#`).
+
+**INGENIERÍA.** «Interfaz» no es «modalidad física». En cualquier vista del
+turborreactor, A prescribe caudal y dimensiona, B prescribe geometría y
+obtiene caudal compatible, C acopla mapas monoeje y balances. Mach es
+adimensional y T3 está en K. Ninguna ecuación, propiedad variable ni
+rendimiento se ha cambiado; navegación y diseño no validan el motor real.
+
+**VERIFICACIÓN.** `tests/test_navegacion_49_1.py` contiene pruebas Flask
+focalizadas de rutas, menú, controles, clásico y modos A/B/C, pendientes de
+ejecutar aquí por ausencia de Flask/Jinja2. Se actualizaron las expectativas
+de redirección del 48.1. Los ocho tests JS de 48.2 siguen correctos.
+[Técnico 49.1](docs/milestones/49_1_separacion_interfaces.md) y
+[aprendizaje 49.1](docs/milestones/49_1_separacion_interfaces_APRENDIZAJE.md).
+
 ## Evolution of the project
 
+- **Milestone 49.1: tres interfaces y navegación compartida (pendiente de commit).** El banco interactivo es la portada, el clásico conserva todas sus secciones y Brayton mantiene su formulario en `/brayton`. Las dos vistas de turborreactor comparten un único controlador Flask, plantilla, lógica JS y solucionadores. [Técnico](docs/milestones/49_1_separacion_interfaces.md) y [aprendizaje](docs/milestones/49_1_separacion_interfaces_APRENDIZAJE.md).
 - **Milestone 48.3: cierre focalizado de la etapa interactiva (pendiente de commit).** Protección del POST manual frente a peticiones tardías, pruebas de cancelación e invalidación y comprobación del flujo físico único; pendiente de pruebas HTTP/visuales en Windows. [Técnico](docs/milestones/48_3_cierre_primera_etapa_interactiva.md) y [aprendizaje](docs/milestones/48_3_cierre_primera_etapa_interactiva_APRENDIZAJE.md).
 - **Milestone 48.2: primera simulación interactiva (pendiente de commit).** Controles Mach/T3, espera de 350 ms, cancelación y orden de respuestas, KPIs y SVG sincronizados con una ejecución Python; no modifica los solucionadores ni recalcula estudios independientes. [Técnico](docs/milestones/48_2_actualizacion_automatica.md) y [aprendizaje](docs/milestones/48_2_actualizacion_automatica_APRENDIZAJE.md).
 
