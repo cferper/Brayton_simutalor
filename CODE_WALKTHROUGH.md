@@ -4348,9 +4348,55 @@ ninguna prueba HTTP ni inspección visual a este entorno. Véanse el
 [documento técnico](docs/milestones/49_2_rediseño_banco_interactivo.md)
 y el [aprendizaje](docs/milestones/49_2_rediseño_banco_interactivo_APRENDIZAJE.md).
 
+### 4.99 — Milestone 49.3: selector A/B/C, parámetros y galería de SVG
+
+**PYTHON, HTML y JavaScript.** La interfaz `/turborreactor/interactivo` conserva
+el único `select#modo_caudal` como **fuente de verdad del formulario**, pero
+lo presenta mediante tres botones `data-bank-mode` en vez de un desplegable.
+Al pulsarlos, JavaScript cambia el valor del `select`, dispara el evento
+`change` y utiliza las reglas históricas de `static/turborreactor.js` para
+habilitar/deshabilitar campos incompatibles. El atributo `aria-pressed`
+refleja la selección; `data-bank-mode` sobre `#turbo-form` permite que CSS
+muestre los datos del modo A (`gasto_masico_aire`), o los del modo B/C
+(`tipo_tobera`, área de garganta y salida según geometría). El botón
+`#turbo-bank-advanced-toggle` alterna `turbo-bank-show-advanced` y
+`aria-expanded`, exponiendo el resto de las entradas sin duplicarlas.
+Cambiar un campo avanzado lanza el mismo controlador automático al confirmar
+su valor. Los controles originales Mach/T3 y la espera de 350 ms permanecen.
+
+**Gráficas.** `activarGrafica(clave)` es una función local dentro de
+`inicializar48(documento,fetcher)`: recibe una cadena (`'ts'`, `'mach'`,
+`'presion'` o `'geometria'`), actualiza `aria-selected` y `hidden` y no
+devuelve datos físicos. Es llamada por clic o flechas del teclado; no usa
+`fetch`. `dibujar(panelClave,svg)` continúa insertando únicamente SVG
+recibidos de la API, oculta pestañas cuando falta su representación y
+`reconciliarPestañas()` elige otra disponible si la actual desaparece.
+El diagrama T–s (`svg_ts`) tiene su propia pestaña inicial; la geometría
+usa exclusivamente `svg_geometria_conica`, sin confundir ambas figuras.
+Cada respuesta sustituye los SVG y las prestaciones del mismo cálculo.
+
+**Tarjetas.** La función local `valor(clave,contenido)` sigue presentando
+las magnitudes serializadas. `onRespuesta` ahora usa `data-live-card` para
+ocultar tarjetas con `null` o campo ausente, y muestra en «Resultados
+adicionales» explicaciones verificables: el empuje absoluto necesita un
+caudal prescrito en A, y las rpm solo se calculan en C. No se asignan ceros
+ficticios. `onError` conserva el diagnóstico del backend y elimina la
+vigencia visual de los números y SVG previos. No se altera la API, ni el
+solucionador, ni sus restricciones de dominio.
+
+**INGENIERÍA.** A prescribe gasto de aire y dimensiona; B fija geometría
+y obtiene gasto compatible; C resuelve mapas monoeje estacionarios. Mach es
+adimensional y T3 [K] corresponde a la temperatura total anterior a turbina,
+después de cámara. Un dato no aplicable no es un fallo físico; la ausencia
+de caudal absoluto en A impide calcular fuerzas [N], sin impedir el empuje
+específico [N/(kg/s)]. Las verificaciones de interfaz no validan el modelo
+frente a ensayos reales. Referencias: [técnico 49.3](docs/milestones/49_3_interfaz_definitiva_banco.md)
+y [aprendizaje 49.3](docs/milestones/49_3_interfaz_definitiva_banco_APRENDIZAJE.md).
+
 ## Evolution of the project
 
-- **Milestone 49.2: banco interactivo en dos zonas (pendiente de commit).** CSS Grid reúne los controles Mach/T3 y modalidad junto a tarjetas y SVG reactivos; diseño adaptable sin nuevas entradas físicas ni duplicar la API. [Técnico](docs/milestones/49_2_rediseño_banco_interactivo.md) y [aprendizaje](docs/milestones/49_2_rediseño_banco_interactivo_APRENDIZAJE.md).
+- **Milestone 49.3: modalidades visibles y visor de gráficos (pendiente de commit).** Tres botones reutilizan el selector A/B/C; configuración avanzada contextual, pestañas para los SVG existentes y disponibilidad de tarjetas sin falsos ceros. [Técnico](docs/milestones/49_3_interfaz_definitiva_banco.md) y [aprendizaje](docs/milestones/49_3_interfaz_definitiva_banco_APRENDIZAJE.md).
+- **Milestone 49.2: banco interactivo en dos zonas.** CSS Grid reúne los controles Mach/T3 y modalidad junto a tarjetas y SVG reactivos; diseño adaptable sin nuevas entradas físicas ni duplicar la API. [Técnico](docs/milestones/49_2_rediseño_banco_interactivo.md) y [aprendizaje](docs/milestones/49_2_rediseño_banco_interactivo_APRENDIZAJE.md).
 - **Milestone 49.1: tres interfaces y navegación compartida.** El banco interactivo es la portada, el clásico conserva todas sus secciones y Brayton mantiene su formulario en `/brayton`. Las dos vistas de turborreactor comparten un único controlador Flask, plantilla, lógica JS y solucionadores. [Técnico](docs/milestones/49_1_separacion_interfaces.md) y [aprendizaje](docs/milestones/49_1_separacion_interfaces_APRENDIZAJE.md).
 - **Milestone 48.3: cierre focalizado de la etapa interactiva (pendiente de commit).** Protección del POST manual frente a peticiones tardías, pruebas de cancelación e invalidación y comprobación del flujo físico único; pendiente de pruebas HTTP/visuales en Windows. [Técnico](docs/milestones/48_3_cierre_primera_etapa_interactiva.md) y [aprendizaje](docs/milestones/48_3_cierre_primera_etapa_interactiva_APRENDIZAJE.md).
 - **Milestone 48.2: primera simulación interactiva (pendiente de commit).** Controles Mach/T3, espera de 350 ms, cancelación y orden de respuestas, KPIs y SVG sincronizados con una ejecución Python; no modifica los solucionadores ni recalcula estudios independientes. [Técnico](docs/milestones/48_2_actualizacion_automatica.md) y [aprendizaje](docs/milestones/48_2_actualizacion_automatica_APRENDIZAJE.md).

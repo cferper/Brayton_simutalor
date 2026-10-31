@@ -137,3 +137,38 @@
  .js .turbo-page[data-interfaz="interactivo"] .turbo-live-preview figure:last-child{grid-column:auto}
 }
 @media(max-width:420px){.js .turbo-page[data-interfaz="interactivo"] .turbo-live-metrics{grid-template-columns:minmax(0,1fr)}}
+
+/* M49.3: modos visibles, campos pertinentes y galería de una sola gráfica. */
+.js .turbo-page[data-interfaz="interactivo"] #turbo-form>.turbo-modes:not(.turbo-ambient-mode){display:none}
+.turbo-bank-mode-buttons{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin:12px 0}
+.turbo-bank-mode-buttons button{border:1px solid #cad9e6;background:#f6f9fc;color:#254661;border-radius:7px;padding:9px 7px;text-align:left;font:inherit;min-width:0}
+.turbo-bank-mode-buttons button strong{display:block;font-size:11px;line-height:1.35}
+.turbo-bank-mode-buttons button small{display:block;font-size:10px;line-height:1.35;margin-top:6px}
+.turbo-bank-mode-buttons button[aria-pressed="true"]{background:#dcecf8;border-color:#175b8e;box-shadow:inset 0 0 0 1px #175b8e;color:#103c5e}
+.turbo-bank-advanced-toggle{width:100%;text-align:left;margin:3px 0 12px;padding:9px 12px;border:1px solid #cad9e6;border-radius:6px;color:#174a70;background:#f6f9fc;font-weight:600;font-size:12px}
+.js .turbo-page[data-interfaz="interactivo"] #turbo-form[data-bank-mode="impuesto"] .turbo-bank-extra-fields:has(#gasto_masico_aire),
+.js .turbo-page[data-interfaz="interactivo"] #turbo-form[data-bank-mode="fijo"] .turbo-bank-extra-fields:has(#tipo_tobera),
+.js .turbo-page[data-interfaz="interactivo"] #turbo-form[data-bank-mode="acoplado"] .turbo-bank-extra-fields:has(#tipo_tobera){display:block!important}
+.js .turbo-page[data-interfaz="interactivo"] #turbo-form[data-bank-mode="impuesto"] .turbo-bank-other-field:has(#gasto_masico_aire){display:block!important}
+.js .turbo-page[data-interfaz="interactivo"] #turbo-form[data-bank-mode="fijo"] .turbo-nozzle-config,
+.js .turbo-page[data-interfaz="interactivo"] #turbo-form[data-bank-mode="acoplado"] .turbo-nozzle-config{display:grid!important}
+.js .turbo-page[data-interfaz="interactivo"] #turbo-form.turbo-bank-show-advanced .turbo-ambient-mode{display:block!important}
+.js .turbo-page[data-interfaz="interactivo"] #turbo-form.turbo-bank-show-advanced .turbo-bank-extra-fields{display:block!important}
+.js .turbo-page[data-interfaz="interactivo"] #turbo-form.turbo-bank-show-advanced .turbo-bank-other-field{display:block!important}
+.js .turbo-page[data-interfaz="interactivo"] #turbo-form.turbo-bank-show-advanced .turbo-nozzle-config{display:grid!important}
+.js .turbo-page[data-interfaz="interactivo"] #turbo-form .turbo-bank-extra-fields{padding:10px 13px;margin:0}
+.js .turbo-page[data-interfaz="interactivo"] #turbo-form .turbo-nozzle-config{grid-template-columns:minmax(0,1fr);gap:9px}
+.js .turbo-page[data-interfaz="interactivo"] #turbo-form .turbo-nozzle-config .field{min-width:0}
+.js .turbo-page[data-interfaz="interactivo"] #turbo-form .turbo-nozzle-config input,
+.js .turbo-page[data-interfaz="interactivo"] #turbo-form .turbo-nozzle-config select{width:100%}
+.turbo-live-metric[hidden],.turbo-live-preview figure[hidden],.turbo-live-plot-tabs button[hidden]{display:none!important}
+.turbo-live-plot-tabs{display:flex;flex-wrap:wrap;gap:6px;margin:16px 0 10px}
+.turbo-live-plot-tabs button{border:1px solid #cad9e6;background:#fff;color:#174a70;border-radius:6px;padding:9px 12px;font-size:12px;font-weight:600}
+.turbo-live-plot-tabs button[aria-selected="true"]{background:#dcecf8;border-color:#175b8e}
+.js .turbo-page[data-interfaz="interactivo"] .turbo-live-preview{display:block}
+.js .turbo-page[data-interfaz="interactivo"] .turbo-live-preview figure{width:100%;margin:0;max-width:100%}
+.js .turbo-page[data-interfaz="interactivo"] .turbo-live-preview svg{max-height:480px}
+.turbo-live-details{margin:8px 0 0;font-size:12px;color:#52677e}
+.turbo-live-details summary{padding:7px 0}
+.turbo-live-details p{margin:5px 0}
+@media(max-width:580px){.turbo-bank-mode-buttons{grid-template-columns:minmax(0,1fr)}.turbo-bank-mode-buttons button{padding:8px 12px}.turbo-bank-mode-buttons button small{margin-top:2px}}

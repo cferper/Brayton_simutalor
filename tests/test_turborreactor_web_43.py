@@ -49,7 +49,14 @@ class InterfazEducativa43(unittest.TestCase):
         analizador.feed(html)
         self.assertEqual([nombre for nombre, n in Counter(analizador.ids).items()
                           if n != 1], [])
-        self.assertEqual(len(analizador.tabs), 12)
+        # Las 12 pestañas educativas se complementan con las cuatro del visor
+        # interactivo (T–s, Mach, presión y geometría) introducidas en 49.3.
+        educativas = [t for t in analizador.tabs if 'aria-controls' in t]
+        graficas = [t.get('data-plot-tab') for t in analizador.tabs
+                    if 'data-plot-tab' in t]
+        self.assertEqual(len(educativas), 12)
+        self.assertEqual(set(graficas), {'ts', 'mach', 'presion', 'geometria'})
+        self.assertEqual(len(analizador.tabs), 16)
         self.assertNotIn('id="fundamentos"', html)
         self.assertNotIn('href="#fundamentos"', html)
         for seccion in APARTADOS:
