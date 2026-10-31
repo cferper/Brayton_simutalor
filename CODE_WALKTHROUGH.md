@@ -4303,9 +4303,55 @@ de redirección del 48.1. Los ocho tests JS de 48.2 siguen correctos.
 [Técnico 49.1](docs/milestones/49_1_separacion_interfaces.md) y
 [aprendizaje 49.1](docs/milestones/49_1_separacion_interfaces_APRENDIZAJE.md).
 
+### 4.98 — Milestone 49.2: distribución del banco de ensayos
+
+**PYTHON / HTML.** La vista `interfaz="interactivo"` continúa utilizando una
+única plantilla (`templates/turborreactor.html`), un solo formulario
+`#turbo-form` y un panel de respuestas `#turbo-live`. La variable Jinja
+`interfaz` añade la explicación compacta y clases de presentación
+`turbo-bank-active-fields`, `turbo-bank-extra-fields`,
+`turbo-bank-slider-field` y `turbo-bank-other-field`. No crea otra instancia
+de `mach`, `T3`, sus deslizadores ni `modo_caudal`: los campos adicionales
+siguen dentro del formulario y se envían a Flask, aunque el banco inicial
+con JavaScript sólo muestre las dos entradas interactivas de 48.2.
+`url_for('turborreactor_interactivo')` permite restablecer los valores con un
+GET, que inicia de nuevo la simulación automática. En `/turborreactor` se
+conserva el formulario íntegro, sus seis secciones y los estudios independientes.
+
+**CSS / JAVASCRIPT.** En `static/turborreactor.css`, los selectores bajo
+`.js .turbo-page[data-interfaz="interactivo"]` sitúan el formulario a la
+izquierda y el panel de indicadores/SVG a la derecha mediante CSS Grid.
+La columna de controles usa `position: sticky` en ordenador y vuelve a
+`position: static` en pantallas de 900 px o menos; el diseño se apila
+verticalmente. Se ocultan visualmente las entradas no habilitadas para esta
+primera etapa, pero no se eliminan del DOM ni del POST. El controlador
+`inicializar48(documento, fetcher)` sigue conectando `input` de Mach/T3,
+sincronizando valores, esperando 350 ms y descartando respuestas antiguas.
+`onRespuesta` sustituye las regiones de resultados y actualiza a la vez
+las tarjetas y los tres SVG. El CSS no añade solicitudes HTTP ni fórmulas.
+La API añade el campo `magnitudes.velocidad_salida_m_s` [m/s] leyendo
+`tobera['velocidad_salida']` de **la misma ejecución**; JavaScript lo
+representa en una tarjeta sin calcularlo de nuevo.
+
+**INGENIERÍA.** Mach es adimensional, no un porcentaje. T3 [K] representa
+la temperatura **total de entrada a turbina** tras la cámara, no la salida
+de turbina. El selector conserva A (caudal impuesto), B (área fija de tobera)
+y C (mapas de turbomáquinas acoplados); el caudal y el régimen mostrados
+proceden de la API y pueden no estar disponibles. Los gráficos representan
+únicamente los SVG generados por Python. La maquetación no altera los balances
+ni equivale a validar prestaciones de un motor real.
+
+**VERIFICACIÓN.** Se añadieron comprobaciones estáticas específicas
+`tests/test_diseno_banco_49_2.py`; las pruebas de interacción 48.2 siguen
+siendo la referencia del controlador JS. Sin Flask/Jinja2 no se atribuye
+ninguna prueba HTTP ni inspección visual a este entorno. Véanse el
+[documento técnico](docs/milestones/49_2_rediseño_banco_interactivo.md)
+y el [aprendizaje](docs/milestones/49_2_rediseño_banco_interactivo_APRENDIZAJE.md).
+
 ## Evolution of the project
 
-- **Milestone 49.1: tres interfaces y navegación compartida (pendiente de commit).** El banco interactivo es la portada, el clásico conserva todas sus secciones y Brayton mantiene su formulario en `/brayton`. Las dos vistas de turborreactor comparten un único controlador Flask, plantilla, lógica JS y solucionadores. [Técnico](docs/milestones/49_1_separacion_interfaces.md) y [aprendizaje](docs/milestones/49_1_separacion_interfaces_APRENDIZAJE.md).
+- **Milestone 49.2: banco interactivo en dos zonas (pendiente de commit).** CSS Grid reúne los controles Mach/T3 y modalidad junto a tarjetas y SVG reactivos; diseño adaptable sin nuevas entradas físicas ni duplicar la API. [Técnico](docs/milestones/49_2_rediseño_banco_interactivo.md) y [aprendizaje](docs/milestones/49_2_rediseño_banco_interactivo_APRENDIZAJE.md).
+- **Milestone 49.1: tres interfaces y navegación compartida.** El banco interactivo es la portada, el clásico conserva todas sus secciones y Brayton mantiene su formulario en `/brayton`. Las dos vistas de turborreactor comparten un único controlador Flask, plantilla, lógica JS y solucionadores. [Técnico](docs/milestones/49_1_separacion_interfaces.md) y [aprendizaje](docs/milestones/49_1_separacion_interfaces_APRENDIZAJE.md).
 - **Milestone 48.3: cierre focalizado de la etapa interactiva (pendiente de commit).** Protección del POST manual frente a peticiones tardías, pruebas de cancelación e invalidación y comprobación del flujo físico único; pendiente de pruebas HTTP/visuales en Windows. [Técnico](docs/milestones/48_3_cierre_primera_etapa_interactiva.md) y [aprendizaje](docs/milestones/48_3_cierre_primera_etapa_interactiva_APRENDIZAJE.md).
 - **Milestone 48.2: primera simulación interactiva (pendiente de commit).** Controles Mach/T3, espera de 350 ms, cancelación y orden de respuestas, KPIs y SVG sincronizados con una ejecución Python; no modifica los solucionadores ni recalcula estudios independientes. [Técnico](docs/milestones/48_2_actualizacion_automatica.md) y [aprendizaje](docs/milestones/48_2_actualizacion_automatica_APRENDIZAJE.md).
 

@@ -93,6 +93,7 @@ def api_turborreactor_simular():
                 "gasto_masico_aire_kg_s":absoluto.get("gasto_masico_aire"),
                 "gasto_masico_combustible_kg_s":absoluto.get("gasto_masico_combustible"),
                 "gasto_masico_gases_kg_s":absoluto.get("gasto_masico_gases"),
+                "velocidad_salida_m_s":tobera.get("velocidad_salida"),
                 "rpm_eje":acoplado.get("rpm"),
                 "regimen_tobera":resultado["diagnosticos"].get("regimen_tobera"),
             },

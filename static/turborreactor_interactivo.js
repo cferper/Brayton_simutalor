@@ -153,7 +153,8 @@
         if(badge)badge.textContent='Caso calculado';
         const m=datos.magnitudes;
         ['empuje_absoluto_N','empuje_especifico_neto','gasto_masico_aire_kg_s',
-         'gasto_masico_combustible_kg_s','TSFC_kg_N_h','rpm_eje','regimen_tobera']
+         'gasto_masico_combustible_kg_s','TSFC_kg_N_h','velocidad_salida_m_s',
+         'rpm_eje','regimen_tobera']
           .forEach(k=>valor(k,m[k]===null||m[k]===undefined?'No aplicable':formatear(m[k])));
         const svg=datos.svg||{};
         dibujar('mach',svg.svg_mach_axial||svg.svg_mach_perfil_tobera||svg.svg_mach_tobera);

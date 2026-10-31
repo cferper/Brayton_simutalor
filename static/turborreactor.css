@@ -81,3 +81,59 @@
 .turbo-live[data-estado=error] #turbo-live-status,.turbo-live[data-estado=fuera-mapa] #turbo-live-status{color:#9f2d2d}
 .turbo-live[data-estado=actualizando] #turbo-live-status{color:#805500}
 .turbo-page[data-interfaz="interactivo"] .turbo-section:not(#configuracion){display:none!important}
+
+/* M49.2: banco compacto. Solo se modifica la vista interactiva con JS;
+   el clásico y el respaldo sin JS conservan el formulario completo. */
+.js .turbo-page[data-interfaz="interactivo"] .turbo-intro{min-height:0;padding:14px 20px;margin-bottom:12px}
+.js .turbo-page[data-interfaz="interactivo"] .turbo-intro .intro p:last-child{display:none}
+.js .turbo-page[data-interfaz="interactivo"] .turbo-disclaimer{padding:8px 13px;margin-bottom:14px;font-size:11px}
+.js .turbo-page[data-interfaz="interactivo"] #configuracion>.page-heading,
+.js .turbo-page[data-interfaz="interactivo"] #configuracion>.edu-section-tabs>.edu-tabbar,
+.js .turbo-page[data-interfaz="interactivo"] .turbo-guide,
+.js .turbo-page[data-interfaz="interactivo"] .turbo-examples,
+.js .turbo-page[data-interfaz="interactivo"] #turbo-configuracion-vista-teoria,
+.js .turbo-page[data-interfaz="interactivo"] #turbo-form>.turbo-ambient-mode,
+.js .turbo-page[data-interfaz="interactivo"] .turbo-bank-other-field,
+.js .turbo-page[data-interfaz="interactivo"] .turbo-bank-extra-fields,
+.js .turbo-page[data-interfaz="interactivo"] .turbo-nozzle-config,
+.js .turbo-page[data-interfaz="interactivo"] .turbo-fields>.turbo-edu-details{display:none!important}
+.js .turbo-page[data-interfaz="interactivo"] #turbo-configuracion-vista-uso{display:grid;grid-template-columns:minmax(270px,.75fr) minmax(0,1.6fr);gap:18px;align-items:start}
+.js .turbo-page[data-interfaz="interactivo"] #turbo-configuracion-vista-uso>.error-summary{grid-column:1/-1}
+.js .turbo-page[data-interfaz="interactivo"] #turbo-form{position:sticky;top:14px;max-height:calc(100vh - 28px);overflow-y:auto;overscroll-behavior:contain;padding:17px;background:#fff;border:1px solid #d3e1ec;border-radius:10px;min-width:0}
+.turbo-bank-heading{margin-bottom:15px}.turbo-bank-heading h3{font-size:18px;margin-bottom:6px}.turbo-bank-heading p:last-child{font-size:12px;color:#52677e;margin:0}
+.turbo-bank-modes-help{font-size:11px;color:#3b566f;background:#edf5fb;border-radius:6px;padding:10px;margin:0 0 14px;line-height:1.65}
+.js .turbo-page[data-interfaz="interactivo"] #turbo-form>.turbo-modes{padding:12px;margin:0 0 10px}
+.js .turbo-page[data-interfaz="interactivo"] #turbo-form>.turbo-modes h3{font-size:13px;margin-bottom:8px}
+.js .turbo-page[data-interfaz="interactivo"] #turbo-form>.turbo-modes .field>small{display:none}
+.js .turbo-page[data-interfaz="interactivo"] #modo_caudal{width:100%;max-width:100%}
+.js .turbo-page[data-interfaz="interactivo"] .turbo-fieldsets{display:grid;grid-template-columns:1fr;gap:9px}
+.js .turbo-page[data-interfaz="interactivo"] .turbo-bank-active-fields{padding:10px 13px 14px;margin:0}
+.js .turbo-page[data-interfaz="interactivo"] .turbo-bank-active-fields legend{font-size:12px}
+.js .turbo-page[data-interfaz="interactivo"] .turbo-bank-active-fields .turbo-field-grid{display:block}
+.js .turbo-page[data-interfaz="interactivo"] .turbo-bank-slider-field label{font-size:13px}
+.js .turbo-page[data-interfaz="interactivo"] .turbo-slider-row{gap:8px;flex-wrap:wrap}
+.js .turbo-page[data-interfaz="interactivo"] .turbo-slider-row input[type=range]{min-width:90px}
+.js .turbo-page[data-interfaz="interactivo"] .turbo-actions{margin:12px 0 0;gap:11px;flex-wrap:wrap}
+.js .turbo-page[data-interfaz="interactivo"] .turbo-actions button{padding:9px 12px;font-size:12px}
+.js .turbo-page[data-interfaz="interactivo"] #turbo-live{margin:0;padding:18px;min-width:0}
+.js .turbo-page[data-interfaz="interactivo"] #turbo-live>h3{font-size:17px;margin-bottom:6px}
+.js .turbo-page[data-interfaz="interactivo"] #turbo-live-status{background:#eef4f9;border-radius:5px;padding:7px 10px;margin:0}
+.js .turbo-page[data-interfaz="interactivo"] .turbo-live-metrics{grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.js .turbo-page[data-interfaz="interactivo"] .turbo-live-metric{border-left:3px solid #9ebbd2;padding:11px}
+.js .turbo-page[data-interfaz="interactivo"] .turbo-live-metric:first-child{border-color:#267b65;background:#eaf5f0}
+.js .turbo-page[data-interfaz="interactivo"] .turbo-live-metric strong{font-size:20px}
+.js .turbo-page[data-interfaz="interactivo"] .turbo-live-preview{grid-template-columns:repeat(2,minmax(0,1fr))}
+.js .turbo-page[data-interfaz="interactivo"] .turbo-live-preview figure{padding:8px}
+.js .turbo-page[data-interfaz="interactivo"] .turbo-live-preview figure:last-child{grid-column:1/-1}
+.js .turbo-page[data-interfaz="interactivo"] .turbo-live-preview svg{min-width:0;max-height:310px}
+@media(max-width:1180px){
+ .js .turbo-page[data-interfaz="interactivo"] #turbo-configuracion-vista-uso{grid-template-columns:minmax(240px,.85fr) minmax(0,1.2fr)}
+ .js .turbo-page[data-interfaz="interactivo"] .turbo-live-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(max-width:900px){
+ .js .turbo-page[data-interfaz="interactivo"] #turbo-configuracion-vista-uso{grid-template-columns:minmax(0,1fr)}
+ .js .turbo-page[data-interfaz="interactivo"] #turbo-form{position:static;max-height:none;overflow:visible}
+ .js .turbo-page[data-interfaz="interactivo"] .turbo-live-preview{grid-template-columns:minmax(0,1fr)}
+ .js .turbo-page[data-interfaz="interactivo"] .turbo-live-preview figure:last-child{grid-column:auto}
+}
+@media(max-width:420px){.js .turbo-page[data-interfaz="interactivo"] .turbo-live-metrics{grid-template-columns:minmax(0,1fr)}}
