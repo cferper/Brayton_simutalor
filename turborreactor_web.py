@@ -459,7 +459,11 @@ def svg_ts_turborreactor(estaciones):
                       f'stroke="{color}" stroke-width="2.5" stroke-dasharray="6 5" fill="none"/>')
     for p, (x,y) in zip(puntos, coords):
         label, entropia, temperatura, tipo = p
-        piezas.append(f'<circle cx="{x:.2f}" cy="{y:.2f}" r="5" fill="#133d61"/>')
+        detalle = escape(f'Estado {label} ({tipo}): T={temperatura:.5g} K; '
+                         f's={entropia:.6g} kJ/(kg·K)', quote=True)
+        piezas.append(f'<circle cx="{x:.2f}" cy="{y:.2f}" r="6" fill="#133d61" '
+                      f'data-plot-info="{detalle}" tabindex="0" role="button" '
+                      f'aria-label="{detalle}"/>')
         a_la_derecha = x < 450
         texto_x = x + 9 if a_la_derecha else x - 9
         anclaje = 'start' if a_la_derecha else 'end'

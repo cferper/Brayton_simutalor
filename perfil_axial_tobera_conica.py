@@ -4,6 +4,7 @@ No interpola ni resuelve de nuevo Mach, presión o choques normales.
 """
 
 from math import isfinite, pi, radians, sqrt, tan
+from html import escape
 
 TOLERANCIA_RELATIVA_AREAS = 2e-6
 
@@ -109,8 +110,18 @@ def svg_perfil_axial(datos, magnitud):
         coords = " ".join(f"{xplot(p['x']):.3f},{yplot(p[magnitud]):.3f}" for p in segmento)
         color = "#2563eb" if i == 0 else "#059669"
         piezas.append(f"<polyline points='{coords}' fill='none' stroke='{color}' stroke-width='2.5'/>")
-        for p in (segmento[0],segmento[-1]):
-            piezas.append(f"<circle cx='{xplot(p['x']):.3f}' cy='{yplot(p[magnitud]):.3f}' r='4' fill='{color}'/>")
+        for indice, p in enumerate(segmento):
+            etiqueta = ('Garganta' if abs(p['x']) < 1e-12 else
+                        'Salida' if abs(p['x']-L) < 1e-12 else 'Perfil calculado')
+            if datos['choque'] and abs(p['x']-datos['x_choque']) < 1e-10:
+                etiqueta = 'Choque: antes' if i == 0 else 'Choque: después'
+            unidad = '–' if magnitud == 'mach' else 'kPa'
+            detalle = escape(f"{etiqueta}: x={p['x']:.6g} m; "
+                             f"{'Mach' if magnitud == 'mach' else 'p'}="
+                             f"{p[magnitud]:.6g} {unidad}", quote=True)
+            piezas.append(f"<circle cx='{xplot(p['x']):.3f}' cy='{yplot(p[magnitud]):.3f}' "
+                          f"r='3.5' fill='{color}' data-plot-info='{detalle}' "
+                          f"tabindex='0' role='button' aria-label='{detalle}'/>")
     if datos["choque"]:
         x = xplot(datos["x_choque"])
         piezas.append(f"<line x1='{x:.3f}' x2='{x:.3f}' y1='30' y2='247' stroke='#be123c' stroke-dasharray='4 4'/>")

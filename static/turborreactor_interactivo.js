@@ -68,6 +68,94 @@
     return {mostrar,desdeNumero,desdeDeslizador};
   }
 
+  // M49.4: el zoom solo transforma la presentación SVG, nunca los datos físicos.
+  function escalaGrafica49(valor, factor) {
+    return Math.max(1,Math.min(4,Math.round(valor*factor*100)/100));
+  }
+
+  function iniciarExplorador49(documento,panel) {
+    const visor=panel.querySelector('.turbo-live-plot-viewer');
+    if(!visor || !visor.querySelector('[data-plot-action]'))return null;
+    const lectura=visor.querySelector('[data-plot-reading]');
+    const indicador=visor.querySelector('[data-plot-scale]');
+    const escalas=new Map();
+    const claveActiva=()=>visor.querySelector('[data-plot-tab][aria-selected="true"]')?.dataset.plotTab;
+    const contenedor=clave=>visor.querySelector('[data-live-plot="'+clave+'"]');
+    const grafica=()=>contenedor(claveActiva())?.querySelector('svg');
+    const informar=texto=>{lectura.textContent=texto;};
+    const aplicar=()=>{
+      const clave=claveActiva(), escala=escalas.get(clave)||1;
+      const svg=grafica();
+      if(svg){svg.style.width=(escala*100)+'%';svg.style.maxWidth='none';svg.style.maxHeight='none';}
+      indicador.textContent=Math.round(escala*100)+' %';
+      visor.querySelectorAll('[data-plot-action]').forEach(b=>b.disabled=!svg);
+    };
+    const restaurar=()=>{
+      escalas.clear();
+      visor.querySelectorAll('[data-live-plot]').forEach(e=>{e.scrollLeft=0;e.scrollTop=0;});
+      informar('Selecciona un punto marcado para consultar datos calculados.');
+      aplicar();
+    };
+    const ampliar=factor=>{
+      const clave=claveActiva(), elemento=contenedor(clave);
+      if(!elemento?.querySelector('svg'))return;
+      escalas.set(clave,escalaGrafica49(escalas.get(clave)||1,factor));
+      if(factor===0){elemento.scrollLeft=0;elemento.scrollTop=0;}
+      aplicar();
+    };
+    const descargar=(nombre,blob)=>{
+      const url=URL.createObjectURL(blob), enlace=documento.createElement('a');
+      enlace.href=url;enlace.download=nombre;documento.body.appendChild(enlace);enlace.click();enlace.remove();
+      setTimeout(()=>URL.revokeObjectURL(url),1000);
+    };
+    const exportar=async tipo=>{
+      const svg=grafica();if(!svg)return;
+      const copia=svg.cloneNode(true);
+      copia.removeAttribute('style');
+      copia.setAttribute('xmlns','http://www.w3.org/2000/svg');
+      const texto=new XMLSerializer().serializeToString(copia);
+      const nombre='brayton_'+claveActiva();
+      if(tipo==='svg'){
+        descargar(nombre+'.svg',new Blob([texto],{type:'image/svg+xml;charset=utf-8'}));
+        return;
+      }
+      // Rasterización local del mismo SVG: sin servidor ni biblioteca externa.
+      const caja=svg.viewBox.baseVal,ancho=caja.width||svg.clientWidth,alto=caja.height||svg.clientHeight;
+      const imagen=new Image(),url=URL.createObjectURL(new Blob([texto],{type:'image/svg+xml'}));
+      try{
+        await new Promise((resolve,reject)=>{imagen.onload=resolve;imagen.onerror=reject;imagen.src=url;});
+        const canvas=documento.createElement('canvas');canvas.width=ancho*2;canvas.height=alto*2;
+        const contexto=canvas.getContext('2d');if(!contexto)throw new Error('Canvas no disponible');
+        contexto.drawImage(imagen,0,0,canvas.width,canvas.height);
+        const png=await new Promise(resolve=>canvas.toBlob(resolve,'image/png'));
+        if(!png)throw new Error('No se pudo producir PNG');
+        descargar(nombre+'.png',png);
+      }catch(_error){informar('PNG no disponible en este navegador. Prueba la descarga SVG.');}
+      finally{URL.revokeObjectURL(url);}
+    };
+    visor.querySelectorAll('[data-plot-action]').forEach(b=>b.addEventListener('click',()=>{
+      const accion=b.dataset.plotAction;
+      if(accion==='in')ampliar(1.25);
+      else if(accion==='out')ampliar(.8);
+      else if(accion==='reset'){escalas.set(claveActiva(),1);ampliar(1);}
+      else exportar(accion);
+    }));
+    const punto=evento=>evento.target?.closest?.('[data-plot-info]');
+    for(const tipo of ['pointerover','focusin','click'])visor.addEventListener(tipo,evento=>{
+      const p=punto(evento);if(p)informar(p.getAttribute('data-plot-info'));
+    });
+    visor.addEventListener('keydown',evento=>{
+      if(!['Enter',' '].includes(evento.key))return;
+      const p=punto(evento);
+      if(p){evento.preventDefault();informar(p.getAttribute('data-plot-info'));}
+    });
+    visor.addEventListener('wheel',evento=>{
+      if(!evento.ctrlKey || !grafica())return;
+      evento.preventDefault();ampliar(evento.deltaY<0?1.25:.8);
+    },{passive:false});
+    return {aplicar,restaurar};
+  }
+
   function inicializar48(documento, fetcher) {
     const formulario=documento.getElementById('turbo-form');
     const panel=documento.getElementById('turbo-live');
@@ -96,6 +184,7 @@
       avanzado.textContent=abierto?'Ocultar configuración avanzada ▴':'Configuración avanzada ▾';
     });
     const pestañas=[...panel.querySelectorAll('[data-plot-tab]')];
+    const explorador=banco?iniciarExplorador49(documento,panel):null;
     const activarGrafica=(clave)=>{
       pestañas.forEach(b=>{
         const activo=b.dataset.plotTab===clave;
@@ -105,6 +194,7 @@
       panel.querySelectorAll('[data-plot-panel]').forEach(p=>{
         p.hidden=p.dataset.plotPanel!==clave;
       });
+      explorador?.aplicar();
     };
     pestañas.forEach((b,i)=>{
       b.addEventListener('click',()=>activarGrafica(b.dataset.plotTab));
@@ -136,6 +226,7 @@
       panel.querySelectorAll('[data-live-plot]').forEach(item=>{
         item.replaceChildren(documento.createTextNode(contenido));
       });
+      explorador?.restaurar();
     };
     const paneles=['resultados','estaciones','graficas'];
     const marcarPaneles=(mensaje)=>{
@@ -233,6 +324,7 @@
         dibujar('presion',svg.svg_presion_axial||svg.svg_presion_perfil_tobera||svg.svg_presion_tobera);
         dibujar('geometria',svg.svg_geometria_conica);
         reconciliarPestañas();
+        explorador?.restaurar();
       },
       onError:error=>{
         const fuera=Boolean(error.fueraMapa);
@@ -294,7 +386,7 @@
   }
 
   if(typeof module!=='undefined'&&module.exports){
-    module.exports={crearControlador48,acoplarControl48,inicializar48};
+    module.exports={crearControlador48,acoplarControl48,escalaGrafica49,inicializar48};
   }
   if(typeof document!=='undefined'){
     document.addEventListener('DOMContentLoaded',()=>inicializar48(document,fetch));

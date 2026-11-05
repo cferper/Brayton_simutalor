@@ -4393,7 +4393,29 @@ específico [N/(kg/s)]. Las verificaciones de interfaz no validan el modelo
 frente a ensayos reales. Referencias: [técnico 49.3](docs/milestones/49_3_interfaz_definitiva_banco.md)
 y [aprendizaje 49.3](docs/milestones/49_3_interfaz_definitiva_banco_APRENDIZAJE.md).
 
+### 4.100 — Milestone 49.4: exploración de SVG científicos
+
+**PROGRAMACIÓN.** `iniciarExplorador49` en
+`static/turborreactor_interactivo.js` amplía las representaciones existentes
+en el navegador (100–400 %, por pestaña, botones y Ctrl+rueda); conserva una
+única API y el controlador del 48. Un cálculo nuevo limpia las escalas previas.
+Los SVG son autocontenidos, descargables como SVG original y, si lo permite
+Canvas, como PNG a doble resolución. Los marcadores `data-plot-info` son
+consultables con cursor, toque y teclado. No se introduce ningún solucionador.
+
+**INGENIERÍA.** Los marcadores T–s son estaciones discretas, no trayectorias
+continuas. Los puntos de Mach y presión proceden de los perfiles axiales ya
+calculados; ante choque normal, los estados anterior y posterior conservan
+la misma x y permanecen en dos ramas independientes. La geometría cónica
+mantiene escala uniforme y expone garganta/salida con radios y diámetros.
+Las gráficas no disponibles no reciben datos inventados.
+
+Consulta [documentación técnica 49.4](docs/milestones/49_4_graficas_tecnicas_interactivas.md)
+y [aprendizaje 49.4](docs/milestones/49_4_graficas_tecnicas_interactivas_APRENDIZAJE.md).
+
 ## Evolution of the project
+
+- **Milestone 49.4: exploración y exportación de gráficos (sin commit).** Zoom independiente, marcadores con valores del cálculo y descargas SVG/PNG desde el mismo SVG. [Técnico](docs/milestones/49_4_graficas_tecnicas_interactivas.md) y [aprendizaje](docs/milestones/49_4_graficas_tecnicas_interactivas_APRENDIZAJE.md).
 
 - **Milestone 49.3: modalidades visibles y visor de gráficos (pendiente de commit).** Tres botones reutilizan el selector A/B/C; configuración avanzada contextual, pestañas para los SVG existentes y disponibilidad de tarjetas sin falsos ceros. [Técnico](docs/milestones/49_3_interfaz_definitiva_banco.md) y [aprendizaje](docs/milestones/49_3_interfaz_definitiva_banco_APRENDIZAJE.md).
 - **Milestone 49.2: banco interactivo en dos zonas.** CSS Grid reúne los controles Mach/T3 y modalidad junto a tarjetas y SVG reactivos; diseño adaptable sin nuevas entradas físicas ni duplicar la API. [Técnico](docs/milestones/49_2_rediseño_banco_interactivo.md) y [aprendizaje](docs/milestones/49_2_rediseño_banco_interactivo_APRENDIZAJE.md).

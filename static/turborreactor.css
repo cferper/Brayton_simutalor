@@ -168,6 +168,15 @@
 .js .turbo-page[data-interfaz="interactivo"] .turbo-live-preview{display:block}
 .js .turbo-page[data-interfaz="interactivo"] .turbo-live-preview figure{width:100%;margin:0;max-width:100%}
 .js .turbo-page[data-interfaz="interactivo"] .turbo-live-preview svg{max-height:480px}
+.js .turbo-page[data-interfaz="interactivo"] [data-live-plot]{overflow:auto;max-height:520px;touch-action:pan-x pan-y;overscroll-behavior:contain}
+.js .turbo-page[data-interfaz="interactivo"] [data-live-plot] svg{display:block;width:100%;height:auto;max-width:none}
+.js .turbo-page[data-interfaz="interactivo"] [data-plot-info]{cursor:crosshair;outline-offset:3px}
+.js .turbo-page[data-interfaz="interactivo"] [data-plot-info]:focus{outline:3px solid #f59e0b}
+.turbo-plot-tools{display:flex;align-items:center;flex-wrap:wrap;gap:7px;margin:5px 0 7px}
+.turbo-plot-tools button{background:#fff;color:#174a70;border:1px solid #bbcede;border-radius:6px;padding:7px 10px;font-size:12px}
+.turbo-plot-tools button:disabled{opacity:.5;cursor:not-allowed}
+.turbo-plot-tools [data-plot-scale]{font-size:12px;color:#42566c;min-width:44px;text-align:center}
+.turbo-plot-reading{background:#eef5fa;border-left:3px solid #2563a6;padding:7px 11px;color:#1e4059;font-size:12px;min-height:33px;margin:5px 0}
 .turbo-live-details{margin:8px 0 0;font-size:12px;color:#52677e}
 .turbo-live-details summary{padding:7px 0}
 .turbo-live-details p{margin:5px 0}
