@@ -177,6 +177,33 @@
 .turbo-plot-tools button:disabled{opacity:.5;cursor:not-allowed}
 .turbo-plot-tools [data-plot-scale]{font-size:12px;color:#42566c;min-width:44px;text-align:center}
 .turbo-plot-reading{background:#eef5fa;border-left:3px solid #2563a6;padding:7px 11px;color:#1e4059;font-size:12px;min-height:33px;margin:5px 0}
+
+/* M49.5: vistas alternativas, sin añadir altura al banco de punto motor. */
+.turbo-study49-nav{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0}
+.turbo-study49-nav button{padding:10px 16px;border:1px solid #b7ccdf;border-radius:8px;background:white;color:#174a70;font-weight:700}
+.turbo-study49-nav button[aria-pressed="true"]{background:#1b5c89;color:white}
+.turbo-study49[hidden],.study49-fieldset[hidden]{display:none!important}
+.js .turbo-page[data-interfaz="interactivo"] #configuracion[hidden]{display:none!important}
+.turbo-study49-grid{display:grid;grid-template-columns:minmax(230px,.7fr) minmax(0,1.7fr);gap:15px;align-items:start}
+.turbo-study49-grid .card{margin:0;min-width:0}
+#turbo-study49-form{display:grid;gap:10px}
+#turbo-study49-form select,#turbo-study49-form input,.turbo-study49-options select{width:100%;max-width:100%;min-width:0;padding:8px;border:1px solid #bdcedd;border-radius:5px}
+.study49-fieldset{border:1px solid #c8d7e5;border-radius:7px;padding:10px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.study49-fieldset legend{font-size:13px;color:#1a557f;font-weight:700}
+.study49-fieldset label{font-size:12px;color:#486278}
+#study49-run{border:0;border-radius:7px;background:#165b8e;color:#fff;padding:10px 12px;font-weight:700}
+#study49-cancel{background:#fff;border:1px solid #d79c9c;color:#942b2b;padding:8px}
+#study49-status{font-size:12px;color:#425d76}
+.turbo-study49-options{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+.turbo-study49-options select{flex:1;max-width:250px}
+.turbo-study49-options button{border:1px solid #bbcde0;background:white;color:#174a70;padding:7px;border-radius:6px}
+.turbo-study49-chart{width:100%;max-height:520px;min-height:220px;overflow:auto;touch-action:pan-x pan-y;border:1px solid #dce7ef;border-radius:6px}
+.turbo-study49-chart svg{display:block;width:100%;height:auto;max-width:none}
+.turbo-study49-chart [data-study49-info]{cursor:crosshair}
+.turbo-study49-chart [data-study49-info]:focus{outline:2px solid #e59b24}
+#study49-summary{font-size:12px;margin-top:9px;color:#435c73}
+@media(max-width:950px){.turbo-study49-grid{grid-template-columns:minmax(0,1fr)}}
+@media(max-width:580px){.study49-fieldset{grid-template-columns:1fr}.turbo-study49-options{align-items:stretch}}
 .turbo-live-details{margin:8px 0 0;font-size:12px;color:#52677e}
 .turbo-live-details summary{padding:7px 0}
 .turbo-live-details p{margin:5px 0}

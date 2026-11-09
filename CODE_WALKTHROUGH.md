@@ -4413,11 +4413,74 @@ Las gráficas no disponibles no reciben datos inventados.
 Consulta [documentación técnica 49.4](docs/milestones/49_4_graficas_tecnicas_interactivas.md)
 y [aprendizaje 49.4](docs/milestones/49_4_graficas_tecnicas_interactivas_APRENDIZAJE.md).
 
+### 4.101 — Milestone 49.5: estudios paramétricos interactivos del turborreactor
+
+**PYTHON — orquestación sin nuevo modelo físico.** El módulo
+`estudios_parametricos_49_5.py` importa `simular_turborreactor` de
+`turborreactor_web.py`. `configurar_estudio_49_5(configuracion, modo)` recibe
+un `dict` JSON y el modo `str` A/B/C; valida ejes crecientes y tamaños y
+retorna `{tipo,x,y,eje_x,eje_y}`; si hay error lanza `ValueError`. Mach queda
+entre 0 y 0,95 y T3 entre 200 y 2000 K. En A/B se admiten hasta 21 puntos
+por curva y 11×11 por mapa; en C, 9 y 6×6 respectivamente. Son límites de
+interfaz y coste, no límites de funcionamiento certificado.
+
+`calcular_estudio_49_5(valores, configuracion)` recibe parámetros del
+formulario `dict[str,str]` y la configuración validable; devuelve un objeto
+con `puntos`, `ejes`, `constantes`, `unidades`, `modo`, `tipo` y `resumen` de
+tiempos y validez. Cada muestra crea `parametros=dict(valores)` para no mutar
+las constantes y llama una vez a `simular_turborreactor(parametros)`; usa la
+prestación específica `Fs`, el empuje absoluto cuando existe caudal, y TSFC
+únicamente si su valor es finito y el empuje específico es positivo. Clases
+`valido`, `fuera_dominio`, `fallo_numerico` y `sin_solucion` se distinguen por
+excepciones; `no_calculado` es la inicialización previa a evaluar la celda.
+Ninguna falta de resultado se convierte en cero. Por ejemplo, el barrido
+Mach 0, 0,3 y 0,6 utiliza idéntico T3 y parámetros de núcleo en las tres
+llamadas; las tres prestaciones deben coincidir con simular esas mismas
+entradas una por una.
+
+**FLASK — nuevo punto de entrada.** La función
+`api_estudio_parametrico_49_5()` no recibe argumentos explícitos: Flask
+lee `request.get_json()`, exige dos objetos (`parametros` y `estudio`),
+acepta únicamente los campos existentes del formulario y retorna JSON 200
+con malla estructurada o HTTP 400 por errores de configuración. La ruta es
+`POST /api/turborreactor/estudio` y no modifica
+`POST /api/turborreactor/simular`, las vistas clásicas ni los modelos.
+
+**JAVASCRIPT — visualización sin nuevas ecuaciones.** El archivo
+`static/estudios_parametricos_49_5.js` contiene `iniciar49(doc, fetcher)`
+(montaje de interfaz; devuelve controlador de exportación),
+`colorMapa49(valor,min,max)` (devuelve color HSL calculado visualmente) y
+`csv49(datos)` (devuelve texto CSV con constantes, unidades, puntos y estados).
+El botón «Calcular estudio» crea un objeto desde dos `FormData` y realiza una
+petición JSON; `AbortController` y el contador `version` descartan solicitudes
+obsoletas. El SVG se genera mediante `document.createElementNS`, con rectas
+entre muestras contiguas válidas o celdas independientes sin interpolación.
+Las curvas comparables guardadas temporalmente conservan su modo y constantes
+y comparten magnitud y unidades. Zoom, consulta de puntos y exportación
+SVG/PNG/CSV no requieren ejecutar otra vez el solucionador. Una cancelación
+en el navegador no implica cancelar la CPU que ya trabaja en Flask.
+
+**INTERPRETACIÓN FÍSICA / INGENIERÍA.** El Mach modifica velocidad de vuelo y
+estados de remanso, por lo que el empuje neto debe recalcularse, no suponerse
+monótono. T3 [K] es temperatura **total de entrada a turbina**, nunca salida.
+El modo A conserva un gasto de aire prescrito; B determina el gasto desde la
+geometría; C resuelve mapas y equilibrio monoeje por muestra. `F` [N] y `Fs`
+[N/(kg/s)] no se mezclan. El mapa Mach–T3 de celdas discretas muestra en gris
+la ausencia física o numérica; no interpola áreas sin solución. El TSFC
+[kg/(N·h)] es inválido para empuje no positivo. Las pruebas son **verificación
+de software**, no validación experimental.
+
+Las referencias son [técnica 49.5](docs/milestones/49_5_estudios_parametricos_interactivos.md)
+y [aprendizaje 49.5](docs/milestones/49_5_estudios_parametricos_interactivos_APRENDIZAJE.md).
+
 ## Evolution of the project
 
-- **Milestone 49.4: exploración y exportación de gráficos (sin commit).** Zoom independiente, marcadores con valores del cálculo y descargas SVG/PNG desde el mismo SVG. [Técnico](docs/milestones/49_4_graficas_tecnicas_interactivas.md) y [aprendizaje](docs/milestones/49_4_graficas_tecnicas_interactivas_APRENDIZAJE.md).
+- **Milestone 49.5: estudios paramétricos interactivos (pendiente de commit).** Barridos Mach/T3, mapa discreto de prestaciones, estados sin solución y comparaciones con el mismo solucionador físico A/B/C; Python agrega muestras, JS las representa y exporta. [Técnico](docs/milestones/49_5_estudios_parametricos_interactivos.md) y [aprendizaje](docs/milestones/49_5_estudios_parametricos_interactivos_APRENDIZAJE.md).
 
-- **Milestone 49.3: modalidades visibles y visor de gráficos (pendiente de commit).** Tres botones reutilizan el selector A/B/C; configuración avanzada contextual, pestañas para los SVG existentes y disponibilidad de tarjetas sin falsos ceros. [Técnico](docs/milestones/49_3_interfaz_definitiva_banco.md) y [aprendizaje](docs/milestones/49_3_interfaz_definitiva_banco_APRENDIZAJE.md).
+
+- **Milestone 49.4: exploración y exportación de gráficos (commit `fa81eef`).** Zoom independiente, marcadores con valores del cálculo y descargas SVG/PNG desde el mismo SVG. [Técnico](docs/milestones/49_4_graficas_tecnicas_interactivas.md) y [aprendizaje](docs/milestones/49_4_graficas_tecnicas_interactivas_APRENDIZAJE.md).
+
+- **Milestone 49.3: modalidades visibles y visor de gráficos (commit `ca8d055`).** Tres botones reutilizan el selector A/B/C; configuración avanzada contextual, pestañas para los SVG existentes y disponibilidad de tarjetas sin falsos ceros. [Técnico](docs/milestones/49_3_interfaz_definitiva_banco.md) y [aprendizaje](docs/milestones/49_3_interfaz_definitiva_banco_APRENDIZAJE.md).
 - **Milestone 49.2: banco interactivo en dos zonas.** CSS Grid reúne los controles Mach/T3 y modalidad junto a tarjetas y SVG reactivos; diseño adaptable sin nuevas entradas físicas ni duplicar la API. [Técnico](docs/milestones/49_2_rediseño_banco_interactivo.md) y [aprendizaje](docs/milestones/49_2_rediseño_banco_interactivo_APRENDIZAJE.md).
 - **Milestone 49.1: tres interfaces y navegación compartida.** El banco interactivo es la portada, el clásico conserva todas sus secciones y Brayton mantiene su formulario en `/brayton`. Las dos vistas de turborreactor comparten un único controlador Flask, plantilla, lógica JS y solucionadores. [Técnico](docs/milestones/49_1_separacion_interfaces.md) y [aprendizaje](docs/milestones/49_1_separacion_interfaces_APRENDIZAJE.md).
 - **Milestone 48.3: cierre focalizado de la etapa interactiva (pendiente de commit).** Protección del POST manual frente a peticiones tardías, pruebas de cancelación e invalidación y comprobación del flujo físico único; pendiente de pruebas HTTP/visuales en Windows. [Técnico](docs/milestones/48_3_cierre_primera_etapa_interactiva.md) y [aprendizaje](docs/milestones/48_3_cierre_primera_etapa_interactiva_APRENDIZAJE.md).

@@ -18,6 +18,7 @@ from turborreactor_web import (GRUPOS_TURBO, EJEMPLOS_TURBO,
     valores_turborreactor, simular_turborreactor, preparar_vista_turborreactor)
 from prestaciones_turborreactor_web import (PARAMETROS_OFAT, ESTADOS_WEB,
     valores_estudios, preparar_estudio)
+from estudios_parametricos_49_5 import calcular_estudio_49_5
 
 
 app = Flask(__name__)
@@ -111,6 +112,24 @@ def api_turborreactor_simular():
         mensaje=str(exc) if isinstance(exc,ValueError) else "Cálculo físicamente inadmisible."
     return _respuesta_json_api({"ok":False,"error":{"tipo":"simulacion",
                               "mensaje":mensaje},"modo":valores.get("modo_caudal")},422)
+
+
+@app.route("/api/turborreactor/estudio", methods=["POST"])
+def api_estudio_parametrico_49_5():
+    """Barrido manual M49.5; independiente de la petición del punto motor."""
+    carga = request.get_json(silent=True) if request.is_json else None
+    if not isinstance(carga, dict) or set(carga) != {"parametros", "estudio"}:
+        return _respuesta_json_api({"ok": False, "error": "Se necesitan parametros y estudio JSON."}, 400)
+    entradas, configuracion = carga["parametros"], carga["estudio"]
+    if (not isinstance(entradas, dict) or
+            any(k not in valores_turborreactor() or not isinstance(v, str)
+                for k, v in entradas.items())):
+        return _respuesta_json_api({"ok": False, "error": "Parámetros del motor inválidos."}, 400)
+    try:
+        datos = calcular_estudio_49_5(valores_turborreactor(entradas), configuracion)
+    except ValueError as exc:
+        return _respuesta_json_api({"ok": False, "error": str(exc)}, 400)
+    return _respuesta_json_api({"ok": True, "estudio": datos})
 
 
 @app.route("/turborreactor", methods=["GET", "POST"])
