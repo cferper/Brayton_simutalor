@@ -73,6 +73,15 @@
     return Math.max(1,Math.min(4,Math.round(valor*factor*100)/100));
   }
 
+  function aplicarGeometriaDiseno49(garganta,salida,datos) {
+    const ag=datos?.area_garganta_m2,ae=datos?.area_salida_m2;
+    if(!Number.isFinite(ag)||!Number.isFinite(ae)||ag<=0||ae<ag)
+      throw new Error('La referencia de diseño contiene áreas inválidas.');
+    garganta.value=String(ag);
+    salida.value=String(ae);
+    return {ag,ae};
+  }
+
   function iniciarExplorador49(documento,panel) {
     const visor=panel.querySelector('.turbo-live-plot-viewer');
     if(!visor || !visor.querySelector('[data-plot-action]'))return null;
@@ -184,6 +193,8 @@
       avanzado.textContent=abierto?'Ocultar configuración avanzada ▴':'Configuración avanzada ▾';
     });
     const pestañas=[...panel.querySelectorAll('[data-plot-tab]')];
+    const grupos=[...panel.querySelectorAll('[data-plot-group-button]')];
+    let grupoActivo='ciclo';
     const explorador=banco?iniciarExplorador49(documento,panel):null;
     const activarGrafica=(clave)=>{
       pestañas.forEach(b=>{
@@ -209,6 +220,23 @@
         visibles[siguiente].focus();
       });
     });
+    const reconciliarPestañas=()=>{
+      const actual=pestañas.find(b=>b.getAttribute('aria-selected')==='true');
+      if(actual&&!actual.hidden)return;
+      const primera=pestañas.find(b=>!b.hidden);
+      if(primera)activarGrafica(primera.dataset.plotTab);
+    };
+    const seleccionarGrupo=(grupo)=>{
+      grupoActivo=grupo;
+      grupos.forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.plotGroupButton===grupo)));
+      pestañas.forEach(b=>{b.hidden=b.dataset.plotGroup!==grupo||b.dataset.available==='false';});
+      reconciliarPestañas();
+    };
+    grupos.forEach(b=>b.addEventListener('click',()=>{
+      if(b.dataset.plotGroupButton==='estudios'){
+        documento.querySelector('[data-study49-view="estudios"]')?.click();
+      }else seleccionarGrupo(b.dataset.plotGroupButton);
+    }));
     if(pestañas.length)activarGrafica('ts');
     const estudioDesactualizado=()=>documento.querySelectorAll('.turbo-study-stale').forEach(aviso=>{
       aviso.hidden=false;
@@ -246,13 +274,10 @@
       if(disponible)destino.innerHTML=svg;
       else destino.textContent='Gráfica no disponible para este punto.';
       const pestaña=panel.querySelector('[data-plot-tab="'+panelClave+'"]');
-      if(pestaña)pestaña.hidden=!disponible;
-    };
-    const reconciliarPestañas=()=>{
-      const actual=pestañas.find(b=>b.getAttribute('aria-selected')==='true');
-      if(actual&&!actual.hidden)return;
-      const primera=pestañas.find(b=>!b.hidden);
-      if(primera)activarGrafica(primera.dataset.plotTab);
+      if(pestaña){
+        pestaña.dataset.available=String(disponible);
+        pestaña.hidden=!disponible||(banco&&pestaña.dataset.plotGroup!==grupoActivo);
+      }
     };
     const controlador=crearControlador48({
       solicitar:async signal=>{
@@ -323,6 +348,17 @@
         dibujar('mach',svg.svg_mach_axial||svg.svg_mach_perfil_tobera||svg.svg_mach_tobera);
         dibujar('presion',svg.svg_presion_axial||svg.svg_presion_perfil_tobera||svg.svg_presion_tobera);
         dibujar('geometria',svg.svg_geometria_conica);
+        if(banco){
+          dibujar('temperaturas',svg.svg_temperaturas);
+          dibujar('presiones',svg.svg_presiones);
+          dibujar('trabajos',svg.svg_trabajos_motor);
+          dibujar('balance',svg.svg_balance_energetico);
+          dibujar('temperatura_tobera',svg.svg_temperatura_axial);
+          dibujar('velocidad_tobera',svg.svg_velocidad_axial);
+          dibujar('empuje',svg.svg_empuje);
+          dibujar('empuje_absoluto',svg.svg_empuje_absoluto);
+          dibujar('velocidades',svg.svg_velocidades_extremos);
+        }
         reconciliarPestañas();
         explorador?.restaurar();
       },
@@ -336,6 +372,38 @@
         const badge=documento.querySelector('#resultados .badge');
         if(badge)badge.textContent=mensaje;
       }
+    });
+
+    const botonGeometria=documento.getElementById('turbo-reset-design-geometry');
+    const estadoGeometria=documento.getElementById('turbo-design-geometry-status');
+    botonGeometria?.addEventListener('click',async()=>{
+      const garganta=formulario.elements.area_garganta_fija;
+      const salida=formulario.elements.area_salida_fija;
+      if(!banco||selectorModo.value!=='acoplado'||!garganta||!salida)return;
+      const anteriores=[garganta.value,salida.value];
+      botonGeometria.disabled=true;
+      estadoGeometria.textContent='Consultando las áreas del punto de diseño del modelo…';
+      try{
+        const respuesta=await fetcher('/api/turborreactor/geometria-diseno',{
+          headers:{'Accept':'application/json'}
+        });
+        const datos=await respuesta.json();
+        if(!respuesta.ok||datos.ok!==true)throw new Error(datos.error||'Referencia no disponible.');
+        if(selectorModo.value!=='acoplado'||garganta.value!==anteriores[0]||
+           salida.value!==anteriores[1]){
+          estadoGeometria.textContent='Se modificaron los controles durante la consulta; no se han sustituido los valores.';
+          return;
+        }
+        const {ag,ae}=aplicarGeometriaDiseno49(garganta,salida,datos);
+        garganta.dispatchEvent(new Event('input',{bubbles:true}));
+        salida.dispatchEvent(new Event('input',{bubbles:true}));
+        estadoGeometria.textContent='Referencia aplicada: Ag = '+ag.toPrecision(11)+
+          ' m²; Ae = '+ae.toPrecision(11)+' m² (Ae/Ag = '+(ae/ag).toPrecision(5)+
+          '). Referencia convergente, no C-D optimizada. Puedes editar ambas áreas.';
+        controlador.cambiar();
+      }catch(error){
+        estadoGeometria.textContent='No se han cambiado las áreas: '+(error.message||'consulta fallida');
+      }finally{botonGeometria.disabled=false;}
     });
 
     [['mach','–'],['T3','K']].forEach(([id,unidad])=>{
@@ -386,7 +454,8 @@
   }
 
   if(typeof module!=='undefined'&&module.exports){
-    module.exports={crearControlador48,acoplarControl48,escalaGrafica49,inicializar48};
+    module.exports={crearControlador48,acoplarControl48,escalaGrafica49,
+                    aplicarGeometriaDiseno49,inicializar48};
   }
   if(typeof document!=='undefined'){
     document.addEventListener('DOMContentLoaded',()=>inicializar48(document,fetch));

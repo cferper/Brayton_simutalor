@@ -4473,9 +4473,79 @@ de software**, no validación experimental.
 Las referencias son [técnica 49.5](docs/milestones/49_5_estudios_parametricos_interactivos.md)
 y [aprendizaje 49.5](docs/milestones/49_5_estudios_parametricos_interactivos_APRENDIZAJE.md).
 
+### 4.102 — Milestone 49.6: ampliación gráfica del banco interactivo
+
+**PYTHON — reutilización de magnitudes.** `preparar_vista_turborreactor(resultado)`
+continúa devolviendo el mismo objeto de presentación y añade los SVG
+`svg_trabajos_motor`, `svg_velocidades_extremos`, `svg_temperatura_axial` y
+`svg_velocidad_axial`.
+`svg_trabajos_motor(datos)` recibe el balance **existente**, `dict` con
+`compresor`, `turbina` y `eje_util` [kJ/kg aire], y devuelve un SVG o `None`
+si la entrada es inválida. No resta trabajos como si hubiera potencia neta de
+eje destinada al exterior. `svg_perfil_axial(datos, magnitud)` recibe los
+segmentos de estado y geometría ya calculados; acepta ahora `temperatura`
+estática [K] y `velocidad` local [m/s], además de Mach y presión estática.
+El choque normal mantiene dos ramas sin enlace artificial. Las temperaturas
+y presiones totales por estación, el balance energético y la descomposición
+de empuje se incorporan al visor desde sus SVG **ya existentes**.
+
+**HTML/CSS — familias del visor.** Solo cuando `interfaz=='interactivo'` la
+plantilla añade categorías Ciclo, Tobera, Prestaciones y Estudios, y las
+pestañas/figuras nuevas. El modo clásico conserva su selección original.
+CSS distingue familia seleccionada sin añadir librerías.
+La regla que oculta las secciones clásicas excluye tanto `#configuracion`
+como `#estudio49`: el controlador 49.5 alterna sus atributos `hidden` y
+`aria-pressed`. Una regla `display:none!important` sobre Estudios impediría
+mostrarlo aunque JavaScript retirase `hidden`.
+
+**JAVASCRIPT — actualización única.** `inicializar48(documento, fetcher)`
+conserva la petición única `POST /api/turborreactor/simular`, conecta los
+SVG nuevos con `dibujar`, marca cada pestaña según disponibilidad, muestra
+solo las de la familia activa y reutiliza la exploración 49.4. El acceso
+a Estudios abre el panel 49.5, sin lanzar una simulación por cambiar de
+categoría. La presión total axial **no** se grafica: el contrato actual del
+perfil carece de una serie explícita de esa magnitud.
+
+**Diagnóstico del modo C.** `_simular_motor_acoplado_web(valores)` conserva
+la llamada a `resolver_motor_acoplado`. Cuando éste informa falta de descenso,
+Jacobiano no construible o agotamiento de iteraciones, el adaptador lanza
+`ValueError` con un mensaje de equilibrio numérico no verificado. Flask devuelve
+422 sin magnitudes; no se afirma inviabilidad física a partir de ese fallo.
+La geometría fija sigue siendo una entrada del motor acoplado: Mach y T3 por
+sí solos no determinan el caso. No se cambian mapas, tolerancias ni ecuaciones.
+
+**Restauración explícita de geometría C (iteración 49.6).** La función Flask
+`api_geometria_diseno_c()` recibe una petición GET sin parámetros y devuelve
+un JSON con `ok`, `area_garganta_m2`, `area_salida_m2`, `origen` y
+`tipo_referencia`. Llama a `punto_diseno_47()` (del módulo M47), que a su vez
+calibra los mapas y obtiene las áreas de `dimensionar_tobera()`. No calcula
+un nuevo punto fuera de diseño ni depende de Mach/T3 actual. La referencia
+vigente es convergente, con Ag = Ae = 0,04734811643457149 m²: **no** equivale a
+una geometría C-D optimizada. Incluso si el selector conserva C-D, el botón
+aplica ese par convergente y el mensaje lo identifica como tal; el usuario
+puede editar Ae para estudiar una divergente. La API no altera el estado físico del motor.
+En JavaScript, `aplicarGeometriaDiseno49(garganta, salida, datos)` recibe dos
+elementos `<input>` y el objeto JSON, valida finitud y Ag > 0, Ae ≥ Ag,
+escribe solo las dos áreas y devuelve `{ag, ae}` [m²]; lanza `Error` si el
+contrato no es válido. `inicializar48` únicamente invoca esta función tras
+el clic en «Restablecer geometría de diseño», si el modo sigue siendo C y
+las áreas no cambiaron durante la espera. Los eventos `input` invalidan la
+presentación anterior y una sola llamada a `controlador.cambiar()` solicita
+el nuevo caso a `/api/turborreactor/simular`; no se crea otro solucionador.
+Las áreas editadas manualmente permanecen admisibles. Cambiar a C por sí
+solo **nunca** modifica las áreas introducidas.
+
+**INGENIERÍA.** Distinguir totales de remanso frente a estáticos de tobera,
+trabajo específico frente a empuje, bases másicas comunes y las dos ramas
+del choque normal es esencial para no atribuir al modelo información no
+resuelta. Detalles y pruebas en [documentación técnica](docs/milestones/49_6_ampliacion_graficas_motor.md)
+y [aprendizaje](docs/milestones/49_6_ampliacion_graficas_motor_APRENDIZAJE.md).
+
 ## Evolution of the project
 
-- **Milestone 49.5: estudios paramétricos interactivos (pendiente de commit).** Barridos Mach/T3, mapa discreto de prestaciones, estados sin solución y comparaciones con el mismo solucionador físico A/B/C; Python agrega muestras, JS las representa y exporta. [Técnico](docs/milestones/49_5_estudios_parametricos_interactivos.md) y [aprendizaje](docs/milestones/49_5_estudios_parametricos_interactivos_APRENDIZAJE.md).
+- **Milestone 49.6: gráficas del motor y referencia de geometría C.** Familias de ciclo, tobera y prestaciones; SVG de magnitudes calculadas y perfiles con choque discontinuo. El botón de C consulta el diseño M47 existente, cuya referencia es convergente (Ag = Ae), informa esa limitación aunque el usuario tenga seleccionado C-D y permite editar después las áreas; no crea una geometría C-D óptima ni modifica solucionadores. [Técnico](docs/milestones/49_6_ampliacion_graficas_motor.md) y [aprendizaje](docs/milestones/49_6_ampliacion_graficas_motor_APRENDIZAJE.md).
+
+- **Milestone 49.5: estudios paramétricos interactivos (commit `c731375`).** Barridos Mach/T3, mapa discreto de prestaciones, estados sin solución y comparaciones con el mismo solucionador físico A/B/C; Python agrega muestras, JS las representa y exporta. [Técnico](docs/milestones/49_5_estudios_parametricos_interactivos.md) y [aprendizaje](docs/milestones/49_5_estudios_parametricos_interactivos_APRENDIZAJE.md).
 
 
 - **Milestone 49.4: exploración y exportación de gráficos (commit `fa81eef`).** Zoom independiente, marcadores con valores del cálculo y descargas SVG/PNG desde el mismo SVG. [Técnico](docs/milestones/49_4_graficas_tecnicas_interactivas.md) y [aprendizaje](docs/milestones/49_4_graficas_tecnicas_interactivas_APRENDIZAJE.md).

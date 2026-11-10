@@ -71,8 +71,8 @@ def proyectar_perfil_axial(perfil, geometria):
 
 
 def svg_perfil_axial(datos, magnitud):
-    """SVG de Mach o presión frente a x [m]; choque sin unión ficticia."""
-    if magnitud not in ("mach", "presion"):
+    """SVG de estados estáticos o cinemáticos calculados, sin unir choques."""
+    if magnitud not in ("mach", "presion", "temperatura", "velocidad"):
         raise ValueError("Magnitud axial desconocida.")
     if not datos or not datos.get("disponible"):
         return None
@@ -80,15 +80,20 @@ def svg_perfil_axial(datos, magnitud):
     valores = [p[magnitud] for s in segmentos for p in s]
     if not valores:
         return None
-    ref = 1. if magnitud == "mach" else datos["p_ambiente"]
-    vmax = max(max(valores), ref)*1.18
+    ref, ref_nombre = ((1., "Referencia M = 1") if magnitud == "mach" else
+                       (datos["p_ambiente"], "p ambiente") if magnitud == "presion" else
+                       (None, None))
+    vmax = max(max(valores), ref if ref is not None else 0)*1.18
+    if vmax <= 0:
+        return None
     L = datos["longitud_divergente"]
     xplot = lambda x: 78+608*x/L
     yplot = lambda y: 247-207*y/vmax
-    titulo = "Número de Mach [–]" if magnitud == "mach" else "Presión estática [kPa]"
+    titulos = {"mach": "Número de Mach [–]", "presion": "Presión estática [kPa]",
+               "temperatura": "Temperatura estática [K]", "velocidad": "Velocidad local [m/s]"}
+    titulo = titulos[magnitud]
     piezas = ["<rect width='760' height='335' fill='#f8fafc'/>",
               "<path d='M78 26 V247 H692' fill='none' stroke='#64748b'/>",
-              f"<line x1='78' y1='{yplot(ref):.3f}' x2='692' y2='{yplot(ref):.3f}' stroke='#d97706' stroke-dasharray='6 5'/>",
               f"<text x='78' y='18' font-size='14' fill='#1e293b'>{titulo}</text>",
               "<text x='78' y='267' font-size='12' fill='#334155'>Garganta: 0 m</text>",
               f"<text x='690' y='267' text-anchor='end' font-size='12' fill='#334155'>Salida: {L:.5g} m</text>",
@@ -102,8 +107,9 @@ def svg_perfil_axial(datos, magnitud):
         x = xplot(i*L/4)
         piezas.append(f"<line x1='{x:.3f}' y1='247' x2='{x:.3f}' y2='253' stroke='#64748b'/>")
         piezas.append(f"<text x='{x:.3f}' y='283' text-anchor='middle' font-size='11' fill='#334155'>{i*L/4:.3g}</text>")
-    ref_nombre = "Referencia M = 1" if magnitud == "mach" else "p ambiente"
-    piezas.append(f"<text x='684' y='{max(37,yplot(ref)-8):.3f}' text-anchor='end' font-size='12' fill='#92400e'>{ref_nombre}: {ref:.4g}</text>")
+    if ref is not None:
+        piezas.append(f"<line x1='78' y1='{yplot(ref):.3f}' x2='692' y2='{yplot(ref):.3f}' stroke='#d97706' stroke-dasharray='6 5'/>")
+        piezas.append(f"<text x='684' y='{max(37,yplot(ref)-8):.3f}' text-anchor='end' font-size='12' fill='#92400e'>{ref_nombre}: {ref:.4g}</text>")
     for i, segmento in enumerate(segmentos):
         if not segmento:
             continue
@@ -115,9 +121,9 @@ def svg_perfil_axial(datos, magnitud):
                         'Salida' if abs(p['x']-L) < 1e-12 else 'Perfil calculado')
             if datos['choque'] and abs(p['x']-datos['x_choque']) < 1e-10:
                 etiqueta = 'Choque: antes' if i == 0 else 'Choque: después'
-            unidad = '–' if magnitud == 'mach' else 'kPa'
+            unidad = {'mach':'–','presion':'kPa','temperatura':'K','velocidad':'m/s'}[magnitud]
             detalle = escape(f"{etiqueta}: x={p['x']:.6g} m; "
-                             f"{'Mach' if magnitud == 'mach' else 'p'}="
+                             f"{'Mach' if magnitud == 'mach' else 'p' if magnitud == 'presion' else magnitud}="
                              f"{p[magnitud]:.6g} {unidad}", quote=True)
             piezas.append(f"<circle cx='{xplot(p['x']):.3f}' cy='{yplot(p[magnitud]):.3f}' "
                           f"r='3.5' fill='{color}' data-plot-info='{detalle}' "

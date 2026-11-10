@@ -255,6 +255,10 @@ def _simular_motor_acoplado_web(valores):
                     area_garganta=area_g)
     acoplado=resolver_motor_acoplado(referencia=ref,**parametros)
     if not acoplado["disponible"]:
+        if acoplado["motivo"].startswith(("Sin descenso", "No se construye Jacobiano", "No convergió")):
+            raise ValueError("No se ha obtenido un equilibrio numérico verificado del motor. "
+                             "Esto no demuestra que el punto sea físicamente inviable. "
+                             "Revisa Mach, T3 y las áreas fijas. Detalle: "+acoplado["motivo"])
         raise ValueError("Motor acoplado sin solución verificada: "+acoplado["motivo"])
     # Se reusa el contrato de presentación histórico, sin introducir un
     # segundo modelo físico: los parámetros rp, ηc, ηt proceden de mapas.
@@ -360,9 +364,11 @@ def svg_evolucion(estaciones, clave, etiqueta, unidad):
     piezas = [f'<path d="{trazado}" fill="none" stroke="#2563a6" stroke-width="3"/>',
               '<path d="M55 20 V198 H640" fill="none" stroke="#74859a"/>']
     for i, ((x,y), v) in enumerate(zip(puntos,valores)):
-        piezas.append(f'<circle cx="{x:.1f}" cy="{y:.1f}" r="5" fill="#174a70"/>')
+        detalle = escape(f'{nucleo[i]["nombre"]}: {etiqueta} = {v:.6g} {unidad}', quote=True)
+        piezas.append(f'<circle cx="{x:.1f}" cy="{y:.1f}" r="5" fill="#174a70" data-plot-info="{detalle}" tabindex="0" role="button" aria-label="{detalle}"/>')
         piezas.append(f'<text x="{x:.1f}" y="{max(y-11, 18):.1f}" text-anchor="middle">{v:.1f}</text>')
-        piezas.append(f'<text x="{x:.1f}" y="217" text-anchor="middle">{i+1}</text>')
+        abreviatura = ('Difusor','Compresor','Cámara','Turbina')[i] if len(nucleo)==4 else str(i+1)
+        piezas.append(f'<text x="{x:.1f}" y="217" text-anchor="middle">{abreviatura}</text>')
     titulo=escape(etiqueta)
     return ('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 690 249" '
             f'role="img" aria-label="{titulo} de cuatro estaciones de remanso">'
@@ -728,6 +734,56 @@ def svg_balance_energetico(datos):
             + ''.join(piezas) + '</g></svg>')
 
 
+def svg_trabajos_motor(datos):
+    """Compara trabajos positivos por kg de aire; no interpreta su resta como neto."""
+    pares = (('Compresor · absorbido', datos['compresor'], '#2563eb'),
+             ('Turbina · entregado', datos['turbina'], '#7c3aed'),
+             ('Eje · hacia compresor', datos['eje_util'], '#0d9488'))
+    if any(not isinstance(v, Real) or not isfinite(v) or v < 0 for _, v, _ in pares):
+        return None
+    escala = max(v for _, v, _ in pares) or 1.
+    piezas = ['<rect width="760" height="275" fill="#f8fafc"/>',
+              '<path d="M245 35 V225 H690" stroke="#64748b" fill="none"/>']
+    for i, (etiqueta, valor, color) in enumerate(pares):
+        y = 48 + i*59
+        largo = 385*valor/escala
+        detalle = escape(f'{etiqueta}: {valor:.6g} kJ/kg de aire', quote=True)
+        piezas.extend((f'<text x="10" y="{y+18}" font-size="13">{escape(etiqueta)}</text>',
+                       f'<rect x="245" y="{y}" width="{largo:.3f}" height="27" rx="4" fill="{color}" data-plot-info="{detalle}" tabindex="0" role="button" aria-label="{detalle}"/>',
+                       f'<text x="{min(690,255+largo):.3f}" y="{y+18}" font-size="12">{valor:.2f}</text>'))
+    return ('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 275" role="img" '
+            'aria-label="Trabajos específicos del motor, en base de aire entrante"><g '
+            'font-family="sans-serif" fill="#172b42"><text x="10" y="260" font-size="13">'
+            'Trabajos específicos [kJ/kg de aire entrante]; el eje incluye rendimiento mecánico'
+            '</text>' + ''.join(piezas) + '</g></svg>')
+
+
+def svg_velocidades_extremos(resultado):
+    """Velocidades de vuelo y escape conocidas, sin interpolar flujo interno."""
+    vuelo = resultado['remanso'].get('velocidad_vuelo')
+    tobera = resultado.get('tobera')
+    salida = tobera.get('velocidad_salida') if tobera else None
+    if any(v is None or not isinstance(v, Real) or not isfinite(v) or v < 0
+           for v in (vuelo, salida)):
+        return None
+    escala = max(vuelo, salida, 1.)
+    piezas = ['<rect width="760" height="240" fill="#f8fafc"/>',
+              '<path d="M210 35 V185 H695" stroke="#64748b" fill="none"/>']
+    for i, (nombre, v, color) in enumerate((('Vuelo V₀', vuelo, '#2563eb'),
+                                           ('Salida Vₑ', salida, '#0d9488'))):
+        y = 55 + i*70
+        largo = 410*v/escala
+        detalle = escape(f'{nombre}: {v:.6g} m/s', quote=True)
+        piezas.extend((f'<text x="15" y="{y+19}" font-size="16">{nombre}</text>',
+                       f'<rect x="210" y="{y}" width="{largo:.3f}" height="30" rx="4" fill="{color}" data-plot-info="{detalle}" tabindex="0" role="button" aria-label="{detalle}"/>',
+                       f'<text x="{min(690,220+largo):.3f}" y="{y+20}" font-size="13">{v:.2f}</text>'))
+    return ('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 240" '
+            'role="img" aria-label="Dos velocidades discretas calculadas; no es un perfil interno">'
+            '<g font-family="sans-serif" fill="#172b42">'
+            '<text x="15" y="222" font-size="13">Velocidades [m/s]. Estaciones discretas, no perfil espacial.</text>'
+            + ''.join(piezas) + '</g></svg>')
+
+
 def _presion_adaptacion_cd(Tt, pt, epsilon):
     """Presión adaptada [kPa] para Ae/Ag, invirtiendo el área pública de 42.A.
 
@@ -829,10 +885,14 @@ def preparar_vista_turborreactor(resultado):
             "perfil_axial_tobera": perfil_axial,
             "svg_mach_axial": svg_perfil_axial(perfil_axial, "mach"),
             "svg_presion_axial": svg_perfil_axial(perfil_axial, "presion"),
+            "svg_temperatura_axial": svg_perfil_axial(perfil_axial, "temperatura"),
+            "svg_velocidad_axial": svg_perfil_axial(perfil_axial, "velocidad"),
             "estudio_geometrico": estudio_geometrico,
             "svg_longitud_angulo": svg_longitud_angulo(estudio_geometrico),
             "svg_comparacion_conos": svg_comparacion_conos(estudio_geometrico),
             "svg_mach_perfil_tobera": svg_perfil_tobera(perfil, "mach"),
             "svg_presion_perfil_tobera": svg_perfil_tobera(perfil, "presion"),
             "balance_energetico": balance,
+            "svg_trabajos_motor": svg_trabajos_motor(balance),
+            "svg_velocidades_extremos": svg_velocidades_extremos(resultado),
             "svg_balance_energetico": svg_balance_energetico(balance)}

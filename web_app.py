@@ -19,6 +19,7 @@ from turborreactor_web import (GRUPOS_TURBO, EJEMPLOS_TURBO,
 from prestaciones_turborreactor_web import (PARAMETROS_OFAT, ESTADOS_WEB,
     valores_estudios, preparar_estudio)
 from estudios_parametricos_49_5 import calcular_estudio_49_5
+from acoplamiento_motor_mapa_47 import punto_diseno_47
 
 
 app = Flask(__name__)
@@ -49,6 +50,20 @@ def _respuesta_json_api(datos, estado=200):
     """Serializa estrictamente: NaN e infinitos nunca salen como JSON válido."""
     return Response(json.dumps(datos, ensure_ascii=False, allow_nan=False),
                     status=estado, mimetype="application/json")
+
+
+@app.get('/api/turborreactor/geometria-diseno')
+def api_geometria_diseno_c():
+    """Geometría calibrada del diseño M47; no simula el punto del usuario."""
+    try:
+        referencia = punto_diseno_47()
+        ag, ae = referencia['area_garganta_diseno'], referencia['area_salida_diseno']
+        return _respuesta_json_api({'ok': True, 'area_garganta_m2': ag,
+                                   'area_salida_m2': ae,
+                                   'origen': 'punto_diseno_47 / dimensionar_tobera',
+                                   'tipo_referencia': 'convergente'})
+    except (ValueError, ArithmeticError) as exc:
+        return _respuesta_json_api({'ok': False, 'error': str(exc)}, 422)
 
 
 @app.route("/api/turborreactor/simular", methods=["POST"])

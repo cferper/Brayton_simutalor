@@ -80,7 +80,7 @@
 .turbo-live-preview svg{width:100%;height:auto;min-width:350px;max-height:230px}
 .turbo-live[data-estado=error] #turbo-live-status,.turbo-live[data-estado=fuera-mapa] #turbo-live-status{color:#9f2d2d}
 .turbo-live[data-estado=actualizando] #turbo-live-status{color:#805500}
-.turbo-page[data-interfaz="interactivo"] .turbo-section:not(#configuracion){display:none!important}
+.turbo-page[data-interfaz="interactivo"] .turbo-section:not(#configuracion):not(#estudio49){display:none!important}
 
 /* M49.2: banco compacto. Solo se modifica la vista interactiva con JS;
    el clásico y el respaldo sin JS conservan el formulario completo. */
@@ -165,6 +165,16 @@
 .turbo-live-plot-tabs{display:flex;flex-wrap:wrap;gap:6px;margin:16px 0 10px}
 .turbo-live-plot-tabs button{border:1px solid #cad9e6;background:#fff;color:#174a70;border-radius:6px;padding:9px 12px;font-size:12px;font-weight:600}
 .turbo-live-plot-tabs button[aria-selected="true"]{background:#dcecf8;border-color:#175b8e}
+.turbo-plot-groups{display:flex;flex-wrap:wrap;gap:7px;margin:14px 0 4px;padding-bottom:12px;border-bottom:1px solid #d3e1ec}
+.turbo-plot-groups button{background:#eaf0f6;border:1px solid #cad9e6;border-radius:8px;padding:10px 13px;color:#174a70;font-weight:650;cursor:pointer}
+.turbo-plot-groups button[aria-pressed="true"]{background:#174a70;color:white;border-color:#174a70}
+.turbo-plot-groups button[hidden]{display:none!important}
+.js .turbo-page[data-interfaz="interactivo"] #turbo-form:not([data-bank-mode="acoplado"]) .turbo-design-geometry{display:none!important}
+.turbo-design-geometry{grid-column:1/-1;background:#eef5fa;border:1px solid #c8dbe9;border-radius:8px;padding:10px 12px;color:#24445e;font-size:12px}
+.turbo-design-geometry p{margin:4px 0 9px}
+.turbo-design-geometry button{border:1px solid #175b8e;background:#fff;color:#174a70;border-radius:6px;padding:9px 12px;font-weight:650;cursor:pointer}
+.turbo-design-geometry button:disabled{opacity:.65;cursor:wait}
+.turbo-design-geometry small{display:block;margin-top:8px}
 .js .turbo-page[data-interfaz="interactivo"] .turbo-live-preview{display:block}
 .js .turbo-page[data-interfaz="interactivo"] .turbo-live-preview figure{width:100%;margin:0;max-width:100%}
 .js .turbo-page[data-interfaz="interactivo"] .turbo-live-preview svg{max-height:480px}
