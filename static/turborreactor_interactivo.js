@@ -165,6 +165,45 @@
     return {aplicar,restaurar};
   }
 
+  // M49.7: estado visual local; no recibe fetcher ni referencia al controlador físico.
+  function iniciarEsquemaEducativo49_7(documento) {
+    const esquema=documento.querySelector('.turbo-engine-educational');
+    if(!esquema)return null;
+    const piezas=[...esquema.querySelectorAll('[data-engine-part]')];
+    const titulo=esquema.querySelector('#turbo-engine-part-title');
+    const descripcion=esquema.querySelector('#turbo-engine-part-description');
+    const fichas={
+      difusor:['Entrada y difusor','Recibe el aire exterior y lo desacelera para proporcionar al compresor unas condiciones de entrada adecuadas. La recuperación de presión total depende de las pérdidas del difusor.'],
+      compresor:['Compresor','Incrementa la presión total del aire gracias al trabajo que recibe de la turbina a través del eje. En la compresión también aumenta la temperatura total.'],
+      camara:['Cámara de combustión','Aporta energía al flujo mediante un combustible equivalente, elevando su temperatura total. El modelo simplifica la combustión como un balance energético.'],
+      turbina:['Turbina','Extrae energía del flujo caliente para accionar el compresor. Al expandirse, el gas reduce su presión y temperatura totales.'],
+      eje:['Eje de transmisión','Conecta mecánicamente la turbina con el compresor en el motor monoeje. Transmite trabajo y puede presentar pérdidas mecánicas.'],
+      tobera:['Tobera de escape','Expande y acelera los gases de salida, convirtiendo parte de la entalpía disponible en velocidad y contribuyendo al empuje del motor.']
+    };
+    function seleccionar(clave) {
+      const ficha=fichas[clave];
+      if(!ficha || !piezas.some(p=>p.dataset.enginePart===clave))return false;
+      piezas.forEach(p=>{
+        const activa=p.dataset.enginePart===clave;
+        p.classList.toggle('is-selected',activa);
+        p.setAttribute('aria-pressed',String(activa));
+      });
+      titulo.textContent=ficha[0];
+      descripcion.textContent=ficha[1];
+      return true;
+    }
+    piezas.forEach(p=>{
+      p.addEventListener('click',()=>seleccionar(p.dataset.enginePart));
+      p.addEventListener('keydown',evento=>{
+        if(evento.key!=='Enter' && evento.key!==' ' && evento.key!=='Spacebar')return;
+        evento.preventDefault();
+        seleccionar(p.dataset.enginePart);
+      });
+    });
+    seleccionar('difusor');
+    return {seleccionar};
+  }
+
   function inicializar48(documento, fetcher) {
     const formulario=documento.getElementById('turbo-form');
     const panel=documento.getElementById('turbo-live');
@@ -172,6 +211,7 @@
     panel.hidden=false;
     const estado=documento.getElementById('turbo-live-status');
     const banco=documento.body.dataset.interfaz==='interactivo';
+    if(banco)iniciarEsquemaEducativo49_7(documento);
     const selectorModo=formulario.elements.modo_caudal;
     const botonesModo=[...formulario.querySelectorAll('[data-bank-mode]')];
     const actualizarModo=()=>{
@@ -455,6 +495,7 @@
 
   if(typeof module!=='undefined'&&module.exports){
     module.exports={crearControlador48,acoplarControl48,escalaGrafica49,
+                    iniciarEsquemaEducativo49_7,
                     aplicarGeometriaDiseno49,inicializar48};
   }
   if(typeof document!=='undefined'){

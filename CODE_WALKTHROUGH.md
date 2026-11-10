@@ -4541,6 +4541,60 @@ del choque normal es esencial para no atribuir al modelo información no
 resuelta. Detalles y pruebas en [documentación técnica](docs/milestones/49_6_ampliacion_graficas_motor.md)
 y [aprendizaje](docs/milestones/49_6_ampliacion_graficas_motor_APRENDIZAJE.md).
 
+### 4.103 — Milestone 49.7: esquema longitudinal educativo seleccionable
+
+**PYTHON / estructura web.** No se han añadido funciones Python ni se han
+modificado los contratos físicos. La plantilla compartida
+`templates/turborreactor.html` introduce `section.turbo-engine-educational`
+**solo** cuando `interfaz == 'interactivo'`, dentro del panel `#turbo-live`
+existente y antes de los indicadores y gráficos 49.6. La columna de controles
+`#turbo-form` no cambia, por lo que Mach y T3, sus deslizadores, las modalidades
+A/B/C y la geometría de diseño siguen usando su código anterior. La distribución
+efectiva es control a la izquierda, esquema y ficha contextual en la parte
+superior derecha, con resultados y gráficas debajo. El CSS apila el esquema y
+la ficha en anchuras reducidas. No se crea un nuevo endpoint.
+
+**JAVASCRIPT — interfaz sin segunda simulación.** La función
+`iniciarEsquemaEducativo49_7(documento)` recibe el objeto `Document` (en tests
+puede ser un doble mínimo), devuelve `{seleccionar}` si existe el esquema o
+`null` si no existe (caso clásico). Dentro define
+`seleccionar(clave)`: recibe una cadena identificadora de componente; devuelve
+`true` si la clave pertenece al conjunto `{difusor, compresor, camara,
+turbina, eje, tobera}` y `false` si es desconocida. Una selección válida
+activa exclusivamente su grupo SVG mediante `classList.toggle` y cambia
+`aria-pressed`, `textContent` del título y la breve descripción de la ficha.
+Los seis grupos `<g data-engine-part="…" role="button" tabindex="0">` admiten
+clic y evento `keydown` con Intro o Espacio. `preventDefault()` evita que
+Espacio desplace la página. El foco y la selección se distinguen también con
+contornos, sin depender exclusivamente del color.
+
+En el flujo real, `DOMContentLoaded` llama a `inicializar48(documento, fetch)`,
+que invoca `iniciarEsquemaEducativo49_7(documento)` una sola vez si se trata
+del banco interactivo. **El esquema no recibe `fetcher`, `controlador` ni
+datos del motor**: seleccionar solo modifica el DOM local, nunca solicita
+`POST /api/turborreactor/simular`. Las entradas Mach/T3 siguen conectadas al
+único controlador `crearControlador48` y a su actualización diferida.
+
+**INTERPRETACIÓN FÍSICA / INGENIERÍA.** Las seis piezas representan un
+turborreactor monoeje, con un eje mecánico que enlaza compresor y turbina.
+La imagen es una ilustración longitudinal **sin escala**, no un cálculo de
+geometría interna, campo de flujo ni distancias reales. La cámara aporta
+energía equivalente; no representa química detallada. Las fichas describen
+funciones, **sin números del punto motor**: si el usuario cambia Mach o T3
+y el cálculo está pendiente, falla o no converge, ningún componente exhibe
+datos antiguos como actuales. Las magnitudes de entrada/salida y pérdidas
+de cada pieza pertenecen a una fase posterior no implementada aquí.
+
+**Ejemplo de uso:** con el banco abierto, pulsar Tab hasta «Seleccionar
+compresor» y después Intro; el grupo se resalta y aparece la explicación
+del incremento de presión total. Cambiar T3 en el deslizador continúa
+solicitando la simulación existente; volver a seleccionar la turbina no la
+repite. Esta separación se comprueba mediante pruebas focalizadas HTTP y
+JavaScript; no constituye validación experimental.
+
+Ver [documento técnico 49.7](docs/milestones/49_7_esquema_interactivo_turborreactor.md)
+y [aprendizaje 49.7](docs/milestones/49_7_esquema_interactivo_turborreactor_APRENDIZAJE.md).
+
 ## Evolution of the project
 
 - **Milestone 49.6: gráficas del motor y referencia de geometría C.** Familias de ciclo, tobera y prestaciones; SVG de magnitudes calculadas y perfiles con choque discontinuo. El botón de C consulta el diseño M47 existente, cuya referencia es convergente (Ag = Ae), informa esa limitación aunque el usuario tenga seleccionado C-D y permite editar después las áreas; no crea una geometría C-D óptima ni modifica solucionadores. [Técnico](docs/milestones/49_6_ampliacion_graficas_motor.md) y [aprendizaje](docs/milestones/49_6_ampliacion_graficas_motor_APRENDIZAJE.md).
@@ -4553,6 +4607,7 @@ y [aprendizaje](docs/milestones/49_6_ampliacion_graficas_motor_APRENDIZAJE.md).
 - **Milestone 49.3: modalidades visibles y visor de gráficos (commit `ca8d055`).** Tres botones reutilizan el selector A/B/C; configuración avanzada contextual, pestañas para los SVG existentes y disponibilidad de tarjetas sin falsos ceros. [Técnico](docs/milestones/49_3_interfaz_definitiva_banco.md) y [aprendizaje](docs/milestones/49_3_interfaz_definitiva_banco_APRENDIZAJE.md).
 - **Milestone 49.2: banco interactivo en dos zonas.** CSS Grid reúne los controles Mach/T3 y modalidad junto a tarjetas y SVG reactivos; diseño adaptable sin nuevas entradas físicas ni duplicar la API. [Técnico](docs/milestones/49_2_rediseño_banco_interactivo.md) y [aprendizaje](docs/milestones/49_2_rediseño_banco_interactivo_APRENDIZAJE.md).
 - **Milestone 49.1: tres interfaces y navegación compartida.** El banco interactivo es la portada, el clásico conserva todas sus secciones y Brayton mantiene su formulario en `/brayton`. Las dos vistas de turborreactor comparten un único controlador Flask, plantilla, lógica JS y solucionadores. [Técnico](docs/milestones/49_1_separacion_interfaces.md) y [aprendizaje](docs/milestones/49_1_separacion_interfaces_APRENDIZAJE.md).
+- **Milestone 49.7: esquema educativo seleccionable.** SVG de seis componentes con selección accesible y ficha funcional; separar el estado visual del estado físico enseña eventos del DOM sin nuevas simulaciones. [Técnico](docs/milestones/49_7_esquema_interactivo_turborreactor.md) y [aprendizaje](docs/milestones/49_7_esquema_interactivo_turborreactor_APRENDIZAJE.md).
 - **Milestone 48.3: cierre focalizado de la etapa interactiva (pendiente de commit).** Protección del POST manual frente a peticiones tardías, pruebas de cancelación e invalidación y comprobación del flujo físico único; pendiente de pruebas HTTP/visuales en Windows. [Técnico](docs/milestones/48_3_cierre_primera_etapa_interactiva.md) y [aprendizaje](docs/milestones/48_3_cierre_primera_etapa_interactiva_APRENDIZAJE.md).
 - **Milestone 48.2: primera simulación interactiva (pendiente de commit).** Controles Mach/T3, espera de 350 ms, cancelación y orden de respuestas, KPIs y SVG sincronizados con una ejecución Python; no modifica los solucionadores ni recalcula estudios independientes. [Técnico](docs/milestones/48_2_actualizacion_automatica.md) y [aprendizaje](docs/milestones/48_2_actualizacion_automatica_APRENDIZAJE.md).
 

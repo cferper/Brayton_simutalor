@@ -87,7 +87,29 @@
    </div>
    <div class="turbo-actions"><button type="submit">Simular turborreactor →</button><a class="text-link" href="{{ url_for('turborreactor_interactivo') if interfaz=='interactivo' else url_for('turborreactor') }}">Restablecer valores</a></div>
   </form>
-  <div id="turbo-live" class="card turbo-live" hidden><h3>Banco de ensayos · respuesta interactiva</h3><p id="turbo-live-status" role="status" aria-live="polite">Pendiente de actualización</p><div class="turbo-live-metrics">
+  <div id="turbo-live" class="card turbo-live" hidden><h3>Banco de ensayos · respuesta interactiva</h3>
+   {% if interfaz=='interactivo' %}
+   <section class="turbo-engine-educational" aria-labelledby="turbo-engine-title">
+    <div class="turbo-engine-figure"><h4 id="turbo-engine-title">Conoce las partes del turborreactor</h4>
+     <p class="turbo-engine-hint">Selecciona un componente con el ratón o con Tab y las teclas Intro/Espacio. Esquema didáctico, no a escala.</p>
+     <svg class="turbo-engine-svg" viewBox="0 0 660 280" xmlns="http://www.w3.org/2000/svg" role="group" aria-label="Esquema longitudinal interactivo de un turborreactor monoeje; flujo de izquierda a derecha">
+      <defs><linearGradient id="turbo-engine-shell" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#e8eef5"/><stop offset="1" stop-color="#b6c9d9"/></linearGradient></defs>
+      <path class="turbo-engine-shell" d="M34 105 Q185 74 355 84 L457 98 568 75 568 193 457 170 355 183 Q185 193 34 165 Z" fill="url(#turbo-engine-shell)"/>
+      <path class="turbo-engine-flow" d="M17 53 H610"/><path class="turbo-engine-arrow" d="m610 53 -13 -7 v14 z"/><text class="turbo-engine-flow-label" x="22" y="39">AIRE → FLUJO DE GASES</text>
+      <g data-engine-part="difusor" role="button" tabindex="0" focusable="true" aria-label="Seleccionar entrada y difusor" aria-pressed="true" class="is-selected"><title>Entrada y difusor</title><path class="turbo-engine-piece" d="M36 108 L140 99 140 170 36 164 Z" fill="#a6cbe2"/><path class="turbo-engine-detail" d="M53 117 L122 115 M53 151 L122 156"/><text x="83" y="135">1</text></g>
+      <g data-engine-part="compresor" role="button" tabindex="0" focusable="true" aria-label="Seleccionar compresor" aria-pressed="false"><title>Compresor</title><path class="turbo-engine-piece" d="M145 99 L251 88 251 182 145 171 Z" fill="#77add1"/><path class="turbo-engine-detail" d="M163 110 L174 160 186 105 200 166 213 101 230 170"/><text x="202" y="137">2</text></g>
+      <g data-engine-part="camara" role="button" tabindex="0" focusable="true" aria-label="Seleccionar cámara de combustión" aria-pressed="false"><title>Cámara de combustión</title><path class="turbo-engine-piece" d="M256 90 Q299 79 351 87 L351 178 Q299 189 256 180 Z" fill="#e7b17d"/><path class="turbo-engine-detail" d="M268 112 Q302 97 337 112 M268 155 Q302 171 337 155"/><path class="turbo-engine-flame" d="M299 142 Q284 125 300 115 Q297 129 311 130 Q315 141 299 148 Z"/><text x="326" y="140">3</text></g>
+      <g data-engine-part="turbina" role="button" tabindex="0" focusable="true" aria-label="Seleccionar turbina" aria-pressed="false"><title>Turbina</title><path class="turbo-engine-piece" d="M356 89 L449 102 449 169 356 180 Z" fill="#ca9db0"/><path class="turbo-engine-detail" d="M369 101 L382 169 395 104 408 166 423 108 437 158"/><text x="405" y="138">4</text></g>
+      <g data-engine-part="tobera" role="button" tabindex="0" focusable="true" aria-label="Seleccionar tobera de escape" aria-pressed="false"><title>Tobera</title><path class="turbo-engine-piece" d="M454 103 L504 114 569 78 569 190 504 156 454 168 Z" fill="#96b7a7"/><path class="turbo-engine-detail" d="M464 119 L503 130 555 102 M464 153 L503 142 555 166"/><text x="521" y="139">6</text></g>
+      <g data-engine-part="eje" role="button" tabindex="0" focusable="true" aria-label="Seleccionar eje de transmisión" aria-pressed="false"><title>Eje de transmisión compresor–turbina</title><rect class="turbo-engine-piece" x="157" y="188" width="281" height="15" rx="7" fill="#798da8"/><path class="turbo-engine-detail" d="M177 195 H417"/><text x="293" y="198">5</text></g>
+      <text class="turbo-engine-caption" x="36" y="231">ENTRADA</text><text class="turbo-engine-caption" x="460" y="231">ESCAPE</text><path class="turbo-engine-flow" d="M569 135 H626"/><path class="turbo-engine-arrow" d="m626 135 -13 -7 v14 z"/>
+     </svg>
+     <p class="turbo-engine-caption-text">Turborreactor de un solo eje; componentes y proporciones ilustrativos. Seleccionar una pieza no recalcula el motor.</p>
+    </div>
+    <aside class="turbo-engine-info" aria-labelledby="turbo-engine-part-title"><p class="eyebrow">Componente seleccionado</p><h4 id="turbo-engine-part-title">Entrada y difusor</h4><p id="turbo-engine-part-description">Recibe el aire exterior y lo desacelera para proporcionar al compresor unas condiciones de entrada adecuadas. La recuperación de presión total depende de las pérdidas del difusor.</p><p class="turbo-engine-info-note">Esta ficha explica la función del componente; no presenta valores del cálculo ni resultados anteriores.</p></aside>
+   </section>
+   {% endif %}
+   <p id="turbo-live-status" role="status" aria-live="polite">Pendiente de actualización</p><div class="turbo-live-metrics">
    {% for clave,titulo,unidad in [('empuje_absoluto_N','Empuje neto','N'),('empuje_especifico_neto','Empuje específico','N/(kg/s)'),('gasto_masico_aire_kg_s','Aire','kg/s'),('gasto_masico_combustible_kg_s','Combustible','kg/s'),('TSFC_kg_N_h','TSFC','kg/(N·h)'),('velocidad_salida_m_s','Velocidad de salida','m/s'),('rpm_eje','Giro mecánico','rpm'),('regimen_tobera','Régimen de tobera','–')] %}
    <div class="turbo-live-metric" data-live-card="{{ clave }}"><small>{{ titulo }}</small><strong data-live-value="{{ clave }}">Pendiente de cálculo</strong><small>{{ unidad }}</small></div>
    {% endfor %}</div>

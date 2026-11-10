@@ -218,3 +218,28 @@
 .turbo-live-details summary{padding:7px 0}
 .turbo-live-details p{margin:5px 0}
 @media(max-width:580px){.turbo-bank-mode-buttons{grid-template-columns:minmax(0,1fr)}.turbo-bank-mode-buttons button{padding:8px 12px}.turbo-bank-mode-buttons button small{margin-top:2px}}
+
+/* M49.7: esquema docente independiente del cálculo físico y del visor 49.6. */
+.turbo-engine-educational{display:grid;grid-template-columns:minmax(0,1.65fr) minmax(185px,.85fr);gap:14px;align-items:stretch;margin:12px 0 16px}
+.turbo-engine-figure,.turbo-engine-info{background:#f6f9fc;border:1px solid #cadbe8;border-radius:10px;padding:13px;min-width:0}
+.turbo-engine-figure h4,.turbo-engine-info h4{margin:0 0 5px;color:#143f60;font-size:16px}
+.turbo-engine-hint,.turbo-engine-caption-text{margin:4px 0;color:#4c6378;font-size:12px;line-height:1.5}
+.turbo-engine-svg{display:block;width:100%;height:auto;max-height:325px;background:#edf3f8;border-radius:7px;margin:8px 0;overflow:visible}
+.turbo-engine-shell{stroke:#607c93;stroke-width:2.2;opacity:.42}
+.turbo-engine-flow{stroke:#537e9f;stroke-width:2;stroke-dasharray:7 5;fill:none}
+.turbo-engine-arrow{fill:#537e9f}
+.turbo-engine-flow-label,.turbo-engine-caption{fill:#4b667a;font-size:13px;font-weight:700;letter-spacing:1px}
+.turbo-engine-svg [data-engine-part]{cursor:pointer;outline:none}
+.turbo-engine-piece{stroke:#3e5b73;stroke-width:2.2;transition:filter .12s ease,stroke-width .12s ease}
+.turbo-engine-detail{fill:none;stroke:#35536a;stroke-width:3;stroke-linecap:round;opacity:.78;pointer-events:none}
+.turbo-engine-flame{fill:#f5e4a7;stroke:#b57d34;stroke-width:1.5;pointer-events:none}
+.turbo-engine-svg [data-engine-part] text{font-size:17px;font-weight:800;text-anchor:middle;fill:#173e59;pointer-events:none}
+.turbo-engine-svg [data-engine-part]:is(:hover,.is-selected) .turbo-engine-piece{stroke:#0c5a96;stroke-width:4;filter:drop-shadow(0 2px 5px #4e83a080)}
+.turbo-engine-svg [data-engine-part]:focus-visible .turbo-engine-piece{stroke:#ca6a05;stroke-width:5;filter:drop-shadow(0 0 5px #e6a431)}
+.turbo-engine-info{border-left:4px solid #2673a6;background:#eaf3f9;display:flex;flex-direction:column;justify-content:center}
+.turbo-engine-info>.eyebrow{margin:0 0 8px;font-size:11px;color:#366382}
+.turbo-engine-info>p:not(.eyebrow){font-size:13px;line-height:1.65;color:#2b4c63;margin:5px 0}
+.turbo-engine-info .turbo-engine-info-note{border-top:1px solid #cadae6;padding-top:10px;font-size:11px!important;color:#547086!important}
+@media(max-width:1200px){.turbo-engine-educational{grid-template-columns:minmax(0,1fr)}}
+@media(max-width:700px){.turbo-engine-educational{gap:9px}.turbo-engine-figure,.turbo-engine-info{padding:10px}.turbo-engine-info{min-height:110px}}
+@media(prefers-reduced-motion:reduce){.turbo-engine-piece{transition:none}}
