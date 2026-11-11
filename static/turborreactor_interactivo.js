@@ -389,6 +389,8 @@
     const sincronizacion=banco?iniciarSincronizacion50_0(documento):null;
     const fichaEducativa=banco?iniciarEsquemaEducativo49_7(documento,clave=>sincronizacion?.seleccionar(clave)):null;
     const caracterizacion=banco?iniciarCaracterizacion49_9(documento):null;
+    const laboratorio=banco&&typeof raiz.iniciarLaboratorio50_1==='function'?
+      raiz.iniciarLaboratorio50_1(documento,formulario):null;
     const selectorModo=formulario.elements.modo_caudal;
     const botonesModo=[...formulario.querySelectorAll('[data-bank-mode]')];
     const actualizarModo=()=>{
@@ -514,6 +516,7 @@
       onEstado:tipo=>{
         panel.dataset.estado=tipo;
         if(tipo==='pendiente'||tipo==='actualizando')sincronizacion?.pendiente();
+        if(tipo==='pendiente'||tipo==='actualizando')laboratorio?.pendiente();
         const badge=documento.querySelector('#resultados .badge');
         if(tipo==='pendiente'){
           fichaEducativa?.pendiente('Entradas modificadas: resultados pendientes de actualización.');
@@ -587,10 +590,12 @@
         }
         reconciliarPestañas();
         explorador?.restaurar();
+        laboratorio?.actualizado(datos);
         sincronizacion?.actualizar(datos);
       },
       onError:error=>{
         sincronizacion?.pendiente();
+        laboratorio?.pendiente();
         fichaEducativa?.pendiente('Sin resultados numéricos verificados para este punto motor.');
         caracterizacion?.pendiente('Sin indicadores verificados para este punto motor.');
         const fuera=Boolean(error.fueraMapa);

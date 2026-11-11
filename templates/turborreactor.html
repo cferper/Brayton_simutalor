@@ -8,6 +8,7 @@
  <link rel="stylesheet" href="{{ url_for('static',filename='turborreactor.css') }}">
  <script src="{{ url_for('static',filename='turborreactor.js') }}" defer></script>
  <script src="{{ url_for('static',filename='turborreactor_interactivo.js') }}" defer></script>
+ {% if interfaz=='interactivo' %}<script src="{{ url_for('static',filename='laboratorio_comparativo_50_1.js') }}" defer></script>{% endif %}
  {% if interfaz=='interactivo' %}<script src="{{ url_for('static',filename='estudios_parametricos_49_5.js') }}" defer></script>{% endif %}
 </head>
 <body class="turbo-page" data-interfaz="{{ interfaz }}" data-initial-panel="{{ 'configuracion' if interfaz=='interactivo' else (accion if accion in ('sensibilidad','mapa') else ('configuracion' if error or not resultado else 'resultados')) }}" data-simulacion-inicial="{{ 'resuelta' if resultado and not error else ('error' if error else 'pendiente') }}">
@@ -129,6 +130,19 @@
     <p class="turbo-characterization-note">«Calculado» procede del modelo actual; «Derivado» utiliza operaciones algebraicas justificadas. «No disponible» no equivale a cero.</p>
    </section>
    {% if vista and vista.caracterizacion %}<script type="application/json" id="turbo-characterization-initial-data">{{ vista.caracterizacion | tojson }}</script>{% endif %}
+   <section class="turbo-lab50" aria-labelledby="turbo-lab50-title">
+    <h4 id="turbo-lab50-title">Laboratorio comparativo · dos puntos de funcionamiento</h4>
+    <p>Guarda el punto resuelto como <strong>Punto 1 — Referencia</strong>. Cambia Mach, T3 u otra entrada y compara con el <strong>Punto 2 — Actual</strong>. El guardado no ejecuta otra simulación.</p>
+    <div class="turbo-lab50-actions"><button type="button" data-lab-action="save" disabled>Guardar como referencia</button><button type="button" data-lab-action="clear" disabled>Eliminar referencia</button></div>
+    <p data-lab-status role="status" aria-live="polite">Calcula un punto motor para habilitar la referencia.</p>
+    <details><summary>Condiciones de los puntos y cambios de configuración</summary><div data-lab-conditions></div></details>
+    <p data-lab-warning class="turbo-lab50-warning" role="status" hidden></p>
+    <div class="turbo-lab50-table"><table><thead><tr><th>Magnitud</th><th>Punto 1 — Referencia</th><th>Punto 2 — Actual</th><th>Δ absoluto</th><th>Δ relativo</th></tr></thead><tbody data-lab-rows></tbody></table></div>
+    <p data-lab-diagnosis role="status" aria-live="polite"></p>
+    <div class="turbo-lab50-charts"><figure><figcaption>T–s · estados discretos, escala compartida</figcaption><div data-lab-chart="ts"></div></figure><figure><figcaption>Temperaturas totales</figcaption><div data-lab-chart="T"></div></figure><figure><figcaption>Presiones totales</figcaption><div data-lab-chart="p"></div></figure><figure><figcaption>Prestaciones disponibles</figcaption><div data-lab-chart="prestaciones"></div></figure></div>
+    <div class="turbo-lab50-tools"><button type="button" data-lab-action="out">−</button><button type="button" data-lab-action="in">+</button><button type="button" data-lab-action="reset">100 %</button><button type="button" data-lab-action="export">Descargar SVG de gráfica</button><span data-lab-scale></span></div>
+    <p data-lab-reading role="status" aria-live="polite">Selecciona un marcador de las gráficas comparativas para consultar sus valores.</p>
+   </section>
    {% endif %}
    <p id="turbo-live-status" role="status" aria-live="polite">Pendiente de actualización</p><div class="turbo-live-metrics">
    {% for clave,titulo,unidad in [('empuje_absoluto_N','Empuje neto','N'),('empuje_especifico_neto','Empuje específico','N/(kg/s)'),('gasto_masico_aire_kg_s','Aire','kg/s'),('gasto_masico_combustible_kg_s','Combustible','kg/s'),('TSFC_kg_N_h','TSFC','kg/(N·h)'),('velocidad_salida_m_s','Velocidad de salida','m/s'),('rpm_eje','Giro mecánico','rpm'),('regimen_tobera','Régimen de tobera','–')] %}

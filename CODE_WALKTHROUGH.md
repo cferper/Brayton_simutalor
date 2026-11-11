@@ -4770,7 +4770,67 @@ un perfil axial del núcleo. La inspección final en Windows continúa pendiente
 [Técnico 50.0](docs/milestones/50_0_sincronizacion_motor_estaciones_graficas.md)
 y [aprendizaje 50.0](docs/milestones/50_0_sincronizacion_motor_estaciones_graficas_APRENDIZAJE.md).
 
+### Milestone 50.1 — Laboratorio de dos puntos en el banco interactivo
+
+**PYTHON / contrato de datos.** `estaciones_turborreactor(resultado)` mantiene
+su firma y sus estados; cada diccionario añade `s` [kJ/(kg·K)], evaluada por
+`propiedades_aire.s(T,p)` con temperatura [K] y presión [kPa]. Si el estado
+estático no existe, `s` es `None`. La API `/api/turborreactor/simular` ya
+devuelve `estaciones`, `caracterizacion`, `modo`, `magnitudes` y `diagnosticos`:
+el nuevo laboratorio consume **esa misma respuesta**, sin nuevas rutas ni
+solucionadores. Se añade el script `static/laboratorio_comparativo_50_1.js` solo
+al banco interactivo. `inicializar48` crea `iniciarLaboratorio50_1` y llama a
+`pendiente()` al invalidar entradas o recibir un error y a `actualizado(datos)`
+después de recibir la solución. Las gráficas de comparación se crean antes de
+reaplicar los marcadores del 50.0.
+
+**JavaScript / estado.** `extraer50_1(datos,entradas)` devuelve una copia
+profunda de los datos físicos, versión del modelo, modalidad y entradas,
+o `null` si la respuesta no es válida. `iniciarLaboratorio50_1(documento,
+formulario)` devuelve `{actualizado,pendiente,guardar,borrar,referencia,actual}`;
+la referencia se guarda con una segunda copia independiente y permanece en
+memoria hasta ser sustituida, eliminada o recargada la página. `pendiente()`
+borra solo el punto actual, nunca la referencia. No usa `fetch`. La instantánea
+contiene las entradas de `FormData`, incluidas las avanzadas y la geometría.
+
+`diferencia50_1(referencia,actual,unidad='–')` devuelve
+`{absoluta,relativa,unidadAbsoluta}` o valores `null` si alguno no es finito;
+divide por la referencia únicamente cuando es distinta de cero. Para la unidad
+`%` el salto absoluto se etiqueta *puntos porcentuales*, no `%`.
+`compatibilidad50_1(ref,actual)` devuelve `{compatible,homogenea,cambios,mensaje}`:
+si cambia la modalidad A/B/C se suprimen diferencias de prestaciones/trabajos;
+si cambia un parámetro avanzado se permite ver magnitudes pero se advierte que
+los cambios no se pueden atribuir a un único parámetro. `valor50_1(p,id)` lee
+una entrada Mach/T3 o un indicador ya calculado por Python, con `null` para
+ausencias. `dibujarEstados50_1(ref,actual,tipo)` y
+`dibujarPrestaciones50_1(ref,actual,compatible)` devuelven cadenas SVG (o `''`
+si no hay datos), con marcadores de ambas soluciones en una **escala común por
+gráfico** y valores consultables mediante teclado. El zoom y la descarga SVG
+del laboratorio son locales, independientes de los controles 49.4, que siguen
+disponibles en el visor principal.
+
+**INTERPRETACIÓN FÍSICA / INGENIERÍA.** En cada fila:
+`ΔX = X_actual − X_ref`; para `X_ref ≠ 0`,
+`ΔX_rel = 100 ΔX / X_ref` [%]. Se conservan signos y unidades; un porcentaje
+de eficiencia tiene diferencia absoluta en puntos porcentuales. Los puntos
+T–s son los estados **discretos** calculados, no curvas de proceso integradas;
+las estaciones `pt2`–`pt5` son de remanso y la salida `salida` es estática.
+Cada perfil comparativo utiliza dos series y una escala compartida sin
+interpolaciones espaciales. El gráfico de prestaciones usa **una escala por
+magnitud y un par de barras por punto**: sus longitudes no permiten comparar
+entre sí cantidades de unidades distintas. El panel señala la falta de datos,
+el cambio de condiciones avanzadas y las comparaciones entre modos distintos.
+Si cambian simultáneamente Mach y TIT, no se afirma causalidad individual.
+No hay validación externa ni implementación del 50.2.
+
+Ejemplo: `diferencia50_1(500,540,'N/(kg/s)')` retorna una variación de
+`+40 N/(kg/s)` y `+8 %`; si el primer valor es cero, la relativa es `null`.
+[Técnico 50.1](docs/milestones/50_1_laboratorio_comparativo.md) y
+[aprendizaje 50.1](docs/milestones/50_1_laboratorio_comparativo_APRENDIZAJE.md).
+
 ## Evolution of the project
+
+- **Milestone 50.1: laboratorio comparativo de dos puntos.** Referencia inmutable en memoria, comparación física condicionada por modo y configuración, diferencias con unidades, cuatro gráficos con marcadores calculados y gestión explícita de datos ausentes. [Técnico](docs/milestones/50_1_laboratorio_comparativo.md) y [aprendizaje](docs/milestones/50_1_laboratorio_comparativo_APRENDIZAJE.md). Sin commit.
 
 - **Milestone 50.0: vinculación visual entre esquema y datos calculados.** Identificadores de estaciones y barras en los SVG existentes; selección local, marcas de entrada/salida y limpieza de resaltados durante el recálculo, sin resolver magnitudes nuevas. [Técnico](docs/milestones/50_0_sincronizacion_motor_estaciones_graficas.md) y [aprendizaje](docs/milestones/50_0_sincronizacion_motor_estaciones_graficas_APRENDIZAJE.md).
 

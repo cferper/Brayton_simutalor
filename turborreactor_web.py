@@ -303,7 +303,7 @@ def _simular_motor_acoplado_web(valores):
 
 
 def estaciones_turborreactor(resultado):
-    """Seis dicts con nombre, tipo, T[K], p[kPa] y h[kJ/kg]."""
+    """Estaciones identificadas: T[K], p[kPa], h[kJ/kg], s[kJ/(kg K)]."""
     a = resultado["ambiente"]
     d = resultado["difusor"]
     c = resultado["compresor"]
@@ -318,17 +318,20 @@ def estaciones_turborreactor(resultado):
         ("Salida de turbina · entrada a tobera", "Remanso", t["T4"], t["p4"]),
     )
     ids = ('ambiente', 'pt2', 'pt3', 'pt4', 'pt5')
-    lista = [{"id": id_, "nombre": nombre, "tipo": tipo, "T": T, "p": p, "h": h(T)}
+    lista = [{"id": id_, "nombre": nombre, "tipo": tipo, "T": T, "p": p,
+              "h": h(T), "s": s(T, p)}
              for id_, (nombre, tipo, T, p) in zip(ids, pares)]
     if n and "temperatura_garganta" in n:
         T_g = n["temperatura_garganta"]
         lista.append({"id": "garganta", "nombre": "Garganta de tobera C-D", "tipo": "Estático",
                       "T": T_g, "p": n["presion_garganta"],
-                      "h": h(T_g) if T_g is not None else None})
+                      "h": h(T_g) if T_g is not None else None,
+                      "s": s(T_g, n["presion_garganta"]) if T_g is not None and n["presion_garganta"] is not None else None})
     T_e = n["temperatura_salida"] if n else None
     lista.append({"id": "salida", "nombre": "Salida de tobera", "tipo": "Estático",
                   "T": T_e,
                   "p": n["presion_salida"] if n else None,
+                  "s": s(T_e, n["presion_salida"]) if n and T_e is not None and n["presion_salida"] is not None else None,
                   "h": (n.get("entalpia_salida", h(T_e) if T_e is not None else None)
                         if n else None)})
     return lista

@@ -272,6 +272,29 @@
 .turbo-live svg .is-engine-muted{opacity:.48}
 .turbo-live svg .is-engine-related:focus-visible{stroke:#074b82!important;stroke-width:5!important;outline:2px solid #d98310;outline-offset:3px}
 @media(prefers-reduced-motion:reduce){.turbo-live svg [data-engine-station],.turbo-live svg [data-engine-work],.turbo-live svg [data-engine-energy]{transition:none}}
+
+/* M50.1: laboratorio independiente del visor original, sin peticiones físicas. */
+.turbo-lab50{margin:16px 0;padding:16px;background:#f5f9fd;border:1px solid #bcd2e2;border-radius:11px;min-width:0}
+.turbo-lab50 h4{margin:0;color:#123e60}
+.turbo-lab50>p,.turbo-lab50 details{font-size:12px;line-height:1.55;color:#3d576b}
+.turbo-lab50-actions,.turbo-lab50-tools{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:10px 0}
+.turbo-lab50 button{padding:7px 11px;background:#fff;color:#14547f;border:1px solid #9fbbd0;border-radius:6px;cursor:pointer}
+.turbo-lab50 button:disabled{opacity:.48;cursor:not-allowed}
+.turbo-lab50 button:focus-visible{outline:3px solid #bb781d;outline-offset:2px}
+.turbo-lab50-warning{background:#fff3d9;border-left:3px solid #b67112;padding:10px}
+.turbo-lab50-table{overflow-x:auto;margin:11px 0;background:white;border:1px solid #d9e5ed;border-radius:7px}
+.turbo-lab50-table table{width:100%;min-width:620px;border-collapse:collapse;font-size:12px}
+.turbo-lab50-table th,.turbo-lab50-table td{padding:8px 10px;border-bottom:1px solid #dce7ef;text-align:left}
+.turbo-lab50-table tbody th{background:#e4f0f8;color:#194b6a}
+.turbo-lab50-charts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.turbo-lab50-charts figure{background:#fff;border:1px solid #d5e3ed;border-radius:8px;padding:10px;margin:0;min-width:0}
+.turbo-lab50-charts figcaption{font-size:13px;font-weight:700;color:#214d68;margin-bottom:6px}
+.turbo-lab50-charts [data-lab-chart]{overflow:auto;max-height:390px}
+.turbo-lab50-charts svg{display:block;max-width:none;height:auto;min-width:300px}
+.turbo-lab50-charts [data-plot-info]{cursor:pointer}
+.turbo-lab50-charts [data-plot-info]:focus-visible{outline:3px solid #d88c25;outline-offset:3px}
+.turbo-lab50 [data-lab-reading]{font-size:12px;background:#fff;border-left:3px solid #317ca8;padding:8px}
+@media(max-width:850px){.turbo-lab50-charts{grid-template-columns:minmax(0,1fr)}.turbo-lab50{padding:10px}}
 .turbo-engine-stations ul{padding-left:18px;margin:7px 0}
 
 /* M49.9: panel de indicadores, complementario a las fichas por componente. */
