@@ -24,6 +24,7 @@ from estudio_geometrico_tobera import (estudiar_angulos_geometria,
                                      svg_comparacion_conos, svg_longitud_angulo)
 from propiedades_aire import h
 from propiedades_aire import R_AIRE, T_MIN, s, s0
+from caracterizacion_motor_49_9 import caracterizar_motor_49_9
 from tobera_convergente_divergente_cp import _sonico, relacion_areas_adaptada
 from perfil_tobera_cp_variable import perfil_tobera_cp_variable
 
@@ -966,6 +967,7 @@ def preparar_vista_turborreactor(resultado):
     estudio_geometrico = estudiar_angulos_geometria(resultado.get("geometria_conica"))
     return {"estaciones": estados,
             "fichas_componentes": fichas_componentes_49_8(resultado),
+            "caracterizacion": caracterizar_motor_49_9(resultado),
             "adaptacion_cd": _adaptacion_cd(resultado),
             "svg_componentes": svg_componentes(resultado["diagnosticos"].get("tipo_tobera")),
             "svg_temperaturas": svg_evolucion(estados,"T","Temperatura total","K"),

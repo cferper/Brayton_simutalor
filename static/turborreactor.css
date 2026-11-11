@@ -263,3 +263,26 @@
 .turbo-engine-stations{font-size:11px;color:#35546b;margin-top:12px;border-top:1px solid #c2d4e3;padding-top:9px}
 .turbo-engine-stations summary{cursor:pointer;font-weight:650}
 .turbo-engine-stations ul{padding-left:18px;margin:7px 0}
+
+/* M49.9: panel de indicadores, complementario a las fichas por componente. */
+.turbo-characterization{margin:16px 0;padding:16px;border:1px solid #cfdeeb;border-radius:11px;background:#f4f8fc}
+.turbo-characterization h4{margin:0 0 6px;color:#183b56}
+.turbo-characterization>p{font-size:12px;color:#405e73;line-height:1.5}
+.turbo-characterization-tabs{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}
+.turbo-characterization-tabs button{padding:9px 12px;border:1px solid #aac8de;border-radius:7px;background:white;color:#20506f;font-weight:650;cursor:pointer}
+.turbo-characterization-tabs button[aria-pressed="true"]{background:#175b8e;color:#fff}
+.turbo-characterization-tabs button:focus-visible,.turbo-characterization summary:focus-visible{outline:3px solid #d29a22;outline-offset:2px}
+.turbo-characterization-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,245px),1fr));gap:9px}
+.turbo-characterization-card{min-width:0;padding:12px;background:white;border:1px solid #d6e2ed;border-radius:8px}
+.turbo-characterization-card h5{margin:0;font-size:13px;color:#284f69}
+.turbo-characterization-reading{display:flex;align-items:baseline;flex-wrap:wrap;gap:6px;margin:8px 0}
+.turbo-characterization-reading strong{font-size:19px;color:#173d59;overflow-wrap:anywhere}
+.turbo-characterization-reading small{font-size:11px;color:#4b6779}
+.turbo-characterization-class{font-size:10px;font-weight:700;border-radius:4px;padding:3px 6px;background:#e5f1f9;color:#245779}
+.turbo-characterization-card[data-estado="derivado"] .turbo-characterization-class{background:#f2e9d8;color:#7b581c}
+.turbo-characterization-card[data-estado="no_disponible"]{background:#fafbfc;border-style:dashed}
+.turbo-characterization-card[data-estado="no_disponible"] .turbo-characterization-reading strong{font-size:13px;color:#697681}
+.turbo-characterization-card details{border-top:1px solid #e3e9ee;margin-top:8px;padding-top:7px}
+.turbo-characterization-card summary{cursor:pointer;color:#225978;font-size:11px}
+.turbo-characterization-card details p{overflow-wrap:anywhere;font-size:11px;color:#485d6f;line-height:1.5}
+.turbo-characterization-note{font-size:11px!important}

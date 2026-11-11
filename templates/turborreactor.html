@@ -115,6 +115,19 @@
     </aside>
     {% if vista and vista.fichas_componentes %}<script type="application/json" id="turbo-engine-initial-data">{{ vista.fichas_componentes | tojson }}</script>{% endif %}
    </section>
+   <section class="turbo-characterization" aria-labelledby="turbo-characterization-title">
+    <h4 id="turbo-characterization-title">Caracterización y prestaciones del motor</h4>
+    <p>Indicadores de ingeniería calculados a partir del mismo punto motor. Los datos no disponibles se señalan; este panel no representa instrumentación certificada.</p>
+    <div class="turbo-characterization-tabs" role="group" aria-label="Familias de indicadores">
+     <button type="button" data-characterization-tab="funcionamiento" aria-pressed="true">Funcionamiento</button>
+     <button type="button" data-characterization-tab="consumo" aria-pressed="false">Consumo y prestaciones</button>
+     <button type="button" data-characterization-tab="rendimientos" aria-pressed="false">Rendimientos y pérdidas</button>
+    </div>
+    <p id="turbo-characterization-status" role="status" aria-live="polite">Pendiente de cálculo.</p>
+    <div id="turbo-characterization-list" class="turbo-characterization-list"></div>
+    <p class="turbo-characterization-note">«Calculado» procede del modelo actual; «Derivado» utiliza operaciones algebraicas justificadas. «No disponible» no equivale a cero.</p>
+   </section>
+   {% if vista and vista.caracterizacion %}<script type="application/json" id="turbo-characterization-initial-data">{{ vista.caracterizacion | tojson }}</script>{% endif %}
    {% endif %}
    <p id="turbo-live-status" role="status" aria-live="polite">Pendiente de actualización</p><div class="turbo-live-metrics">
    {% for clave,titulo,unidad in [('empuje_absoluto_N','Empuje neto','N'),('empuje_especifico_neto','Empuje específico','N/(kg/s)'),('gasto_masico_aire_kg_s','Aire','kg/s'),('gasto_masico_combustible_kg_s','Combustible','kg/s'),('TSFC_kg_N_h','TSFC','kg/(N·h)'),('velocidad_salida_m_s','Velocidad de salida','m/s'),('rpm_eje','Giro mecánico','rpm'),('regimen_tobera','Régimen de tobera','–')] %}

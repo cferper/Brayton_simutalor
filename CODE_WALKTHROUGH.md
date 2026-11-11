@@ -4668,6 +4668,79 @@ pruebas de software, no validación experimental.
 Documentación: [técnico 49.8](docs/milestones/49_8_fichas_componentes.md)
 y [aprendizaje 49.8](docs/milestones/49_8_fichas_componentes_APRENDIZAJE.md).
 
+### 4.105 — Milestone 49.9: caracterización de prestaciones de un turborreactor
+
+**PYTHON — indicadores, no otro motor.** El módulo nuevo
+`caracterizacion_motor_49_9.py` expone
+`caracterizar_motor_49_9(resultado)`: recibe el `dict` de un punto motor
+existente y devuelve `dict[str,list[dict]]`, con familias
+`funcionamiento`, `consumo`, `rendimientos`. Cada indicador tiene
+`id`, `nombre`, `simbolo`, `valor`, `unidad`, `estado`, `formula`,
+`fuente`, `nota`; `valor` es número o `None`, `estado` es
+`calculado|derivado|no_disponible`, y las unidades individuales pueden
+ser K, kPa, m/s, rpm, kg/s, N, N/(kg/s), kg/(N·h), kJ/kg aire, kW,
+% o adimensional. La función no abre archivos, no solicita la API, no
+llama a un solucionador y no altera el resultado de entrada; solo
+opera sobre `ambiente`, `remanso`, `difusor`, `compresor`, `combustor`,
+`turbina`, `tobera`, `prestaciones` y diccionarios absolutos/acoplados
+cuando existen. Las funciones **locales** `ratio(num,den)` y
+`item(clave,nombre,simbolo,valor,unidad,formula,fuente,*,derivado=False,
+nota='',pendiente=False)` encapsulan división protegida (denominador
+positivo y finito) y normalización de cada diccionario. Si falta una
+magnitud, entregan `None`: no extrapolan ni inventan estados. Por
+ejemplo, `caracterizar_motor_49_9(resultado)['funcionamiento'][0]`
+es una fila TIT con unidad K y origen `combustor.T3`.
+
+`preparar_vista_turborreactor(resultado)` importa y llama esa función
+una sola vez y añade `vista['caracterizacion']`. Tanto Jinja como
+`api_turborreactor_simular()` utilizan esa vista: el JSON de éxito
+incorpora `caracterizacion` sin renombrar ni eliminar `componentes`,
+`magnitudes`, `estaciones`, `svg` o `html_documento`. El error HTTP
+422 no incluye cifras anteriores. Las magnitudes absolutas en A sin
+caudal quedan ausentes y el régimen rpm solo corresponde a C.
+
+**INTERPRETACIÓN FÍSICA / INGENIERÍA.** Las temperaturas y presiones
+de las estaciones T1–T4 del núcleo son totales, con las equivalencias
+orientativas Tt2–Tt5 de 49.8. **NPR** = pt,entrada tobera / p∞ estática;
+**EPR teórico** = pt,salida turbina / pt,entrada compresor (convención
+de toma en descarga de turbina); **πt** = pt,entrada turbina /
+pt,salida turbina. Son cocientes de estaciones distintas. La
+convención EPR se basa en la descripción de descarga de turbina frente
+a cara de compresor de la FAA; NASA emplea también estaciones de
+entrada al compresor y tobera al definir el EPR, sin que el modelo
+actual prediga una lectura instrumental real. `f` es combustible
+equivalente por kg de aire; `TSFC = 3600f/Fs` [kg/(N·h)] solo si
+Fs > 0; `Fbruto = Fmomento + Fpresión`; resistencia positiva de
+captación = − término de empuje de entrada; y potencia de eje
+`Peje = ṁaire ηm wt` [kW] solamente si existe ṁaire. En cambio, las
+eficiencias térmica, propulsiva y global **no se calculan**: requieren
+un balance específico de potencia de chorro, captación y empuje de
+presión, no la eficiencia de un Brayton productor de eje.
+
+**JAVASCRIPT — estado de presentación.** La función nueva
+`iniciarCaracterizacion49_9(documento)` recibe el objeto `Document`,
+devuelve `{actualizar,pendiente,seleccionarGrupo}` (o `null` si el
+panel no existe) y no dispone de referencia al fetcher. `actualizar`
+acepta el JSON de respuesta y recorre `datos.caracterizacion`;
+`pendiente(mensaje)` elimina las tarjetas numéricas hasta que se
+resuelva el motor; `seleccionarGrupo(clave)` devuelve `true` para las
+tres claves reconocidas y `false` para las demás. Mantiene el grupo
+seleccionado cuando cambian los parámetros. Usa `createElement`,
+`textContent`, botones con `aria-pressed` y `<details>` de definición;
+seleccionar una pestaña no ejecuta cálculos. `inicializar48` la llama
+solo si el banco interactivo está presente, junto al controlador de
+fichas 49.8, en los estados pendiente, actualizado o error. Un POST
+manual válido incorpora el mismo JSON como script Jinja seguro para
+no duplicar la simulación.
+
+**Verificación y limitaciones.** La batería nueva comprueba identidades
+de presiones, unidades, modos A/B/C, indisponibilidad, TSFC con empuje
+no positivo, JSON finito y pestañas sin red. La interfaz muestra
+indicadores del modelo educativo, no datos certificados, EGT ni
+rendimientos propulsivos de un banco real. La inspección visual en
+Windows sigue siendo necesaria. [Técnico 49.9](docs/milestones/49_9_caracterizacion_prestaciones.md)
+y [aprendizaje 49.9](docs/milestones/49_9_caracterizacion_prestaciones_APRENDIZAJE.md).
+
 ## Evolution of the project
 
 - **Milestone 49.6: gráficas del motor y referencia de geometría C.** Familias de ciclo, tobera y prestaciones; SVG de magnitudes calculadas y perfiles con choque discontinuo. El botón de C consulta el diseño M47 existente, cuya referencia es convergente (Ag = Ae), informa esa limitación aunque el usuario tenga seleccionado C-D y permite editar después las áreas; no crea una geometría C-D óptima ni modifica solucionadores. [Técnico](docs/milestones/49_6_ampliacion_graficas_motor.md) y [aprendizaje](docs/milestones/49_6_ampliacion_graficas_motor_APRENDIZAJE.md).
@@ -4682,6 +4755,8 @@ y [aprendizaje 49.8](docs/milestones/49_8_fichas_componentes_APRENDIZAJE.md).
 - **Milestone 49.1: tres interfaces y navegación compartida.** El banco interactivo es la portada, el clásico conserva todas sus secciones y Brayton mantiene su formulario en `/brayton`. Las dos vistas de turborreactor comparten un único controlador Flask, plantilla, lógica JS y solucionadores. [Técnico](docs/milestones/49_1_separacion_interfaces.md) y [aprendizaje](docs/milestones/49_1_separacion_interfaces_APRENDIZAJE.md).
 - **Milestone 49.7: esquema educativo seleccionable.** SVG de seis componentes con selección accesible y ficha funcional; separar el estado visual del estado físico enseña eventos del DOM sin nuevas simulaciones. [Técnico](docs/milestones/49_7_esquema_interactivo_turborreactor.md) y [aprendizaje](docs/milestones/49_7_esquema_interactivo_turborreactor_APRENDIZAJE.md).
 - **Milestone 49.8: fichas físicas por componente.** Datos totales/estáticos de A/B/C, ecuaciones breves y estado reactivo de la ficha seleccionado sin duplicar la API ni alterar el solucionador. [Técnico](docs/milestones/49_8_fichas_componentes.md) y [aprendizaje](docs/milestones/49_8_fichas_componentes_APRENDIZAJE.md).
+
+- **Milestone 49.9: indicadores profesionales condicionados por física.** NPR, EPR por estaciones explícitas, expansión de turbina, empuje, TSFC, caudales y balances con estados de disponibilidad; no inventa eficiencia del chorro ni medición instrumental. Python agrega indicadores, JS los presenta por pestañas sin nuevo solver. [Técnico](docs/milestones/49_9_caracterizacion_prestaciones.md) y [aprendizaje](docs/milestones/49_9_caracterizacion_prestaciones_APRENDIZAJE.md).
 - **Milestone 48.3: cierre focalizado de la etapa interactiva (pendiente de commit).** Protección del POST manual frente a peticiones tardías, pruebas de cancelación e invalidación y comprobación del flujo físico único; pendiente de pruebas HTTP/visuales en Windows. [Técnico](docs/milestones/48_3_cierre_primera_etapa_interactiva.md) y [aprendizaje](docs/milestones/48_3_cierre_primera_etapa_interactiva_APRENDIZAJE.md).
 - **Milestone 48.2: primera simulación interactiva (pendiente de commit).** Controles Mach/T3, espera de 350 ms, cancelación y orden de respuestas, KPIs y SVG sincronizados con una ejecución Python; no modifica los solucionadores ni recalcula estudios independientes. [Técnico](docs/milestones/48_2_actualizacion_automatica.md) y [aprendizaje](docs/milestones/48_2_actualizacion_automatica_APRENDIZAJE.md).
 

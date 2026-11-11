@@ -273,6 +273,61 @@
     return {seleccionar,actualizar,pendiente,cambiarApartado};
   }
 
+  // M49.9: presentación de indicadores, independiente de la API y del solver.
+  function iniciarCaracterizacion49_9(documento) {
+    const raiz=documento.querySelector('.turbo-characterization');
+    if(!raiz)return null;
+    const lista=raiz.querySelector('#turbo-characterization-list');
+    const estado=raiz.querySelector('#turbo-characterization-status');
+    const botones=[...raiz.querySelectorAll('[data-characterization-tab]')];
+    const grupos=['funcionamiento','consumo','rendimientos'];
+    let grupo='funcionamiento', datos=null, mensaje='Pendiente de cálculo.';
+    function renderizar(){
+      if(estado)estado.textContent=datos?'Indicadores del punto motor actualizado.':mensaje;
+      if(!lista?.replaceChildren)return;
+      lista.replaceChildren();
+      if(!datos)return;
+      for(const indicador of datos[grupo]||[]){
+        const tarjeta=documento.createElement('article');
+        tarjeta.className='turbo-characterization-card';
+        tarjeta.dataset.estado=indicador.estado;
+        const titulo=documento.createElement('h5');
+        titulo.textContent=indicador.nombre+' · '+indicador.simbolo;
+        const lectura=documento.createElement('div');
+        lectura.className='turbo-characterization-reading';
+        const valor=documento.createElement('strong');
+        const n=indicador.valor;
+        valor.textContent=typeof n==='number'&&Number.isFinite(n)?Number(n.toPrecision(6)).toLocaleString('es-ES'):'No disponible';
+        const unidad=documento.createElement('small');
+        unidad.textContent=indicador.unidad;
+        lectura.append(valor,unidad);
+        const clase=documento.createElement('span');
+        clase.className='turbo-characterization-class';
+        clase.textContent=indicador.estado==='derivado'?'Derivado':indicador.estado==='calculado'?'Calculado':'No disponible';
+        const ayuda=documento.createElement('details');
+        const resumen=documento.createElement('summary');
+        resumen.textContent='Definición y procedencia';
+        const explicacion=documento.createElement('p');
+        explicacion.textContent=indicador.formula+' · Origen: '+indicador.fuente+(indicador.nota?' · '+indicador.nota:'');
+        ayuda.append(resumen,explicacion);
+        tarjeta.append(titulo,lectura,clase,ayuda);
+        lista.append(tarjeta);
+      }
+    }
+    function seleccionarGrupo(clave){
+      if(!grupos.includes(clave))return false;
+      grupo=clave;
+      botones.forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.characterizationTab===clave)));
+      renderizar();
+      return true;
+    }
+    botones.forEach(b=>b.addEventListener('click',()=>seleccionarGrupo(b.dataset.characterizationTab)));
+    function actualizar(respuesta){datos=respuesta?.caracterizacion||null;renderizar();}
+    function pendiente(texto){datos=null;mensaje=texto||'Pendiente de cálculo.';renderizar();}
+    seleccionarGrupo(grupo);
+    return {actualizar,pendiente,seleccionarGrupo};
+  }
+
   function inicializar48(documento, fetcher) {
     const formulario=documento.getElementById('turbo-form');
     const panel=documento.getElementById('turbo-live');
@@ -281,6 +336,7 @@
     const estado=documento.getElementById('turbo-live-status');
     const banco=documento.body.dataset.interfaz==='interactivo';
     const fichaEducativa=banco?iniciarEsquemaEducativo49_7(documento):null;
+    const caracterizacion=banco?iniciarCaracterizacion49_9(documento):null;
     const selectorModo=formulario.elements.modo_caudal;
     const botonesModo=[...formulario.querySelectorAll('[data-bank-mode]')];
     const actualizarModo=()=>{
@@ -406,9 +462,13 @@
       onEstado:tipo=>{
         panel.dataset.estado=tipo;
         const badge=documento.querySelector('#resultados .badge');
-        if(tipo==='pendiente')fichaEducativa?.pendiente('Entradas modificadas: resultados pendientes de actualización.');
+        if(tipo==='pendiente'){
+          fichaEducativa?.pendiente('Entradas modificadas: resultados pendientes de actualización.');
+          caracterizacion?.pendiente('Entradas modificadas: indicadores pendientes de actualización.');
+        }
         if(tipo==='actualizando'){
           fichaEducativa?.pendiente('Calculando: los resultados anteriores no corresponden a las entradas actuales.');
+          caracterizacion?.pendiente('Calculando: indicadores anteriores retirados.');
           estado.textContent='Actualizando…';
           if(badge)badge.textContent='Actualizando…';
           mostrarTodos('Pendiente de cálculo');
@@ -430,6 +490,7 @@
         });
         cambios.forEach(([destino,nodos])=>destino.replaceChildren(...nodos));
         fichaEducativa?.actualizar(datos);
+        caracterizacion?.actualizar(datos);
         // Un error antiguo del formulario no corresponde a esta nueva solución.
         documento.querySelector('#turbo-configuracion-vista-uso > .error-summary')?.remove();
         const badge=documento.querySelector('#resultados .badge');
@@ -476,6 +537,7 @@
       },
       onError:error=>{
         fichaEducativa?.pendiente('Sin resultados numéricos verificados para este punto motor.');
+        caracterizacion?.pendiente('Sin indicadores verificados para este punto motor.');
         const fuera=Boolean(error.fueraMapa);
         panel.dataset.estado=fuera?'fuera-mapa':'error';
         const mensaje=fuera?'Fuera del mapa':'Error de cálculo';
@@ -567,13 +629,18 @@
         try{fichaEducativa.actualizar({componentes:JSON.parse(datosIniciales.textContent)});}
         catch(_error){fichaEducativa.pendiente('No se pueden leer los datos de la ficha inicial.');}
       }
+      const caracterizacionInicial=documento.getElementById('turbo-characterization-initial-data');
+      if(caracterizacion&&caracterizacionInicial){
+        try{caracterizacion.actualizar({caracterizacion:JSON.parse(caracterizacionInicial.textContent)});}
+        catch(_error){caracterizacion.pendiente('No se pueden leer los indicadores iniciales.');}
+      }
     }
     return controlador;
   }
 
   if(typeof module!=='undefined'&&module.exports){
     module.exports={crearControlador48,acoplarControl48,escalaGrafica49,
-                    iniciarEsquemaEducativo49_7,
+                    iniciarEsquemaEducativo49_7,iniciarCaracterizacion49_9,
                     aplicarGeometriaDiseno49,inicializar48};
   }
   if(typeof document!=='undefined'){
