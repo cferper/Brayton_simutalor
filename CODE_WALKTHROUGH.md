@@ -4741,7 +4741,38 @@ rendimientos propulsivos de un banco real. La inspección visual en
 Windows sigue siendo necesaria. [Técnico 49.9](docs/milestones/49_9_caracterizacion_prestaciones.md)
 y [aprendizaje 49.9](docs/milestones/49_9_caracterizacion_prestaciones_APRENDIZAJE.md).
 
+### Milestone 50.0 — Sincronización del esquema y las estaciones discretas
+
+`estaciones_turborreactor()` incorpora a cada estado existente un identificador
+estable (`ambiente`, `pt2`, `pt3`, `pt4`, `pt5`, `garganta` cuando existe,
+`salida`). Los cuatro puntos de remanso siguen siendo las variables internas
+T1–T4; su equivalencia **orientativa** es Tt2–Tt5. Los gráficos de temperaturas
+y presiones totales, T–s, las estaciones discretas de tobera y las barras de
+trabajo/balance incluyen atributos `data-engine-station`, `data-engine-work` o
+`data-engine-energy`. Solo se marcan puntos ya trazados por el cálculo Python:
+no hay coordenadas axiales inventadas ni cálculos numéricos nuevos.
+
+`iniciarSincronizacion50_0(documento)` mantiene el componente elegido y un
+conjunto de estaciones vigentes. Su tabla declarativa asocia entrada/salida,
+trabajos y aportes energéticos; el eje se asocia exclusivamente a su barra
+mecánica. La función de selección de M49.7 notifica el cambio mediante una
+función opcional sin lanzar `fetch`. Tras `onRespuesta`, cuando han terminado
+las sustituciones SVG y el restaurado del visor 49.4, el sincronizador vuelve
+a buscar marcadores en el DOM y destaca los pertinentes. `onEstado` pendiente
+o actualizando y `onError` retiran de inmediato todos los destacados y cifras
+de la correspondencia, pero conservan el componente seleccionado. La respuesta
+JSON reutiliza `estaciones` existente; la API y el solucionador no cambian.
+
+El panel textual accesible permite identificar entrada/salida, valores y tipo
+total/estático sin depender solo del color. En una convergente sin garganta
+independiente, esta no se dibuja. No se crea una estación del eje ni se traza
+un perfil axial del núcleo. La inspección final en Windows continúa pendiente.
+[Técnico 50.0](docs/milestones/50_0_sincronizacion_motor_estaciones_graficas.md)
+y [aprendizaje 50.0](docs/milestones/50_0_sincronizacion_motor_estaciones_graficas_APRENDIZAJE.md).
+
 ## Evolution of the project
+
+- **Milestone 50.0: vinculación visual entre esquema y datos calculados.** Identificadores de estaciones y barras en los SVG existentes; selección local, marcas de entrada/salida y limpieza de resaltados durante el recálculo, sin resolver magnitudes nuevas. [Técnico](docs/milestones/50_0_sincronizacion_motor_estaciones_graficas.md) y [aprendizaje](docs/milestones/50_0_sincronizacion_motor_estaciones_graficas_APRENDIZAJE.md).
 
 - **Milestone 49.6: gráficas del motor y referencia de geometría C.** Familias de ciclo, tobera y prestaciones; SVG de magnitudes calculadas y perfiles con choque discontinuo. El botón de C consulta el diseño M47 existente, cuya referencia es convergente (Ag = Ae), informa esa limitación aunque el usuario tenga seleccionado C-D y permite editar después las áreas; no crea una geometría C-D óptima ni modifica solucionadores. [Técnico](docs/milestones/49_6_ampliacion_graficas_motor.md) y [aprendizaje](docs/milestones/49_6_ampliacion_graficas_motor_APRENDIZAJE.md).
 

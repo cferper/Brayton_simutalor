@@ -125,8 +125,10 @@ def svg_perfil_axial(datos, magnitud):
             detalle = escape(f"{etiqueta}: x={p['x']:.6g} m; "
                              f"{'Mach' if magnitud == 'mach' else 'p' if magnitud == 'presion' else magnitud}="
                              f"{p[magnitud]:.6g} {unidad}", quote=True)
+            estacion = ('garganta' if etiqueta == 'Garganta' else
+                        'salida' if etiqueta == 'Salida' else '')
             piezas.append(f"<circle cx='{xplot(p['x']):.3f}' cy='{yplot(p[magnitud]):.3f}' "
-                          f"r='3.5' fill='{color}' data-plot-info='{detalle}' "
+                          f"r='3.5' fill='{color}' data-engine-station='{estacion}' data-plot-info='{detalle}' "
                           f"tabindex='0' role='button' aria-label='{detalle}'/>")
     if datos["choque"]:
         x = xplot(datos["x_choque"])

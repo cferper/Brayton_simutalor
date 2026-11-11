@@ -166,7 +166,7 @@
   }
 
   // M49.7: estado visual local; no recibe fetcher ni referencia al controlador físico.
-  function iniciarEsquemaEducativo49_7(documento) {
+  function iniciarEsquemaEducativo49_7(documento, alSeleccionar) {
     const esquema=documento.querySelector('.turbo-engine-educational');
     if(!esquema)return null;
     const piezas=[...esquema.querySelectorAll('[data-engine-part]')];
@@ -249,6 +249,7 @@
       descripcion.textContent=ficha[1];
       seleccionActual=clave;
       mostrarFicha();
+      if(typeof alSeleccionar==='function')alSeleccionar(clave);
       return true;
     }
     function actualizar(datos){
@@ -271,6 +272,56 @@
     });
     seleccionar('difusor');
     return {seleccionar,actualizar,pendiente,cambiarApartado};
+  }
+
+  // M50.0: relación declarativa entre piezas y estados efectivamente calculados.
+  // No contiene ecuaciones, coordenadas ni referencias al controlador de peticiones.
+  function iniciarSincronizacion50_0(documento){
+    const estado=documento.getElementById('turbo-engine-sync-status');
+    if(!estado)return null;
+    const relaciones={
+      difusor:{entrada:['ambiente'],salida:['pt2']},
+      compresor:{entrada:['pt2'],salida:['pt3'],trabajo:'compresor',energia:'compresor'},
+      camara:{entrada:['pt3'],salida:['pt4'],energia:'camara'},
+      turbina:{entrada:['pt4'],salida:['pt5'],trabajo:'turbina',energia:'turbina'},
+      eje:{trabajo:'eje'},
+      tobera:{entrada:['pt5'],salida:['garganta','salida'],energia:'tobera'}
+    };
+    let componente='difusor',estaciones=null;
+    const leer=estacion=>estaciones?.find(e=>e.id===estacion&&Number.isFinite(e.T)&&Number.isFinite(e.p));
+    function pintar(){
+      const relacion=relaciones[componente];
+      const validos=new Set();
+      const fragmentos=[];
+      if(estaciones){
+        for(const tipo of ['entrada','salida']){
+          const encontrados=(relacion[tipo]||[]).map(leer).filter(Boolean);
+          for(const e of encontrados){
+            validos.add(e.id);
+            const categoria=e.tipo==='Remanso'?'total':'estática';
+            fragmentos.push(`${tipo}: ${e.nombre} (${categoria}), T=${Number(e.T.toPrecision(6))} K, p=${Number(e.p.toPrecision(6))} kPa`);
+          }
+        }
+        if(componente==='eje')fragmentos.push('Acoplamiento mecánico: no constituye una estación termodinámica. Véase la barra de trabajo del eje.');
+      }
+      estado.textContent=!estaciones?'Sin punto motor vigente: las correspondencias gráficas están pendientes.':
+        fragmentos.length?fragmentos.join(' · '):'No hay estaciones calculadas disponibles para este componente.';
+      for(const punto of documento.querySelectorAll('[data-engine-station],[data-engine-work],[data-engine-energy]')){
+        const esEstacion=punto.hasAttribute('data-engine-station');
+        const clave=esEstacion?punto.getAttribute('data-engine-station'):
+          punto.getAttribute(punto.hasAttribute('data-engine-work')?'data-engine-work':'data-engine-energy');
+        const coincide=esEstacion?validos.has(clave):
+          (punto.hasAttribute('data-engine-work')?relacion.trabajo===clave:relacion.energia===clave);
+        const activo=Boolean(estaciones&&coincide);
+        punto.classList.toggle('is-engine-related',activo);
+        punto.classList.toggle('is-engine-muted',Boolean(estaciones&&!activo));
+      }
+    }
+    function seleccionar(clave){if(!relaciones[clave])return false;componente=clave;pintar();return true;}
+    function actualizar(respuesta){estaciones=Array.isArray(respuesta?.estaciones)?respuesta.estaciones:null;pintar();}
+    function pendiente(){estaciones=null;pintar();}
+    pintar();
+    return {seleccionar,actualizar,pendiente};
   }
 
   // M49.9: presentación de indicadores, independiente de la API y del solver.
@@ -335,7 +386,8 @@
     panel.hidden=false;
     const estado=documento.getElementById('turbo-live-status');
     const banco=documento.body.dataset.interfaz==='interactivo';
-    const fichaEducativa=banco?iniciarEsquemaEducativo49_7(documento):null;
+    const sincronizacion=banco?iniciarSincronizacion50_0(documento):null;
+    const fichaEducativa=banco?iniciarEsquemaEducativo49_7(documento,clave=>sincronizacion?.seleccionar(clave)):null;
     const caracterizacion=banco?iniciarCaracterizacion49_9(documento):null;
     const selectorModo=formulario.elements.modo_caudal;
     const botonesModo=[...formulario.querySelectorAll('[data-bank-mode]')];
@@ -461,6 +513,7 @@
       },
       onEstado:tipo=>{
         panel.dataset.estado=tipo;
+        if(tipo==='pendiente'||tipo==='actualizando')sincronizacion?.pendiente();
         const badge=documento.querySelector('#resultados .badge');
         if(tipo==='pendiente'){
           fichaEducativa?.pendiente('Entradas modificadas: resultados pendientes de actualización.');
@@ -534,8 +587,10 @@
         }
         reconciliarPestañas();
         explorador?.restaurar();
+        sincronizacion?.actualizar(datos);
       },
       onError:error=>{
+        sincronizacion?.pendiente();
         fichaEducativa?.pendiente('Sin resultados numéricos verificados para este punto motor.');
         caracterizacion?.pendiente('Sin indicadores verificados para este punto motor.');
         const fuera=Boolean(error.fueraMapa);
@@ -640,7 +695,7 @@
 
   if(typeof module!=='undefined'&&module.exports){
     module.exports={crearControlador48,acoplarControl48,escalaGrafica49,
-                    iniciarEsquemaEducativo49_7,iniciarCaracterizacion49_9,
+                    iniciarEsquemaEducativo49_7,iniciarCaracterizacion49_9,iniciarSincronizacion50_0,
                     aplicarGeometriaDiseno49,inicializar48};
   }
   if(typeof document!=='undefined'){

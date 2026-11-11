@@ -317,15 +317,16 @@ def estaciones_turborreactor(resultado):
         ("Salida de cámara · entrada a turbina", "Remanso", b["T3"], b["p3"]),
         ("Salida de turbina · entrada a tobera", "Remanso", t["T4"], t["p4"]),
     )
-    lista = [{"nombre": nombre, "tipo": tipo, "T": T, "p": p, "h": h(T)}
-             for nombre, tipo, T, p in pares]
+    ids = ('ambiente', 'pt2', 'pt3', 'pt4', 'pt5')
+    lista = [{"id": id_, "nombre": nombre, "tipo": tipo, "T": T, "p": p, "h": h(T)}
+             for id_, (nombre, tipo, T, p) in zip(ids, pares)]
     if n and "temperatura_garganta" in n:
         T_g = n["temperatura_garganta"]
-        lista.append({"nombre": "Garganta de tobera C-D", "tipo": "Estático",
+        lista.append({"id": "garganta", "nombre": "Garganta de tobera C-D", "tipo": "Estático",
                       "T": T_g, "p": n["presion_garganta"],
                       "h": h(T_g) if T_g is not None else None})
     T_e = n["temperatura_salida"] if n else None
-    lista.append({"nombre": "Salida de tobera", "tipo": "Estático",
+    lista.append({"id": "salida", "nombre": "Salida de tobera", "tipo": "Estático",
                   "T": T_e,
                   "p": n["presion_salida"] if n else None,
                   "h": (n.get("entalpia_salida", h(T_e) if T_e is not None else None)
@@ -461,7 +462,8 @@ def svg_evolucion(estaciones, clave, etiqueta, unidad):
               '<path d="M55 20 V198 H640" fill="none" stroke="#74859a"/>']
     for i, ((x,y), v) in enumerate(zip(puntos,valores)):
         detalle = escape(f'{nucleo[i]["nombre"]}: {etiqueta} = {v:.6g} {unidad}', quote=True)
-        piezas.append(f'<circle cx="{x:.1f}" cy="{y:.1f}" r="5" fill="#174a70" data-plot-info="{detalle}" tabindex="0" role="button" aria-label="{detalle}"/>')
+        estacion = nucleo[i].get('id', ('pt2','pt3','pt4','pt5')[i])
+        piezas.append(f'<circle cx="{x:.1f}" cy="{y:.1f}" r="5" fill="#174a70" data-engine-station="{estacion}" data-plot-info="{detalle}" tabindex="0" role="button" aria-label="{detalle}"/>')
         piezas.append(f'<text x="{x:.1f}" y="{max(y-11, 18):.1f}" text-anchor="middle">{v:.1f}</text>')
         abreviatura = ('Difusor','Compresor','Cámara','Turbina')[i] if len(nucleo)==4 else str(i+1)
         piezas.append(f'<text x="{x:.1f}" y="217" text-anchor="middle">{abreviatura}</text>')
@@ -563,7 +565,8 @@ def svg_ts_turborreactor(estaciones):
         label, entropia, temperatura, tipo = p
         detalle = escape(f'Estado {label} ({tipo}): T={temperatura:.5g} K; '
                          f's={entropia:.6g} kJ/(kg·K)', quote=True)
-        piezas.append(f'<circle cx="{x:.2f}" cy="{y:.2f}" r="6" fill="#133d61" '
+        estacion = {'1':'pt2','2':'pt3','3':'pt4','4':'pt5','E':'salida'}[label]
+        piezas.append(f'<circle cx="{x:.2f}" cy="{y:.2f}" r="6" fill="#133d61" data-engine-station="{estacion}" '
                       f'data-plot-info="{detalle}" tabindex="0" role="button" '
                       f'aria-label="{detalle}"/>')
         a_la_derecha = x < 450
@@ -663,8 +666,12 @@ def svg_estados_tobera(datos, magnitud):
     for i, (e, x) in enumerate(zip(estados, xs)):
         y = convertir_y(e[magnitud])
         color = colores[e['papel']]
+        detalle = escape(f'{e["nombre"]}: {nombre} = {e[magnitud]:.6g}', quote=True)
+        estacion = e['papel'] if e['papel'] in ('garganta', 'salida') else ''
         piezas.append(f'<circle cx="{x:.2f}" cy="{y:.2f}" r="6" '
-                      f'fill="{color}" stroke="white" stroke-width="1.5"/>')
+                      f'fill="{color}" stroke="white" stroke-width="1.5" '
+                      f'data-engine-station="{estacion}" data-plot-info="{detalle}" '
+                      f'tabindex="0" role="button" aria-label="{detalle}"/>')
         piezas.append(f'<text x="{x:.2f}" y="{max(30, y-13):.2f}" '
                       f'text-anchor="middle" font-size="12">{e[magnitud]:.3f}</text>')
         # Rótulos en dos líneas para no confundir ambos lados del choque.
@@ -718,9 +725,11 @@ def svg_perfil_tobera(datos, magnitud):
             trazos.append(f'<polyline points="{puntos}" fill="none" '
                           f'stroke="{color}" stroke-width="3" stroke-linejoin="round"/>')
         for p in (segmento[0], segmento[-1]):
+            estacion = ('garganta' if abs(p['area_relativa']-1.) < 1e-10 else
+                        'salida' if abs(p['area_relativa']-epsilon) < 1e-10 else '')
             trazos.append(f'<circle cx="{x(p["area_relativa"]):.2f}" '
                           f'cy="{y(p[clave]):.2f}" r="4" fill="{color}" '
-                          'stroke="white" stroke-width="1"/>')
+                          f'stroke="white" stroke-width="1" data-engine-station="{estacion}"/>')
     if datos["choque"]:
         antes, despues = datos["choque"]
         xx = x(antes["area_relativa"])
@@ -819,8 +828,11 @@ def svg_balance_energetico(datos):
             piezas.append(f'<text x="282" y="{y+17}" font-size="12">No disponible</text>')
         else:
             largo = 345*valor/escala
+            componente = ('compresor', 'camara', 'turbina', 'tobera')[i]
+            detalle = escape(f'{titulo}: {valor:.6g} kJ/kg de aire', quote=True)
             piezas.append(f'<rect x="270" y="{y}" width="{largo:.2f}" height="25" '
-                          f'rx="4" fill="{color}"/>')
+                          f'rx="4" fill="{color}" data-engine-energy="{componente}" '
+                          f'data-plot-info="{detalle}" tabindex="0" role="button" aria-label="{detalle}"/>')
             piezas.append(f'<text x="{280+largo:.2f}" y="{y+18}" '
                           f'font-size="12">{valor:.2f}</text>')
     return ('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 330" '
@@ -845,7 +857,7 @@ def svg_trabajos_motor(datos):
         largo = 385*valor/escala
         detalle = escape(f'{etiqueta}: {valor:.6g} kJ/kg de aire', quote=True)
         piezas.extend((f'<text x="10" y="{y+18}" font-size="13">{escape(etiqueta)}</text>',
-                       f'<rect x="245" y="{y}" width="{largo:.3f}" height="27" rx="4" fill="{color}" data-plot-info="{detalle}" tabindex="0" role="button" aria-label="{detalle}"/>',
+                       f'<rect x="245" y="{y}" width="{largo:.3f}" height="27" rx="4" fill="{color}" data-engine-work="{("compresor", "turbina", "eje")[i]}" data-plot-info="{detalle}" tabindex="0" role="button" aria-label="{detalle}"/>',
                        f'<text x="{min(690,255+largo):.3f}" y="{y+18}" font-size="12">{valor:.2f}</text>'))
     return ('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 275" role="img" '
             'aria-label="Trabajos específicos del motor, en base de aire entrante"><g '

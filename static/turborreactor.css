@@ -262,6 +262,16 @@
 .turbo-engine-equation p{font-size:11px!important;line-height:1.5!important;margin:4px 0 0!important}
 .turbo-engine-stations{font-size:11px;color:#35546b;margin-top:12px;border-top:1px solid #c2d4e3;padding-top:9px}
 .turbo-engine-stations summary{cursor:pointer;font-weight:650}
+
+/* M50.0: resaltar estaciones y trabajos existentes, sin alterar datos ni escalas. */
+.turbo-engine-sync{margin-top:12px;padding:10px;background:#fff;border:1px solid #c4d9e7;border-radius:7px;color:#224c68;font-size:12px}
+.turbo-engine-sync>p{margin:7px 0 0;line-height:1.5;overflow-wrap:anywhere}
+.turbo-engine-sync>strong{font-size:12px}
+.turbo-live svg [data-engine-station],.turbo-live svg [data-engine-work],.turbo-live svg [data-engine-energy]{transition:opacity .13s ease,stroke-width .13s ease}
+.turbo-live svg .is-engine-related{stroke:#dd7500!important;stroke-width:4!important;paint-order:stroke;filter:drop-shadow(0 0 3px #f3a634)}
+.turbo-live svg .is-engine-muted{opacity:.48}
+.turbo-live svg .is-engine-related:focus-visible{stroke:#074b82!important;stroke-width:5!important;outline:2px solid #d98310;outline-offset:3px}
+@media(prefers-reduced-motion:reduce){.turbo-live svg [data-engine-station],.turbo-live svg [data-engine-work],.turbo-live svg [data-engine-energy]{transition:none}}
 .turbo-engine-stations ul{padding-left:18px;margin:7px 0}
 
 /* M49.9: panel de indicadores, complementario a las fichas por componente. */
