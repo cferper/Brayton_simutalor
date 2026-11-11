@@ -332,6 +332,101 @@ def estaciones_turborreactor(resultado):
     return lista
 
 
+def fichas_componentes_49_8(resultado):
+    """Magnitudes físicas existentes para las seis fichas; sin resolver estados nuevos.
+
+    Devuelve dict[str, list[dict]]: cada fila contiene etiqueta, valor, unidad,
+    clase (total/estatica/operacion) y origen. None significa no disponible.
+    """
+    a, d, c = (resultado[k] for k in ('ambiente', 'difusor', 'compresor'))
+    b, t, n = (resultado[k] for k in ('combustor', 'turbina', 'tobera'))
+    n = n or {}  # Una tobera sin expansión resuelta no aporta estados estáticos.
+    rem = resultado['remanso']
+    abs_ = resultado.get('prestaciones_absolutas') or {}
+    dim = resultado.get('dimensionamiento_tobera') or {}
+    motor = resultado.get('motor_acoplado') or {}
+    diagnostico = resultado['diagnosticos']
+
+    def fila(etiqueta, valor, unidad, clase, origen):
+        return {'etiqueta': etiqueta, 'valor': valor, 'unidad': unidad,
+                'clase': clase, 'origen': origen}
+
+    est = lambda nombre, valor, unidad, origen: fila(nombre, valor, unidad, 'estatica', origen)
+    tot = lambda nombre, valor, unidad, origen: fila(nombre, valor, unidad, 'total', origen)
+    op = lambda nombre, valor, unidad, origen: fila(nombre, valor, unidad, 'operacion', origen)
+
+    eta_c = ((c['h2s'] - c['h1']) / c['trabajo_compresor']
+             if c['trabajo_compresor'] else None)
+    gasto_f = abs_.get('gasto_masico_combustible')
+    gasto_a = abs_.get('gasto_masico_aire')
+    trabajo_eje = t['rendimiento_mecanico'] * t['trabajo_turbina_por_kg_aire']
+    return {
+        'difusor': [
+            est('Temperatura exterior', a['temperatura'], 'K', 'ambiente.temperatura'),
+            est('Presión exterior', a['presion'], 'kPa', 'ambiente.presion'),
+            op('Mach de vuelo', rem['mach'], '–', 'remanso.mach'),
+            op('Velocidad de vuelo', rem['velocidad_vuelo'], 'm/s', 'remanso.velocidad_vuelo'),
+            tot('Temperatura total antes del difusor', rem['temperatura_remanso'], 'K', 'remanso.temperatura_remanso'),
+            tot('Presión total antes del difusor', rem['presion_remanso'], 'kPa', 'remanso.presion_remanso'),
+            tot('Temperatura total tras difusor', d['temperatura_remanso'], 'K', 'difusor.temperatura_remanso'),
+            tot('Presión total tras difusor', d['presion_remanso'], 'kPa', 'difusor.presion_remanso'),
+            op('Recuperación de presión total πd', d['recuperacion_presion'], '–', 'difusor.recuperacion_presion'),
+        ],
+        'compresor': [
+            tot('Temperatura total de entrada', c['T1'], 'K', 'compresor.T1'),
+            tot('Temperatura total de salida', c['T2'], 'K', 'compresor.T2'),
+            tot('Presión total de entrada', c['p1'], 'kPa', 'compresor.p1'),
+            tot('Presión total de salida', c['p2'], 'kPa', 'compresor.p2'),
+            op('Relación de compresión', c['p2']/c['p1'], '–', 'compresor.p2 / compresor.p1'),
+            op('Rendimiento isentrópico', eta_c, '–', '(h2s-h1)/(h2-h1)'),
+            op('Trabajo específico recibido', c['trabajo_compresor'], 'kJ/kg aire', 'compresor.trabajo_compresor'),
+        ],
+        'camara': [
+            tot('Temperatura total de entrada', c['T2'], 'K', 'compresor.T2'),
+            tot('Temperatura total de salida (T3 interna)', b['T3'], 'K', 'combustor.T3'),
+            tot('Presión total de entrada', c['p2'], 'kPa', 'compresor.p2'),
+            tot('Presión total de salida', b['p3'], 'kPa', 'combustor.p3'),
+            op('Pérdida de presión total δ', b['delta']*100, '%', 'combustor.delta'),
+            op('Dosado combustible/aire f', b['f'], 'kg/kg aire', 'combustor.f'),
+            op('Caudal de combustible', gasto_f, 'kg/s', 'prestaciones_absolutas.gasto_masico_combustible'),
+            op('Aporte energético efectivo', b['aporte_quimico_efectivo'], 'kJ/kg aire', 'combustor.aporte_quimico_efectivo'),
+        ],
+        'turbina': [
+            tot('Temperatura total de entrada (T3 interna)', b['T3'], 'K', 'combustor.T3'),
+            tot('Temperatura total de salida (T4 interna)', t['T4'], 'K', 'turbina.T4'),
+            tot('Presión total de entrada', b['p3'], 'kPa', 'combustor.p3'),
+            tot('Presión total de salida', t['p4'], 'kPa', 'turbina.p4'),
+            op('Trabajo extraído', t['trabajo_turbina_por_kg_aire'], 'kJ/kg aire', 'turbina.trabajo_turbina_por_kg_aire'),
+            op('Rendimiento isentrópico', t['rendimiento_turbina'], '–', 'turbina.rendimiento_turbina'),
+            op('Trabajo requerido por compresor', c['trabajo_compresor'], 'kJ/kg aire', 'compresor.trabajo_compresor'),
+        ],
+        'eje': [
+            op('Trabajo específico extraído por turbina', t['trabajo_turbina_por_kg_aire'], 'kJ/kg aire', 'turbina.trabajo_turbina_por_kg_aire'),
+            op('Trabajo específico transmitido', trabajo_eje, 'kJ/kg aire', 'ηm · trabajo_turbina_por_kg_aire'),
+            op('Pérdida mecánica específica', t['trabajo_turbina_por_kg_aire']-trabajo_eje, 'kJ/kg aire', '(1-ηm) · trabajo_turbina_por_kg_aire'),
+            op('Trabajo del compresor', c['trabajo_compresor'], 'kJ/kg aire', 'compresor.trabajo_compresor'),
+            op('Rendimiento mecánico ηm', t['rendimiento_mecanico'], '–', 'turbina.rendimiento_mecanico'),
+            op('Potencia transmitida', trabajo_eje*gasto_a if gasto_a is not None else None, 'kW', 'trabajo transmitido · caudal aire'),
+            op('Régimen de giro (solo C)', motor.get('rpm'), 'rpm', 'motor_acoplado.rpm'),
+        ],
+        'tobera': [
+            tot('Temperatura total de entrada', n.get('temperatura_remanso'), 'K', 'tobera.temperatura_remanso'),
+            tot('Presión total de entrada', n.get('presion_remanso'), 'kPa', 'tobera.presion_remanso'),
+            est('Temperatura estática de garganta', n.get('temperatura_garganta'), 'K', 'tobera.temperatura_garganta'),
+            est('Presión estática de garganta', n.get('presion_garganta'), 'kPa', 'tobera.presion_garganta'),
+            est('Temperatura estática de salida', n.get('temperatura_salida'), 'K', 'tobera.temperatura_salida'),
+            est('Presión estática de salida', n.get('presion_salida'), 'kPa', 'tobera.presion_salida'),
+            op('Mach en garganta', n.get('mach_garganta'), '–', 'tobera.mach_garganta'),
+            op('Mach de salida', n.get('mach_salida'), '–', 'tobera.mach_salida'),
+            op('Velocidad de salida', n.get('velocidad_salida'), 'm/s', 'tobera.velocidad_salida'),
+            op('Área de garganta', dim.get('area_garganta'), 'm²', 'dimensionamiento_tobera.area_garganta'),
+            op('Área de salida', dim.get('area_salida'), 'm²', 'dimensionamiento_tobera.area_salida'),
+            op('Régimen de tobera', diagnostico.get('regimen_tobera'), '–', 'diagnosticos.regimen_tobera'),
+            op('Contribución específica de presión', resultado['prestaciones'].get('empuje_especifico_presion'), 'N/(kg/s)', 'prestaciones.empuje_especifico_presion'),
+        ],
+    }
+
+
 def svg_componentes(tipo_tobera="convergente"):
     """SVG fijo del flujo y del eje; sin geometría real ni datos físicos."""
     nombres = ("Difusor", "Compresor", "Cámara", "Turbina",
@@ -870,6 +965,7 @@ def preparar_vista_turborreactor(resultado):
     perfil_axial = proyectar_perfil_axial(perfil, resultado.get("geometria_conica"))
     estudio_geometrico = estudiar_angulos_geometria(resultado.get("geometria_conica"))
     return {"estaciones": estados,
+            "fichas_componentes": fichas_componentes_49_8(resultado),
             "adaptacion_cd": _adaptacion_cd(resultado),
             "svg_componentes": svg_componentes(resultado["diagnosticos"].get("tipo_tobera")),
             "svg_temperaturas": svg_evolucion(estados,"T","Temperatura total","K"),

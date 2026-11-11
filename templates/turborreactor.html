@@ -106,7 +106,14 @@
      </svg>
      <p class="turbo-engine-caption-text">Turborreactor de un solo eje; componentes y proporciones ilustrativos. Seleccionar una pieza no recalcula el motor.</p>
     </div>
-    <aside class="turbo-engine-info" aria-labelledby="turbo-engine-part-title"><p class="eyebrow">Componente seleccionado</p><h4 id="turbo-engine-part-title">Entrada y difusor</h4><p id="turbo-engine-part-description">Recibe el aire exterior y lo desacelera para proporcionar al compresor unas condiciones de entrada adecuadas. La recuperación de presión total depende de las pérdidas del difusor.</p><p class="turbo-engine-info-note">Esta ficha explica la función del componente; no presenta valores del cálculo ni resultados anteriores.</p></aside>
+    <aside class="turbo-engine-info" aria-labelledby="turbo-engine-part-title"><p class="eyebrow">Componente seleccionado</p><h4 id="turbo-engine-part-title">Entrada y difusor</h4>
+     <div class="turbo-engine-ficha-tabs" role="group" aria-label="Apartados de la ficha"><button type="button" data-engine-tab="funcionamiento" aria-pressed="true">Funcionamiento</button><button type="button" data-engine-tab="resultados" aria-pressed="false">Resultados</button><button type="button" data-engine-tab="ecuaciones" aria-pressed="false">Ecuaciones</button></div>
+     <div data-engine-panel="funcionamiento"><p id="turbo-engine-part-description">Recibe el aire exterior y lo desacelera para proporcionar al compresor unas condiciones de entrada adecuadas. La recuperación de presión total depende de las pérdidas del difusor.</p></div>
+     <div data-engine-panel="resultados" hidden><p id="turbo-engine-data-status" role="status" aria-live="polite">Pendiente de cálculo.</p><dl id="turbo-engine-data-list" class="turbo-engine-data"></dl><p class="turbo-engine-data-note">Totales = magnitudes de remanso; estáticas = condiciones locales efectivamente resueltas. Los datos no disponibles se identifican.</p></div>
+     <div data-engine-panel="ecuaciones" hidden><div id="turbo-engine-equations"></div><p class="turbo-engine-data-note">Las expresiones corresponden al modelo cp(T); los símbolos de estación son orientativos y no alteran las variables internas.</p></div>
+     <details class="turbo-engine-stations"><summary>Estaciones del proyecto y convención habitual</summary><p>Los índices varían entre bibliografías; las equivalencias orientativas del núcleo son:</p><ul><li>Entrada de compresor: T1 interna ≈ Tt2.</li><li>Salida de compresor: T2 interna ≈ Tt3.</li><li>Entrada de turbina: T3 interna ≈ Tt4.</li><li>Salida de turbina: T4 interna ≈ Tt5.</li></ul><p>La API conserva T1–T4. «t» indica magnitud total o de remanso; la salida estática de tobera se etiqueta por separado.</p></details>
+    </aside>
+    {% if vista and vista.fichas_componentes %}<script type="application/json" id="turbo-engine-initial-data">{{ vista.fichas_componentes | tojson }}</script>{% endif %}
    </section>
    {% endif %}
    <p id="turbo-live-status" role="status" aria-live="polite">Pendiente de actualización</p><div class="turbo-live-metrics">

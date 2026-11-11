@@ -172,6 +172,14 @@
     const piezas=[...esquema.querySelectorAll('[data-engine-part]')];
     const titulo=esquema.querySelector('#turbo-engine-part-title');
     const descripcion=esquema.querySelector('#turbo-engine-part-description');
+    const lista=esquema.querySelector('#turbo-engine-data-list');
+    const estadoDatos=esquema.querySelector('#turbo-engine-data-status');
+    const ecuaciones=esquema.querySelector('#turbo-engine-equations');
+    const botonesFicha=[...esquema.querySelectorAll('[data-engine-tab]')];
+    const panelesFicha=[...esquema.querySelectorAll('[data-engine-panel]')];
+    let seleccionActual='difusor';
+    let datosActuales=null;
+    let mensajeDatos='Pendiente de cálculo.';
     const fichas={
       difusor:['Entrada y difusor','Recibe el aire exterior y lo desacelera para proporcionar al compresor unas condiciones de entrada adecuadas. La recuperación de presión total depende de las pérdidas del difusor.'],
       compresor:['Compresor','Incrementa la presión total del aire gracias al trabajo que recibe de la turbina a través del eje. En la compresión también aumenta la temperatura total.'],
@@ -180,6 +188,55 @@
       eje:['Eje de transmisión','Conecta mecánicamente la turbina con el compresor en el motor monoeje. Transmite trabajo y puede presentar pérdidas mecánicas.'],
       tobera:['Tobera de escape','Expande y acelera los gases de salida, convirtiendo parte de la entalpía disponible en velocidad y contribuyendo al empuje del motor.']
     };
+    const formulas={
+      difusor:[['h(Tt0) = h(T∞) + V∞²/2000','h en kJ/kg, V∞ en m/s; el aire en vuelo eleva su entalpía total.'],['pt2 = πd · pt0','pt en kPa; πd es la recuperación de presión total (adimensional).']],
+      compresor:[['wc = h(T2) − h(T1)','Trabajo específico en kJ/kg de aire, usando entalpías de remanso cp(T).'],['ηc = [h(T2s) − h(T1)] / [h(T2) − h(T1)]','Rendimiento isentrópico adimensional. T2s es la salida isentrópica de referencia.']],
+      camara:[['h(T2) + ηb · f · PCI = (1+f) · h(T3)','Entalpías y PCI en kJ/kg; f en kg combustible/kg aire. T3 es la entrada a turbina.'],['p3 = (1−δ) · p2','Presiones totales en kPa; δ es la pérdida relativa de presión en cámara.']],
+      turbina:[['wt = (1+f) · [h(T3) − h(T4)]','Trabajo específico por kg de aire, con el factor másico de gases.'],['ηm · wt = wc','Balance monoeje: el trabajo transmitido por el eje alimenta el compresor.']],
+      eje:[['weje = ηm · wt','Trabajos específicos por kg de aire, en kJ/kg; ηm es adimensional.'],['Peje = ṁaire · weje','Potencia en kW si existe caudal absoluto en kg/s; no es el empuje.']],
+      tobera:[['h(Tt,entrada) = h(Te) + Ve²/2000','Entalpías en kJ/kg de gas y velocidad de salida en m/s; balance energético de la expansión.'],['Ae/Ag = ε','Relación geométrica adimensional para tobera C-D; solo si existen ambas áreas.']]
+    };
+    function mostrarFicha() {
+      if(estadoDatos)estadoDatos.textContent=datosActuales?'Resultados del punto motor actualizado.':mensajeDatos;
+      if(lista?.replaceChildren){
+        lista.replaceChildren();
+        if(datosActuales){
+          for(const dato of datosActuales[seleccionActual]||[]){
+            const fila=documento.createElement('div');
+            const nombre=documento.createElement('dt');
+            const valor=documento.createElement('dd');
+            const origen=documento.createElement('small');
+            nombre.textContent=dato.etiqueta+' · '+(dato.clase==='total'?'total':dato.clase==='estatica'?'estática':'operación');
+            const v=dato.valor;
+            const disponible=(typeof v==='number'&&Number.isFinite(v))||(typeof v==='string'&&v.length>0);
+            valor.textContent=disponible?(typeof v==='number'?Number(v.toPrecision(6)).toLocaleString('es-ES'):v)+' '+dato.unidad:'No disponible';
+            origen.textContent='Origen: '+dato.origen;
+            fila.append(nombre,valor,origen);
+            lista.append(fila);
+          }
+        }
+      }
+      if(ecuaciones?.replaceChildren){
+        ecuaciones.replaceChildren();
+        for(const [explicacion,significado] of formulas[seleccionActual]||[]){
+          const fila=documento.createElement('div');
+          fila.className='turbo-engine-equation';
+          const expresion=documento.createElement('code');
+          expresion.textContent=explicacion;
+          const texto=documento.createElement('p');
+          texto.textContent=significado;
+          fila.append(expresion,texto);
+          ecuaciones.append(fila);
+        }
+      }
+    }
+    function cambiarApartado(clave){
+      if(!['funcionamiento','resultados','ecuaciones'].includes(clave))return false;
+      botonesFicha.forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.engineTab===clave)));
+      panelesFicha.forEach(p=>{p.hidden=p.dataset.enginePanel!==clave;});
+      return true;
+    }
+    botonesFicha.forEach(b=>b.addEventListener('click',()=>cambiarApartado(b.dataset.engineTab)));
     function seleccionar(clave) {
       const ficha=fichas[clave];
       if(!ficha || !piezas.some(p=>p.dataset.enginePart===clave))return false;
@@ -190,7 +247,19 @@
       });
       titulo.textContent=ficha[0];
       descripcion.textContent=ficha[1];
+      seleccionActual=clave;
+      mostrarFicha();
       return true;
+    }
+    function actualizar(datos){
+      datosActuales=datos?.componentes||null;
+      mensajeDatos='Resultados no disponibles para el punto actual.';
+      mostrarFicha();
+    }
+    function pendiente(mensaje){
+      datosActuales=null;
+      mensajeDatos=mensaje||'Pendiente de cálculo.';
+      mostrarFicha();
     }
     piezas.forEach(p=>{
       p.addEventListener('click',()=>seleccionar(p.dataset.enginePart));
@@ -201,7 +270,7 @@
       });
     });
     seleccionar('difusor');
-    return {seleccionar};
+    return {seleccionar,actualizar,pendiente,cambiarApartado};
   }
 
   function inicializar48(documento, fetcher) {
@@ -211,7 +280,7 @@
     panel.hidden=false;
     const estado=documento.getElementById('turbo-live-status');
     const banco=documento.body.dataset.interfaz==='interactivo';
-    if(banco)iniciarEsquemaEducativo49_7(documento);
+    const fichaEducativa=banco?iniciarEsquemaEducativo49_7(documento):null;
     const selectorModo=formulario.elements.modo_caudal;
     const botonesModo=[...formulario.querySelectorAll('[data-bank-mode]')];
     const actualizarModo=()=>{
@@ -337,7 +406,9 @@
       onEstado:tipo=>{
         panel.dataset.estado=tipo;
         const badge=documento.querySelector('#resultados .badge');
+        if(tipo==='pendiente')fichaEducativa?.pendiente('Entradas modificadas: resultados pendientes de actualización.');
         if(tipo==='actualizando'){
+          fichaEducativa?.pendiente('Calculando: los resultados anteriores no corresponden a las entradas actuales.');
           estado.textContent='Actualizando…';
           if(badge)badge.textContent='Actualizando…';
           mostrarTodos('Pendiente de cálculo');
@@ -358,6 +429,7 @@
           return [destino,Array.from(origen.childNodes,n=>documento.importNode(n,true))];
         });
         cambios.forEach(([destino,nodos])=>destino.replaceChildren(...nodos));
+        fichaEducativa?.actualizar(datos);
         // Un error antiguo del formulario no corresponde a esta nueva solución.
         documento.querySelector('#turbo-configuracion-vista-uso > .error-summary')?.remove();
         const badge=documento.querySelector('#resultados .badge');
@@ -403,6 +475,7 @@
         explorador?.restaurar();
       },
       onError:error=>{
+        fichaEducativa?.pendiente('Sin resultados numéricos verificados para este punto motor.');
         const fuera=Boolean(error.fueraMapa);
         panel.dataset.estado=fuera?'fuera-mapa':'error';
         const mensaje=fuera?'Fuera del mapa':'Error de cálculo';
@@ -489,6 +562,11 @@
     if(documento.body.dataset.simulacionInicial==='pendiente')controlador.cambiar();
     else if(documento.body.dataset.simulacionInicial==='resuelta'){
       estado.textContent='Resultados del cálculo manual disponibles en «Resultados».';
+      const datosIniciales=documento.getElementById('turbo-engine-initial-data');
+      if(fichaEducativa&&datosIniciales){
+        try{fichaEducativa.actualizar({componentes:JSON.parse(datosIniciales.textContent)});}
+        catch(_error){fichaEducativa.pendiente('No se pueden leer los datos de la ficha inicial.');}
+      }
     }
     return controlador;
   }

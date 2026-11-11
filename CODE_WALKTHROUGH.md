@@ -4595,6 +4595,79 @@ JavaScript; no constituye validación experimental.
 Ver [documento técnico 49.7](docs/milestones/49_7_esquema_interactivo_turborreactor.md)
 y [aprendizaje 49.7](docs/milestones/49_7_esquema_interactivo_turborreactor_APRENDIZAJE.md).
 
+### 4.104 — Milestone 49.8: fichas de componentes con valores físicos
+
+**PYTHON — presentación, no nuevo solucionador.**
+`fichas_componentes_49_8(resultado)` en `turborreactor_web.py` recibe
+`resultado: dict`, el diccionario resuelto del turborreactor, y devuelve
+`dict[str, list[dict]]`: seis claves (`difusor`, `compresor`, `camara`,
+`turbina`, `eje`, `tobera`), cada una con filas `{etiqueta, valor, unidad,
+clase, origen}`. `valor` es número, texto o `None` cuando no está
+disponible; `clase` distingue `total`, `estatica` y `operacion`; `origen`
+identifica la clave Python o expresión ya verificada. No abre archivos,
+no consulta redes, no llama al solucionador y solo recibe resultados
+válidos del modelo. Los asistentes locales `fila`, `est`, `tot`, `op`
+construyen estas filas y no modifican el estado. El cálculo de `eta_c`
+mediante `(h2s-h1)/(h2-h1)` reutiliza exactamente el rendimiento del
+modelo con entalpía dependiente de T; trabajo mecánico y potencia
+solo se obtienen de trabajo específico ya resuelto, ηm y caudal existente.
+Si no hay caudal, la potencia transmitida es `None`, nunca cero ficticio.
+
+La función `preparar_vista_turborreactor(resultado)` llama una vez a
+`fichas_componentes_49_8` y añade `vista['fichas_componentes']` para Jinja.
+`api_turborreactor_simular` reutiliza esa misma estructura en
+`contenido['componentes']` de la respuesta JSON válida. El contrato
+previo permanece: `magnitudes`, `estaciones`, `svg`, `html_documento` y
+diagnósticos siguen presentes. En errores HTTP 422 nunca se entrega
+una ficha con cifras potencialmente obsoletas. En una carga mediante
+POST clásico, Jinja incrusta los datos **ya calculados** en un elemento
+`<script type="application/json">`; JavaScript los lee sin una nueva
+simulación. No se modifica ninguna función termodinámica ni tolerancia.
+
+**JAVASCRIPT — estado visual y sincronización.**
+`iniciarEsquemaEducativo49_7(documento)` conserva su firma y selección
+de seis piezas, pero el objeto devuelto amplía sus métodos a
+`{seleccionar, actualizar, pendiente, cambiarApartado}`; en la interfaz
+clásica continúa devolviendo `null`. `actualizar(datos)` acepta la
+respuesta JSON completa con `datos.componentes` y dibuja filas con
+`textContent`. `pendiente(mensaje)` elimina inmediatamente magnitudes
+anteriores y presenta un diagnóstico, y `cambiarApartado(clave)` cambia
+entre `funcionamiento`, `resultados` y `ecuaciones` devolviendo `true`
+si la clave es reconocida o `false` en caso contrario. Ninguno de estos
+métodos acepta `fetcher`, hace peticiones ni cambia entradas del motor.
+`inicializar48` llama a `pendiente` ante entradas editadas, recálculo o
+error y a `actualizar` únicamente tras una respuesta válida. La variable
+privada `seleccionActual` no se borra: seleccionar compresor y mover Mach
+actualiza la ficha del compresor al llegar el nuevo estado.
+
+**INTERPRETACIÓN FÍSICA / INGENIERÍA.** Las estaciones internas son:
+
+| Estado | Variable interna | Convención aproximada de motor |
+| --- | --- | --- |
+| Entrada de compresor (tras difusor) | T1, p1 | Tt2, pt2 |
+| Salida de compresor | T2, p2 | Tt3, pt3 |
+| Salida cámara / entrada turbina | T3, p3 | Tt4, pt4 |
+| Salida turbina / entrada tobera | T4, p4 | Tt5, pt5 |
+
+Son equivalencias **orientativas**, pues distintas convenciones de
+estaciones usan números distintos; no se renombran entradas internas.
+Los componentes del núcleo muestran temperaturas y presiones **totales**;
+la salida y la garganta de la tobera pueden ofrecer temperaturas y
+presiones **estáticas** realmente resueltas. Sin velocidades locales no
+se derivan estados estáticos de compresor, cámara o turbina. Las
+ecuaciones breves ilustran el balance de entalpía cp(T), la recuperación
+de presión, el dosado `f`, el trabajo de turbina con `1+f`, el eje y la
+expansión en tobera. El trabajo específico [kJ/kg aire] no es potencia
+[kW] sin caudal [kg/s], y la rpm solo procede del acoplamiento C.
+
+**Verificación.** Las pruebas Python contrastan filas con el resultado
+independiente de `simular_turborreactor` para A/B/C y tobera C-D; las
+pruebas JavaScript comprueban la selección persistente, el borrado de
+datos pendientes, las pestañas y la ausencia de llamadas nuevas. Son
+pruebas de software, no validación experimental.
+Documentación: [técnico 49.8](docs/milestones/49_8_fichas_componentes.md)
+y [aprendizaje 49.8](docs/milestones/49_8_fichas_componentes_APRENDIZAJE.md).
+
 ## Evolution of the project
 
 - **Milestone 49.6: gráficas del motor y referencia de geometría C.** Familias de ciclo, tobera y prestaciones; SVG de magnitudes calculadas y perfiles con choque discontinuo. El botón de C consulta el diseño M47 existente, cuya referencia es convergente (Ag = Ae), informa esa limitación aunque el usuario tenga seleccionado C-D y permite editar después las áreas; no crea una geometría C-D óptima ni modifica solucionadores. [Técnico](docs/milestones/49_6_ampliacion_graficas_motor.md) y [aprendizaje](docs/milestones/49_6_ampliacion_graficas_motor_APRENDIZAJE.md).
@@ -4608,6 +4681,7 @@ y [aprendizaje 49.7](docs/milestones/49_7_esquema_interactivo_turborreactor_APRE
 - **Milestone 49.2: banco interactivo en dos zonas.** CSS Grid reúne los controles Mach/T3 y modalidad junto a tarjetas y SVG reactivos; diseño adaptable sin nuevas entradas físicas ni duplicar la API. [Técnico](docs/milestones/49_2_rediseño_banco_interactivo.md) y [aprendizaje](docs/milestones/49_2_rediseño_banco_interactivo_APRENDIZAJE.md).
 - **Milestone 49.1: tres interfaces y navegación compartida.** El banco interactivo es la portada, el clásico conserva todas sus secciones y Brayton mantiene su formulario en `/brayton`. Las dos vistas de turborreactor comparten un único controlador Flask, plantilla, lógica JS y solucionadores. [Técnico](docs/milestones/49_1_separacion_interfaces.md) y [aprendizaje](docs/milestones/49_1_separacion_interfaces_APRENDIZAJE.md).
 - **Milestone 49.7: esquema educativo seleccionable.** SVG de seis componentes con selección accesible y ficha funcional; separar el estado visual del estado físico enseña eventos del DOM sin nuevas simulaciones. [Técnico](docs/milestones/49_7_esquema_interactivo_turborreactor.md) y [aprendizaje](docs/milestones/49_7_esquema_interactivo_turborreactor_APRENDIZAJE.md).
+- **Milestone 49.8: fichas físicas por componente.** Datos totales/estáticos de A/B/C, ecuaciones breves y estado reactivo de la ficha seleccionado sin duplicar la API ni alterar el solucionador. [Técnico](docs/milestones/49_8_fichas_componentes.md) y [aprendizaje](docs/milestones/49_8_fichas_componentes_APRENDIZAJE.md).
 - **Milestone 48.3: cierre focalizado de la etapa interactiva (pendiente de commit).** Protección del POST manual frente a peticiones tardías, pruebas de cancelación e invalidación y comprobación del flujo físico único; pendiente de pruebas HTTP/visuales en Windows. [Técnico](docs/milestones/48_3_cierre_primera_etapa_interactiva.md) y [aprendizaje](docs/milestones/48_3_cierre_primera_etapa_interactiva_APRENDIZAJE.md).
 - **Milestone 48.2: primera simulación interactiva (pendiente de commit).** Controles Mach/T3, espera de 350 ms, cancelación y orden de respuestas, KPIs y SVG sincronizados con una ejecución Python; no modifica los solucionadores ni recalcula estudios independientes. [Técnico](docs/milestones/48_2_actualizacion_automatica.md) y [aprendizaje](docs/milestones/48_2_actualizacion_automatica_APRENDIZAJE.md).
 
