@@ -337,3 +337,15 @@
 .turbo-diagnostic50 [data-advanced-reading]{background:#fff;border-left:3px solid #317ca8;padding:9px}
 .turbo-diagnostic50 details{font-size:12px}
 @media(max-width:600px){.turbo-diagnostic50{padding:10px}}
+
+/* M50.3: asistencia compacta exclusiva de C, sin alterar A/B. */
+.turbo-c-examples{display:none;padding:13px;margin:10px 0;border:1px solid #c5d9e9;border-radius:9px;background:#eff6fc;color:#24435e}
+.js .turbo-page[data-interfaz="interactivo"] #turbo-form[data-bank-mode="acoplado"] .turbo-c-examples{display:block}
+.turbo-c-examples h4{margin:0 0 9px;font-size:14px;color:#174a70}
+.turbo-c-examples label{display:block;font-size:12px;font-weight:600;margin:0 0 5px}
+.turbo-c-examples select{width:100%;max-width:100%;border:1px solid #b9cedf;border-radius:5px;padding:8px;background:white}
+.turbo-c-examples button{margin:9px 0;padding:8px 11px;font-weight:600;color:#164d77;background:#fff;border:1px solid #b9cedf;border-radius:6px}
+.turbo-c-examples p{font-size:12px;line-height:1.6;margin:8px 0}
+.turbo-c-examples summary{font-size:12px;font-weight:650;cursor:pointer}
+.turbo-c-examples :focus-visible{outline:3px solid #2563a6;outline-offset:2px}
+.turbo-c-examples [data-c-error]:not(:empty){border-left:3px solid #c48a26;padding:7px 9px;background:#fff7e7}

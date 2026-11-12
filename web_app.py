@@ -20,6 +20,8 @@ from prestaciones_turborreactor_web import (PARAMETROS_OFAT, ESTADOS_WEB,
     valores_estudios, preparar_estudio)
 from estudios_parametricos_49_5 import calcular_estudio_49_5
 from acoplamiento_motor_mapa_47 import punto_diseno_47
+from configuraciones_modo_c_50_3 import (configuraciones_verificadas_50_3,
+                                         diagnosticar_fallo_50_3)
 
 
 app = Flask(__name__)
@@ -43,7 +45,9 @@ def _render_turborreactor(valores, resultado=None, vista=None, *, error=None,
                            estudio=estudio, error_estudio=error_estudio,
                            controles=valores_estudios() if controles is None else controles,
                            accion=accion, parametros_ofat=PARAMETROS_OFAT,
-                           estados_web=ESTADOS_WEB, interfaz=interfaz)
+                           estados_web=ESTADOS_WEB, interfaz=interfaz,
+                           configuraciones_c=(configuraciones_verificadas_50_3()
+                                              if interfaz == "interactivo" else []))
 
 
 def _respuesta_json_api(datos, estado=200):
@@ -129,7 +133,10 @@ def api_turborreactor_simular():
     except (ValueError,ArithmeticError) as exc:
         mensaje=str(exc) if isinstance(exc,ValueError) else "Cálculo físicamente inadmisible."
     return _respuesta_json_api({"ok":False,"error":{"tipo":"simulacion",
-                              "mensaje":mensaje},"modo":valores.get("modo_caudal")},422)
+                              "mensaje":mensaje,
+                              "diagnostico_50_3":diagnosticar_fallo_50_3(mensaje)
+                              if valores.get("modo_caudal")=="acoplado" else None},
+                              "modo":valores.get("modo_caudal")},422)
 
 
 @app.route("/api/turborreactor/estudio", methods=["POST"])

@@ -10,6 +10,7 @@
  <script src="{{ url_for('static',filename='turborreactor_interactivo.js') }}" defer></script>
  {% if interfaz=='interactivo' %}<script src="{{ url_for('static',filename='laboratorio_comparativo_50_1.js') }}" defer></script>{% endif %}
  {% if interfaz=='interactivo' %}<script src="{{ url_for('static',filename='diagnostico_motor_50_2.js') }}" defer></script>{% endif %}
+ {% if interfaz=='interactivo' %}<script src="{{ url_for('static',filename='configuraciones_modo_c_50_3.js') }}" defer></script>{% endif %}
  {% if interfaz=='interactivo' %}<script src="{{ url_for('static',filename='estudios_parametricos_49_5.js') }}" defer></script>{% endif %}
 </head>
 <body class="turbo-page" data-interfaz="{{ interfaz }}" data-initial-panel="{{ 'configuracion' if interfaz=='interactivo' else (accion if accion in ('sensibilidad','mapa') else ('configuracion' if error or not resultado else 'resultados')) }}" data-simulacion-inicial="{{ 'resuelta' if resultado and not error else ('error' if error else 'pendiente') }}">
@@ -52,6 +53,18 @@
     <button type="button" data-bank-mode="fijo" aria-pressed="{{ 'true' if valores.modo_caudal=='fijo' else 'false' }}"><strong>B · Geometría fija</strong><small>Se prescribe la tobera y se calcula el caudal compatible.</small></button>
     <button type="button" data-bank-mode="acoplado" aria-pressed="{{ 'true' if valores.modo_caudal=='acoplado' else 'false' }}"><strong>C · Motor acoplado</strong><small>Mapas de compresor y turbina con equilibrio monoeje.</small></button>
    </div>
+   <section id="turbo-configuraciones-c-50-3" class="turbo-c-examples" aria-labelledby="turbo-c-title">
+    <h4 id="turbo-c-title">Configuraciones de ejemplo · modo C</h4>
+    <label for="turbo-c-example">Casos calculados y comprobados</label>
+    <select id="turbo-c-example" data-c-example><option value="">Elegir configuración…</option>
+     {% for caso in configuraciones_c %}<option value="{{ caso.id }}">{{ caso.nombre }}</option>{% endfor %}
+    </select>
+    <button type="button" data-c-reset>Restablecer punto de diseño C</button>
+    <p data-c-help>El diseño M47 usa una tobera convergente (Ae = Ag). La relación de compresión, los rendimientos y el caudal son resultados del mapa, no controles independientes de C.</p>
+    <p data-c-error role="status" aria-live="polite"></p>
+    <details><summary>Condiciones y límites del modo C</summary><p>El equilibrio exige continuidad de caudales, balance del eje y geometría compatible. Los mapas educativos NASA T-MATS escalados no permiten extrapolar. Las configuraciones son <strong>puntos comprobados</strong>, no intervalos continuos garantizados; un fallo de Newton no demuestra imposibilidad física ni surge.</p></details>
+    <script id="turbo-configuraciones-c-datos" type="application/json">{{ configuraciones_c|tojson }}</script>
+   </section>
    <button type="button" id="turbo-bank-advanced-toggle" class="turbo-bank-advanced-toggle" aria-expanded="false" aria-controls="turbo-bank-advanced-fields">Configuración avanzada ▾</button>
    {% endif %}
    <div class="card turbo-modes turbo-ambient-mode"><h3>Origen del ambiente</h3><div class="turbo-mode-options"><label><input type="radio" name="modo_ambiente" value="directo" {% if valores.modo_ambiente=='directo' %}checked{% endif %}> Temperatura y presión directas</label><label><input type="radio" name="modo_ambiente" value="ISA" {% if valores.modo_ambiente=='ISA' %}checked{% endif %}> Atmósfera ISA (0–20 km)</label></div><p class="note">Los campos del modo no utilizado deben quedar vacíos. ISA es una atmósfera de referencia, no meteorología real.</p></div>

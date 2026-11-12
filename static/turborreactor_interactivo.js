@@ -500,6 +500,7 @@
         pestaña.hidden=!disponible||(banco&&pestaña.dataset.plotGroup!==grupoActivo);
       }
     };
+    let ayudaModoC=null;
     const controlador=crearControlador48({
       solicitar:async signal=>{
         const respuesta=await fetcher('/api/turborreactor/simular',{
@@ -509,6 +510,7 @@
         const datos=await respuesta.json();
         if(!respuesta.ok || datos.ok!==true){
           const error=new Error(datos?.error?.mensaje||'La simulación no está disponible.');
+          error.diagnostico_50_3=datos?.error?.diagnostico_50_3||null;
           error.fueraMapa=formulario.elements.modo_caudal?.value==='acoplado' &&
             /mapa|rline|extrapol|fuera del dominio de (?:los )?mapas/i.test(error.message);
           throw error;
@@ -520,6 +522,7 @@
         if(tipo==='pendiente'||tipo==='actualizando')sincronizacion?.pendiente();
         if(tipo==='pendiente'||tipo==='actualizando')laboratorio?.pendiente();
         if(tipo==='pendiente'||tipo==='actualizando')diagnostico50?.pendiente('Entradas modificadas: diagnóstico anterior retirado.');
+        if(tipo==='pendiente'||tipo==='actualizando')ayudaModoC?.pendiente();
         const badge=documento.querySelector('#resultados .badge');
         if(tipo==='pendiente'){
           fichaEducativa?.pendiente('Entradas modificadas: resultados pendientes de actualización.');
@@ -551,6 +554,7 @@
         fichaEducativa?.actualizar(datos);
         caracterizacion?.actualizar(datos);
         diagnostico50?.actualizado(datos);
+        ayudaModoC?.exito();
         // Un error antiguo del formulario no corresponde a esta nueva solución.
         documento.querySelector('#turbo-configuracion-vista-uso > .error-summary')?.remove();
         const badge=documento.querySelector('#resultados .badge');
@@ -601,6 +605,7 @@
         sincronizacion?.pendiente();
         laboratorio?.pendiente();
         diagnostico50?.pendiente('No hay un punto motor válido para el diagnóstico.');
+        ayudaModoC?.diagnosticar(error);
         fichaEducativa?.pendiente('Sin resultados numéricos verificados para este punto motor.');
         caracterizacion?.pendiente('Sin indicadores verificados para este punto motor.');
         const fuera=Boolean(error.fueraMapa);
@@ -613,6 +618,12 @@
         if(badge)badge.textContent=mensaje;
       }
     });
+
+    ayudaModoC=banco&&typeof raiz.iniciarConfiguraciones50_3==='function'?
+      raiz.iniciarConfiguraciones50_3(documento,formulario,()=>{
+        estudioDesactualizado();
+        controlador.cambiar(); // Una sola solicitud, sin disparar input/change globales.
+      }):null;
 
     const botonGeometria=documento.getElementById('turbo-reset-design-geometry');
     const estadoGeometria=documento.getElementById('turbo-design-geometry-status');
@@ -655,6 +666,7 @@
       }
     });
     formulario.addEventListener('input',evento=>{
+      ayudaModoC?.modificada();
       estudioDesactualizado();
       if(evento.target.id==='mach'||evento.target.id==='T3'||evento.target.dataset.turboSlider)return;
       controlador.invalidar();
@@ -662,6 +674,7 @@
       marcarPaneles('Parámetros distintos del resultado anterior; pulsa Simular para calcular.');
     });
     formulario.addEventListener('change',evento=>{
+      ayudaModoC?.modificada();
       estudioDesactualizado();
       if(evento.target.name==='modo_ambiente'){
         if(banco)controlador.cambiar();
