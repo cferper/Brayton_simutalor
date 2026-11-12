@@ -4413,65 +4413,112 @@ Las gráficas no disponibles no reciben datos inventados.
 Consulta [documentación técnica 49.4](docs/milestones/49_4_graficas_tecnicas_interactivas.md)
 y [aprendizaje 49.4](docs/milestones/49_4_graficas_tecnicas_interactivas_APRENDIZAJE.md).
 
-### 4.101 — Milestone 49.5: estudios paramétricos interactivos del turborreactor
+### 4.101 — Estudios paramétricos M49.5 ampliados con M50.4 (versión actual)
 
-**PYTHON — orquestación sin nuevo modelo físico.** El módulo
-`estudios_parametricos_49_5.py` importa `simular_turborreactor` de
-`turborreactor_web.py`. `configurar_estudio_49_5(configuracion, modo)` recibe
-un `dict` JSON y el modo `str` A/B/C; valida ejes crecientes y tamaños y
-retorna `{tipo,x,y,eje_x,eje_y}`; si hay error lanza `ValueError`. Mach queda
-entre 0 y 0,95 y T3 entre 200 y 2000 K. En A/B se admiten hasta 21 puntos
-por curva y 11×11 por mapa; en C, 9 y 6×6 respectivamente. Son límites de
-interfaz y coste, no límites de funcionamiento certificado.
+**PYTHON — orquestación y magnitudes C sin otro solver.**
+`configurar_estudio_49_5(configuracion, modo)` recibe configuración JSON `dict`
+y modo `str` (`impuesto`, `fijo`, `acoplado`). Valida límites Mach 0–0,95,
+T3 200–2000 K, resolución entera y orden creciente. Devuelve
+`dict{tipo,x,y,eje_x,eje_y}`, con listas de muestras de Mach adimensional y
+T3 [K], o lanza `ValueError`. A/B: 21 muestras por curva y 11×11 por mapa;
+C: 9 por curva y 6×6. La función local `eje(nombre)` lee una columna,
+convierte cadenas numéricas con `float`/`int` y crea una lista por comprensión.
+No se amplían estos límites en M50.4.
 
-`calcular_estudio_49_5(valores, configuracion)` recibe parámetros del
-formulario `dict[str,str]` y la configuración validable; devuelve un objeto
-con `puntos`, `ejes`, `constantes`, `unidades`, `modo`, `tipo` y `resumen` de
-tiempos y validez. Cada muestra crea `parametros=dict(valores)` para no mutar
-las constantes y llama una vez a `simular_turborreactor(parametros)`; usa la
-prestación específica `Fs`, el empuje absoluto cuando existe caudal, y TSFC
-únicamente si su valor es finito y el empuje específico es positivo. Clases
-`valido`, `fuera_dominio`, `fallo_numerico` y `sin_solucion` se distinguen por
-excepciones; `no_calculado` es la inicialización previa a evaluar la celda.
-Ninguna falta de resultado se convierte en cero. Por ejemplo, el barrido
-Mach 0, 0,3 y 0,6 utiliza idéntico T3 y parámetros de núcleo en las tres
-llamadas; las tres prestaciones deben coincidir con simular esas mismas
-entradas una por una.
+`calcular_estudio_49_5(valores, configuracion)` recibe parámetros completos
+`dict[str,str]` y la configuración de barrido. Devuelve un `dict` con
+`puntos`, `ejes`, `constantes`, `unidades`, `modo`, `tipo` y `resumen`.
+Cada celda crea `parametros=dict(valores)` para no mutar los valores
+constantes, altera únicamente los ejes seleccionados y llama **una vez** a
+`simular_turborreactor(parametros)`. Los resultados A/B conservan
+`empuje_N`, `empuje_especifico`, `TSFC` (solo para empuje específico
+positivo), `regimen_tobera`, `estado` y `motivo`. Los estados heredados son
+`valido`, `fuera_dominio`, `fallo_numerico`, `sin_solucion`; `no_calculado`
+solo designa la inicialización de la celda. Ausencias: `None` en Python,
+`null` en JSON, **no cero**.
 
-**FLASK — nuevo punto de entrada.** La función
-`api_estudio_parametrico_49_5()` no recibe argumentos explícitos: Flask
-lee `request.get_json()`, exige dos objetos (`parametros` y `estudio`),
-acepta únicamente los campos existentes del formulario y retorna JSON 200
-con malla estructurada o HTTP 400 por errores de configuración. La ruta es
-`POST /api/turborreactor/estudio` y no modifica
-`POST /api/turborreactor/simular`, las vistas clásicas ni los modelos.
+En modo C, cada punto incorpora las **entradas completas** (`entradas`,
+dict de cadenas con áreas, ambiente y controles fijos),
+`caudal_aire` [kg/s], `caudal_corregido` [kg/s de referencia],
+`rpm` y `rpm_corregidas` [rpm], `relacion_compresion` [–],
+`rendimiento_compresor` [–], `rline` [–], `iteraciones` [–],
+`norma_residual` [–], `clasificacion` y `diagnostico`.
+`resumen.por_clasificacion` cuenta sus estados. La extracción ocurre
+**después** de la resolución; el cálculo del motor no cambia.
 
-**JAVASCRIPT — visualización sin nuevas ecuaciones.** El archivo
-`static/estudios_parametricos_49_5.js` contiene `iniciar49(doc, fetcher)`
-(montaje de interfaz; devuelve controlador de exportación),
-`colorMapa49(valor,min,max)` (devuelve color HSL calculado visualmente) y
-`csv49(datos)` (devuelve texto CSV con constantes, unidades, puntos y estados).
-El botón «Calcular estudio» crea un objeto desde dos `FormData` y realiza una
-petición JSON; `AbortController` y el contador `version` descartan solicitudes
-obsoletas. El SVG se genera mediante `document.createElementNS`, con rectas
-entre muestras contiguas válidas o celdas independientes sin interpolación.
-Las curvas comparables guardadas temporalmente conservan su modo y constantes
-y comparten magnitud y unidades. Zoom, consulta de puntos y exportación
-SVG/PNG/CSV no requieren ejecutar otra vez el solucionador. Una cancelación
-en el navegador no implica cancelar la CPU que ya trabaja en Flask.
+**FUNCIONES AUXILIARES M50.4.**
+`_magnitudes_c_50_4(resultado)` recibe un `dict` de
+`simular_turborreactor`, exige `motor_acoplado.disponible is True` y norma
+residual finita (o lanza `ValueError`) y devuelve un `dict` de magnitudes C
+`float|int|None`. Llama a `diagnosticar_motor_50_2(resultado)` para las
+magnitudes corregidas y lee M47 para rpm, Rline, rp, ηc, iteraciones y norma.
+Ejemplo con diseño: `datos = _magnitudes_c_50_4(simular_turborreactor(caso))`;
+`datos['rpm']` corresponde al giro resuelto y `datos['iteraciones']` puede
+ser cero en la calibración. El consumidor es `calcular_estudio_49_5`.
 
-**INTERPRETACIÓN FÍSICA / INGENIERÍA.** El Mach modifica velocidad de vuelo y
-estados de remanso, por lo que el empuje neto debe recalcularse, no suponerse
-monótono. T3 [K] es temperatura **total de entrada a turbina**, nunca salida.
-El modo A conserva un gasto de aire prescrito; B determina el gasto desde la
-geometría; C resuelve mapas y equilibrio monoeje por muestra. `F` [N] y `Fs`
-[N/(kg/s)] no se mezclan. El mapa Mach–T3 de celdas discretas muestra en gris
-la ausencia física o numérica; no interpola áreas sin solución. El TSFC
-[kg/(N·h)] es inválido para empuje no positivo. Las pruebas son **verificación
-de software**, no validación experimental.
+`_diagnostico_fallo_c_50_4(mensaje, *, excepcion=None)` recibe texto `str`
+y clase de excepción opcional solo por nombre (`*` exige *keyword-only*);
+devuelve tupla `(estado_heredado, dict_diagnostico)`.
+Llama a `diagnosticar_fallo_50_3` y convierte evidencias `entradas`, `mapa`,
+`numerico`, `modelo`, `restricciones`, `indeterminado` en clasificaciones C
+`entrada_fuera_dominio`, `fuera_mapa`, `sin_convergencia_numerica`,
+`modelo_no_resuelto` o `causa_indeterminada`. Conserva el estado anterior
+para compatibilidad. Ejemplo:
+`_diagnostico_fallo_c_50_4('Sin descenso del residuo')[1]['codigo']`
+retorna `'sin_convergencia_numerica'`. Es llamada por el estudio al capturar
+`ValueError`, `EstadoFueraDeRango` o `ErrorNumericoCiclo`; no resuelve física.
 
-Las referencias son [técnica 49.5](docs/milestones/49_5_estudios_parametricos_interactivos.md)
-y [aprendizaje 49.5](docs/milestones/49_5_estudios_parametricos_interactivos_APRENDIZAJE.md).
+**FLASK — misma API.** `web_app.api_estudio_parametrico_49_5()` sigue
+recibiendo `{'parametros':{...}, 'estudio':{...}}` por
+`POST /api/turborreactor/estudio` y retornando el objeto estructurado con
+HTTP 200 o 400. No se han añadido endpoints. La simulación individual
+continúa en `POST /api/turborreactor/simular` y las vistas A/B no cambian.
+
+**JAVASCRIPT — el mismo visor M49.5 ampliado.** `iniciar49(doc,fetcher)`
+recibe DOM y función fetch; conserva `AbortController`, contador `version`,
+comparación de curvas, zoom, SVG/PNG/CSV, lectura de ratón/teclado y control
+de obsolescencia. Obtiene inicialmente los parámetros completos del **diseño
+C M50.3** desde `turbo-configuraciones-c-datos`; el selector también permite
+usar los controles actuales del banco A/B/C. Cambiar métrica solo repinta:
+`svgMapa()` crea celdas independientes por resultado real sin interpolación,
+usa colores de categoría para el estado y gris para cuantitativos ausentes.
+`svgLineas()` conserva segmentos entre muestras válidas consecutivas y corta
+en régimen de tobera diferente. `csv49(datos)` devuelve texto CSV con todos
+los campos del modo y `null` como campo vacío. `colorMapa49(valor,min,max)`
+devuelve color HSL (visual). `descripcionPunto(p,metrica,unidad)` devuelve
+una cadena de lectura accesible y diagnóstico sin nuevas ecuaciones.
+La selección de celda actualiza `#study49-point` en memoria, permite tecla
+`Enter` o espacio y solo habilita la aplicación con C verificado y datos
+vigentes.
+
+**INTERPRETACIÓN FÍSICA / INGENIERÍA.** Mach modifica el remanso y T3 es
+la temperatura total de entrada a turbina. En C se exige el equilibrio de
+masa/potencia, geometría y dominios de los mapas que ya verificaba M47.
+Un punto con `disponible=True` significa **convergencia aceptada dentro del
+modelo**, no validación experimental. La norma residual adimensional de M47
+no representa una distancia a surge; Rline es una coordenada del mapa
+educativo NASA T-MATS escalado, no margen de estabilidad. Una celda sin
+solución no fija frontera física. Las ecuaciones de flujo/giro corregidos
+se explican en §4.106; M50.4 las reutiliza mediante diagnóstico M50.2.
+
+**Pruebas:** `tests/test_estudios_parametricos_49_5.py` mantiene regresión
+antigua; M50.4 añade
+`tests/test_explorador_funcionamiento_50_4.py` y
+`tests/js/test_explorador_funcionamiento_50_4.cjs`.
+En el análisis inicial del ZIP incremental, nueve pruebas JS (4 del M50.3 y
+5 nuevas) y cinco controles Python **aislados con dobles** fueron correctos;
+no sustituían la verificación en el repositorio completo. Tras la integración
+en Windows, las 7 pruebas Python focalizadas, las 28 pruebas JavaScript y la
+regresión de 822 pruebas Python terminaron sin fallos (812 correctas y 10
+omitidas: 8 por SciPy, 1 por Cantera y 1 por permisos de symlinks). La prueba
+HTTP focalizada pasó y el usuario aprobó la revisión visual. Una malla real
+5×5 convergió en sus 25 puntos; tres coincidieron con simulaciones
+individuales en rpm, caudal y empuje. Esto comprueba consistencia interna, no
+valida el modelo con datos experimentales ni define una envolvente continua.
+Referencias: [técnico 49.5](docs/milestones/49_5_estudios_parametricos_interactivos.md),
+[aprendizaje 49.5](docs/milestones/49_5_estudios_parametricos_interactivos_APRENDIZAJE.md),
+[técnico 50.4](docs/milestones/50_4_explorador_funcionamiento_modo_c.md)
+y [aprendizaje 50.4](docs/milestones/50_4_explorador_funcionamiento_modo_c_APRENDIZAJE.md).
 
 ### 4.102 — Milestone 49.6: ampliación gráfica del banco interactivo
 
@@ -4913,9 +4960,41 @@ y en la [guía de aprendizaje 50.2](docs/milestones/50_2_diagnostico_avanzado_AP
 
 **Ejemplo de uso de Python:** `configuraciones_verificadas_50_3()[1]['entradas']['mach']` devuelve `'0.4'` sin ejecutar el solver; después `simular_turborreactor(entradas)` sigue siendo la ruta científica única. Un error de tobera no resuelta o de Newton se clasifica solamente cuando el mensaje permite respaldarlo. Las pruebas focalizadas y sus resultados corresponden a `tests/test_configuraciones_modo_c_50_3.py` y `tests/js/test_configuraciones_modo_c_50_3.cjs`; la revisión con navegador/Flask no se presupone. Véanse [técnico](docs/milestones/50_3_configuraciones_modo_c.md) y [aprendizaje](docs/milestones/50_3_configuraciones_modo_c_APRENDIZAJE.md).
 
+## 4.108. Aplicación de puntos C desde el explorador (M50.4)
+
+**JAVASCRIPT.** `aplicarPunto50_4({formulario, entradas, aplicarEntradas,
+preparar, solicitar})` recibe un objeto con formulario DOM y `entradas`
+completas C (`dict` de cadenas del estudio), más tres callbacks JS. Valida
+modo C y presencia de un cargador (`Error` en caso contrario); devuelve
+`true` tras llamar a `aplicarEntradas(formulario,entradas)`, `preparar()` y
+**exactamente una vez** a `solicitar()`. La invoca el controlador
+`inicializar48` al recibir el evento DOM
+`brayton:aplicar-estudio-50-4` emitido desde la celda válida del estudio.
+`aplicarEntradas` es la función ya existente `aplicarEjemplo50_3` (expuesta
+en `window` por el módulo 50.3); copia ambiente, geometría, valores y
+sliders con eventos `change` no propagados. `preparar` dispara un `change` local del selector A/B/C (para actualizar campos activos) y sincroniza modo,
+avisos de dato anterior y vista «Punto motor»; `solicitar` invoca
+`controlador.cambiar()` una vez, sin `fetch` adicional. Al venir de A/B, se emite un `change` de modo **no propagado** para que `turborreactor.js` actualice los campos activos/deshabilitados antes del POST.
+
+**FLUJO.** Selección → lectura de `punto.entradas` sin recalcular → aplicación
+completa al formulario → controlador M48 → `POST /simular` → respuesta
+M47/M50.2 → actualización visual y laboratorio M50.1. Un error invalida el
+punto actual pero no borra la referencia guardada del laboratorio. Cambios
+en parámetros distintos de Mach/T3 quedan visibles en la referencia y
+el actual del M50.1. La función se prueba con callbacks instrumentados en
+`tests/js/test_explorador_funcionamiento_50_4.cjs`.
+
+**FÍSICA / INGENIERÍA.** Repetir una simulación al cargar una celda es
+necesario para evitar reutilizar resultados supuestamente actuales tras
+cambios de controles. El cálculo directo y la celda deben coincidir cuando
+las entradas del solucionador son idénticas. El estudio no predice una
+frontera continua entre celdas ni caracteriza surge.
+
 ## Evolution of the project
 
-- **Milestone 50.3: configuraciones verificadas del motor acoplado y clasificación prudente de errores.** Ingeniería: seis puntos de funcionamiento resueltos sobre mapas educativos, sin inferir dominio continuo ni margen de surge. Python/JS: copias completas de configuración, restauración de estados, caché de calibración, clasificación condicional de errores 422 y una sola petición física en la ruta existente. [Técnico](docs/milestones/50_3_configuraciones_modo_c.md) y [aprendizaje](docs/milestones/50_3_configuraciones_modo_c_APRENDIZAJE.md). Pendiente de publicación.
+- **Milestone 50.4: explorador avanzado del modo C.** Ingeniería: prestaciones y estados de convergencia sobre muestras Mach–T3 sin extrapolación ni límites de surge; Python/JS: extracción de M47/M50.2, panel de celdas, carga completa mediante un solo controlador y CSV ampliado. La malla 5×5 verificada tuvo 25/25 puntos convergidos; las pruebas focalizadas, regresión, HTTP y revisión visual quedaron completadas. [Técnico](docs/milestones/50_4_explorador_funcionamiento_modo_c.md) y [aprendizaje](docs/milestones/50_4_explorador_funcionamiento_modo_c_APRENDIZAJE.md).
+
+- **Milestone 50.3: configuraciones verificadas del motor acoplado y clasificación prudente de errores.** Ingeniería: seis puntos de funcionamiento resueltos sobre mapas educativos, sin inferir dominio continuo ni margen de surge. Python/JS: copias completas de configuración, restauración de estados, caché de calibración, clasificación condicional de errores 422 y una sola petición física en la ruta existente. [Técnico](docs/milestones/50_3_configuraciones_modo_c.md) y [aprendizaje](docs/milestones/50_3_configuraciones_modo_c_APRENDIZAJE.md). Publicado en `460749bc` y con regresión Windows comunicada (805 correctas, 10 omitidas).
 
 - **Milestone 50.2: diagnóstico corregido y mapa HPC educativo (publicado en `39a3035`).** Reutilización de flujo y giro corregidos M47, visualización de nudos HPC escalados y punto C resuelto; ausencia explícita de margen de surge, sin nuevo solucionador. [Técnico](docs/milestones/50_2_diagnostico_avanzado.md) y [aprendizaje](docs/milestones/50_2_diagnostico_avanzado_APRENDIZAJE.md).
 

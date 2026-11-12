@@ -69,6 +69,7 @@
     function pendiente(){error.textContent='Esperando el cálculo actualizado. Los datos anteriores no son vigentes.';}
     return {cargar,diagnosticar,exito,pendiente,modificada};
   }
+  raiz.aplicarEjemplo50_3=aplicarEjemplo50_3;
   raiz.iniciarConfiguraciones50_3=iniciarConfiguraciones50_3;
   if(typeof module!=='undefined'&&module.exports)
     module.exports={aplicarEjemplo50_3,iniciarConfiguraciones50_3};

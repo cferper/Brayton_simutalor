@@ -349,3 +349,15 @@
 .turbo-c-examples summary{font-size:12px;font-weight:650;cursor:pointer}
 .turbo-c-examples :focus-visible{outline:3px solid #2563a6;outline-offset:2px}
 .turbo-c-examples [data-c-error]:not(:empty){border-left:3px solid #c48a26;padding:7px 9px;background:#fff7e7}
+
+/* M50.4 — extensión del mismo explorador M49.5, sin un segundo visor. */
+.study49-point{margin-top:14px;padding:13px;border-top:1px solid #d5e2ed}
+.study49-point h3{margin:0 0 9px;font-size:16px}
+.study49-point h4{font-size:14px;margin:9px 0}
+.study49-point-grid{display:grid;grid-template-columns:minmax(125px,1fr) minmax(105px,1fr);gap:5px 13px;font-size:12px;line-height:1.5}
+.study49-point-grid dt{font-weight:600;color:#38556f}
+.study49-point-grid dd{margin:0;overflow-wrap:anywhere;font-variant-numeric:tabular-nums}
+.study49-fixed{padding:10px 0;font-size:12px;overflow-wrap:anywhere}
+#study49-apply{background:#145b86;color:#fff;border:0;padding:10px;border-radius:7px;font-weight:700;margin:10px 0}
+#study49-apply[hidden]{display:none}
+.turbo-study49-chart [data-study49-index]:focus{outline:3px solid #df921d}

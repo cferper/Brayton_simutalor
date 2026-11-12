@@ -68,6 +68,19 @@
     return {mostrar,desdeNumero,desdeDeslizador};
   }
 
+  // M50.4: transacción de aplicación sin cálculos de física en el navegador.
+  // aplicarEntradas no propaga eventos: solicitar debe invocarse una sola vez.
+  function aplicarPunto50_4({formulario,entradas,aplicarEntradas,preparar,solicitar}) {
+    if(!entradas||entradas.modo_caudal!=='acoplado')
+      throw new Error('El punto seleccionado no pertenece al modo C.');
+    if(typeof aplicarEntradas!=='function')
+      throw new Error('No está disponible el cargador completo M50.3.');
+    aplicarEntradas(formulario,entradas);
+    preparar();
+    solicitar();
+    return true;
+  }
+
   // M49.4: el zoom solo transforma la presentación SVG, nunca los datos físicos.
   function escalaGrafica49(valor, factor) {
     return Math.max(1,Math.min(4,Math.round(valor*factor*100)/100));
@@ -625,6 +638,32 @@
         controlador.cambiar(); // Una sola solicitud, sin disparar input/change globales.
       }):null;
 
+    // M50.4: reutilizar el cargador completo M50.3, sin eventos propagados
+    // ni peticiones independientes. El laboratorio M50.1 guarda la referencia
+    // por separado: una nueva simulación sustituye solo el punto actual.
+    documento.addEventListener('brayton:aplicar-estudio-50-4',evento=>{
+      if(!banco)return;
+      const entradas=evento.detail?.entradas;
+      if(!entradas||entradas.modo_caudal!=='acoplado')return;
+      try{
+        aplicarPunto50_4({formulario,entradas,
+          aplicarEntradas:raiz.aplicarEjemplo50_3,
+          preparar:()=>{
+            // Modo anterior podría ser A/B: ejecutar también syncCaudal
+            // de turborreactor.js sin propagar ni duplicar recálculos.
+            selectorModo.dispatchEvent(new Event('change',{bubbles:false}));
+            actualizarModo();
+            ayudaModoC?.modificada();
+            estudioDesactualizado();
+            documento.querySelector('[data-study49-view="punto"]')?.click();
+          },
+          solicitar:()=>controlador.cambiar() // Una sola simulación física.
+        });
+      }catch(error){
+        estado.textContent='No se ha podido cargar el punto C: '+error.message;
+      }
+    });
+
     const botonGeometria=documento.getElementById('turbo-reset-design-geometry');
     const estadoGeometria=documento.getElementById('turbo-design-geometry-status');
     botonGeometria?.addEventListener('click',async()=>{
@@ -725,7 +764,7 @@
   if(typeof module!=='undefined'&&module.exports){
     module.exports={crearControlador48,acoplarControl48,escalaGrafica49,
                     iniciarEsquemaEducativo49_7,iniciarCaracterizacion49_9,iniciarSincronizacion50_0,
-                    aplicarGeometriaDiseno49,inicializar48};
+                    aplicarGeometriaDiseno49,aplicarPunto50_4,inicializar48};
   }
   if(typeof document!=='undefined'){
     document.addEventListener('DOMContentLoaded',()=>inicializar48(document,fetch));

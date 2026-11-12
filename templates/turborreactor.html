@@ -214,17 +214,37 @@
  </section>
  {% if interfaz=='interactivo' %}
  <section id="estudio49" class="turbo-section turbo-study49" hidden aria-labelledby="titulo-estudio49">
-  <div class="page-heading"><div><p class="eyebrow">Análisis paramétrico · M49.5</p><h2 id="titulo-estudio49">Estudios paramétricos</h2><p>Los puntos se calculan mediante el mismo modelo A/B/C; los controles del motor de «Punto motor» fijan las condiciones constantes.</p></div></div>
+  <div class="page-heading"><div><p class="eyebrow">Análisis paramétrico · M49.5 / M50.4</p><h2 id="titulo-estudio49">Explorador Mach–T3 y prestaciones</h2><p>Los puntos se calculan mediante el mismo modelo A/B/C; los controles del motor de «Punto motor» fijan las condiciones constantes.</p></div></div>
   <div class="turbo-study49-grid"><form id="turbo-study49-form" class="card" autocomplete="off">
+   <label for="study49-base">Configuración de partida</label>
+   <select id="study49-base" aria-describedby="study49-base-ayuda"><option value="diseno_c" selected>Punto de diseño C verificado (M50.3)</option><option value="banco">Controles actuales del banco (A/B/C)</option></select>
+   <p class="note" id="study49-base-ayuda">La opción de diseño utiliza todas sus entradas, incluida la geometría, aunque el banco muestre otro modo. Para estudiar A/B o parámetros propios, elige «Controles actuales».</p>
    <label for="study49-tipo">Tipo de estudio</label><select id="study49-tipo"><option value="mach">Empuje frente a Mach</option><option value="T3">Empuje y TSFC frente a T3</option><option value="mapa">Mapa Mach–T3</option></select>
    <p class="note">Los parámetros no barridos conservan los valores introducidos en el banco. El modo A, B o C también se conserva.</p>
    <fieldset class="study49-fieldset" data-study49-axis="mach"><legend>Mach de vuelo [–]</legend><label>Desde <input name="mach_inicio" type="number" min="0" max="0.95" step="0.01" value="0" required></label><label>Hasta <input name="mach_fin" type="number" min="0" max="0.95" step="0.01" value="0.8" required></label><label>Puntos <input name="mach_puntos" type="number" min="2" max="21" step="1" value="9" required></label></fieldset>
    <fieldset class="study49-fieldset" data-study49-axis="T3" hidden><legend>T3, entrada total a turbina [K]</legend><label>Desde <input name="T3_inicio" type="number" min="200" max="2000" step="1" value="1300" required></label><label>Hasta <input name="T3_fin" type="number" min="200" max="2000" step="1" value="1800" required></label><label>Puntos <input name="T3_puntos" type="number" min="2" max="21" step="1" value="9" required></label></fieldset>
    <button type="submit" id="study49-run">Calcular estudio</button><button type="button" id="study49-cancel" hidden>Cancelar espera</button>
    <p id="study49-status" role="status" aria-live="polite">Configura el estudio. No se calcula automáticamente.</p>
-  </form><div class="card turbo-study49-results"><div class="turbo-study49-options"><label for="study49-metrica">Magnitud</label><select id="study49-metrica"><option value="empuje_N">Empuje neto [N]</option><option value="empuje_especifico">Empuje específico [N/(kg/s)]</option><option value="TSFC">TSFC [kg/(N·h)]</option></select><button type="button" id="study49-save">Guardar comparación</button><button type="button" id="study49-clear">Limpiar</button></div>
+  </form><div class="card turbo-study49-results"><div class="turbo-study49-options"><label for="study49-metrica">Magnitud</label><select id="study49-metrica"><option value="empuje_N">Empuje neto [N]</option><option value="empuje_especifico">Empuje específico [N/(kg/s)]</option><option value="TSFC">TSFC [kg/(N·h)]</option>
+    <option value="estado_convergencia" data-study49-c>Estado de convergencia (mapa)</option>
+    <option value="caudal_aire" data-study49-c>Caudal de aire [kg/s]</option>
+    <option value="caudal_corregido" data-study49-c>Caudal corregido [kg/s ref.]</option>
+    <option value="rpm" data-study49-c>Giro mecánico [rpm]</option>
+    <option value="rpm_corregidas" data-study49-c>Giro corregido [rpm corr.]</option>
+    <option value="relacion_compresion" data-study49-c>Relación de compresión [–]</option>
+    <option value="rendimiento_compresor" data-study49-c>Rendimiento del compresor [–]</option>
+    <option value="rline" data-study49-c>Rline [–]</option>
+    <option value="iteraciones" data-study49-c>Iteraciones [–]</option>
+    <option value="norma_residual" data-study49-c>Norma residual [–]</option>
+   </select><button type="button" id="study49-save">Guardar comparación</button><button type="button" id="study49-clear">Limpiar</button></div>
    <div class="turbo-plot-tools"><button type="button" data-study49-tool="in">+</button><button type="button" data-study49-tool="out">−</button><button type="button" data-study49-tool="reset">Vista original</button><button type="button" data-study49-tool="svg">SVG</button><button type="button" data-study49-tool="png">PNG</button><button type="button" data-study49-tool="csv">CSV</button></div>
    <p id="study49-reading" class="turbo-plot-reading">Selecciona «Calcular estudio» para generar datos reales.</p><div id="study49-chart" class="turbo-study49-chart" aria-label="Resultados paramétricos"></div><div id="study49-summary"></div>
+   <section class="study49-point" aria-labelledby="study49-point-title"><h3 id="study49-point-title">Datos de la celda seleccionada</h3>
+    <p class="note">Cada celda corresponde a un cálculo independiente. Los puntos no resueltos no definen límites de estabilidad, surge ni fronteras físicas.</p>
+    <div id="study49-point" aria-live="polite">Selecciona una celda con ratón, Enter o espacio.</div>
+    <button type="button" id="study49-apply" hidden>Utilizar este punto en el modo C</button>
+    <p class="note">Al aplicar un punto se restauran todas las entradas del estudio y se ejecuta una única simulación habitual. La referencia guardada en el laboratorio comparativo se conserva.</p>
+   </section>
   </div></div>
  </section>
  {% endif %}
