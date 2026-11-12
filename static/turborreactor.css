@@ -319,3 +319,21 @@
 .turbo-characterization-card summary{cursor:pointer;color:#225978;font-size:11px}
 .turbo-characterization-card details p{overflow-wrap:anywhere;font-size:11px;color:#485d6f;line-height:1.5}
 .turbo-characterization-note{font-size:11px!important}
+
+/* M50.2: diagnóstico del compresor dentro del banco existente, sin nuevo solucionador. */
+.turbo-diagnostic50{margin:16px 0;padding:16px;border:1px solid #c4d8e7;border-radius:11px;background:#f5f9fc;color:#27465d}
+.turbo-diagnostic50 h4{margin:0 0 7px;color:#183b56}
+.turbo-diagnostic50 p{font-size:12px;line-height:1.6}
+.turbo-diagnostic-values{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,170px),1fr));gap:8px;margin:14px 0}
+.turbo-diagnostic-reading{background:#fff;border:1px solid #d8e5ed;border-radius:7px;padding:10px;min-width:0}
+.turbo-diagnostic-reading dt{font-size:11px;color:#435f73}
+.turbo-diagnostic-reading dd{font:600 14px 'IBM Plex Mono',monospace;margin:7px 0 0;color:#174a70;overflow-wrap:anywhere}
+.turbo-diagnostic-domain{background:#e8f2fa;padding:10px;border-radius:6px}
+.turbo-diagnostic-chart{overflow:auto;max-width:100%;max-height:510px;border:1px solid #d1e0e9;border-radius:8px;background:white;touch-action:pan-x pan-y}
+.turbo-diagnostic-chart svg{display:block;width:100%;height:auto;min-width:580px;max-height:none}
+.turbo-diagnostic-chart [data-plot-info]{cursor:crosshair;outline-offset:3px}
+.turbo-diagnostic-chart [data-plot-info]:focus-visible{outline:3px solid #de8e26}
+.turbo-diagnostic-chart:focus-visible,.turbo-diagnostic50 summary:focus-visible{outline:3px solid #2563a6;outline-offset:3px}
+.turbo-diagnostic50 [data-advanced-reading]{background:#fff;border-left:3px solid #317ca8;padding:9px}
+.turbo-diagnostic50 details{font-size:12px}
+@media(max-width:600px){.turbo-diagnostic50{padding:10px}}

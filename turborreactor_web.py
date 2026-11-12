@@ -25,6 +25,7 @@ from estudio_geometrico_tobera import (estudiar_angulos_geometria,
 from propiedades_aire import h
 from propiedades_aire import R_AIRE, T_MIN, s, s0
 from caracterizacion_motor_49_9 import caracterizar_motor_49_9
+from diagnostico_motor_50_2 import diagnosticar_motor_50_2, svg_mapa_compresor_50_2
 from tobera_convergente_divergente_cp import _sonico, relacion_areas_adaptada
 from perfil_tobera_cp_variable import perfil_tobera_cp_variable
 
@@ -275,6 +276,7 @@ def _simular_motor_acoplado_web(valores):
         raise ValueError("El presentador no reproduce el estado acoplado.")
     ma=acoplado["caudal_aire"]
     absoluto=calcular_prestaciones_absolutas(r,ma)
+    r["referencia_mapa_compresor_47"] = dict(ref["compresor"])
     r.update(modo_caudal="acoplado",motor_acoplado=acoplado,
              prestaciones_absolutas=absoluto,
              dimensionamiento_tobera=dimensionar_tobera(r,ma,absolutos=absoluto))
@@ -980,7 +982,10 @@ def preparar_vista_turborreactor(resultado):
     perfil = perfil_tobera_cp_variable(resultado)
     perfil_axial = proyectar_perfil_axial(perfil, resultado.get("geometria_conica"))
     estudio_geometrico = estudiar_angulos_geometria(resultado.get("geometria_conica"))
+    diagnostico_50_2 = diagnosticar_motor_50_2(resultado)
     return {"estaciones": estados,
+            "diagnostico_50_2": diagnostico_50_2,
+            "svg_mapa_compresor_50_2": svg_mapa_compresor_50_2(diagnostico_50_2),
             "fichas_componentes": fichas_componentes_49_8(resultado),
             "caracterizacion": caracterizar_motor_49_9(resultado),
             "adaptacion_cd": _adaptacion_cd(resultado),

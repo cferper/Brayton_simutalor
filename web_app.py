@@ -116,6 +116,7 @@ def api_turborreactor_simular():
             "estaciones":vista["estaciones"],
             "componentes":vista["fichas_componentes"],
             "caracterizacion":vista["caracterizacion"],
+            "diagnostico_50_2":vista["diagnostico_50_2"],
             "diagnosticos":resultado["diagnosticos"],
             "svg":{k:v for k,v in vista.items() if k.startswith("svg_")},
             "html_documento":pagina,

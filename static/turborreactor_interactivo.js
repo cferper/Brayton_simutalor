@@ -389,6 +389,8 @@
     const sincronizacion=banco?iniciarSincronizacion50_0(documento):null;
     const fichaEducativa=banco?iniciarEsquemaEducativo49_7(documento,clave=>sincronizacion?.seleccionar(clave)):null;
     const caracterizacion=banco?iniciarCaracterizacion49_9(documento):null;
+    const diagnostico50=banco&&typeof raiz.iniciarDiagnostico50_2==='function'?
+      raiz.iniciarDiagnostico50_2(documento):null;
     const laboratorio=banco&&typeof raiz.iniciarLaboratorio50_1==='function'?
       raiz.iniciarLaboratorio50_1(documento,formulario):null;
     const selectorModo=formulario.elements.modo_caudal;
@@ -517,6 +519,7 @@
         panel.dataset.estado=tipo;
         if(tipo==='pendiente'||tipo==='actualizando')sincronizacion?.pendiente();
         if(tipo==='pendiente'||tipo==='actualizando')laboratorio?.pendiente();
+        if(tipo==='pendiente'||tipo==='actualizando')diagnostico50?.pendiente('Entradas modificadas: diagnóstico anterior retirado.');
         const badge=documento.querySelector('#resultados .badge');
         if(tipo==='pendiente'){
           fichaEducativa?.pendiente('Entradas modificadas: resultados pendientes de actualización.');
@@ -547,6 +550,7 @@
         cambios.forEach(([destino,nodos])=>destino.replaceChildren(...nodos));
         fichaEducativa?.actualizar(datos);
         caracterizacion?.actualizar(datos);
+        diagnostico50?.actualizado(datos);
         // Un error antiguo del formulario no corresponde a esta nueva solución.
         documento.querySelector('#turbo-configuracion-vista-uso > .error-summary')?.remove();
         const badge=documento.querySelector('#resultados .badge');
@@ -596,6 +600,7 @@
       onError:error=>{
         sincronizacion?.pendiente();
         laboratorio?.pendiente();
+        diagnostico50?.pendiente('No hay un punto motor válido para el diagnóstico.');
         fichaEducativa?.pendiente('Sin resultados numéricos verificados para este punto motor.');
         caracterizacion?.pendiente('Sin indicadores verificados para este punto motor.');
         const fuera=Boolean(error.fueraMapa);
@@ -688,6 +693,12 @@
       if(fichaEducativa&&datosIniciales){
         try{fichaEducativa.actualizar({componentes:JSON.parse(datosIniciales.textContent)});}
         catch(_error){fichaEducativa.pendiente('No se pueden leer los datos de la ficha inicial.');}
+      }
+      const diagnosticoInicial=documento.getElementById('turbo-diagnostic-initial-data');
+      if(diagnostico50&&diagnosticoInicial){
+        try{const datos=JSON.parse(diagnosticoInicial.textContent);
+          diagnostico50.actualizado({ok:true,diagnostico_50_2:datos,svg:{}});}
+        catch(_error){diagnostico50.pendiente('No se puede leer el diagnóstico inicial.');}
       }
       const caracterizacionInicial=documento.getElementById('turbo-characterization-initial-data');
       if(caracterizacion&&caracterizacionInicial){

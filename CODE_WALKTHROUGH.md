@@ -4821,14 +4821,89 @@ magnitud y un par de barras por punto**: sus longitudes no permiten comparar
 entre sí cantidades de unidades distintas. El panel señala la falta de datos,
 el cambio de condiciones avanzadas y las comparaciones entre modos distintos.
 Si cambian simultáneamente Mach y TIT, no se afirma causalidad individual.
-No hay validación externa ni implementación del 50.2.
+No existe validación experimental externa; el diagnóstico educativo 50.2 se describe en la sección siguiente.
 
 Ejemplo: `diferencia50_1(500,540,'N/(kg/s)')` retorna una variación de
 `+40 N/(kg/s)` y `+8 %`; si el primer valor es cero, la relativa es `null`.
 [Técnico 50.1](docs/milestones/50_1_laboratorio_comparativo.md) y
 [aprendizaje 50.1](docs/milestones/50_1_laboratorio_comparativo_APRENDIZAJE.md).
 
+### Milestone 50.2 — Diagnóstico corregido y mapa HPC del modo C
+
+**Estado actual:** el banco interactivo dispone de un diagnóstico avanzado que reutiliza el
+punto de funcionamiento existente. A/B/C no incorporan un segundo solucionador;
+los controles de Mach y `T3` siguen solicitando un único POST a
+`/api/turborreactor/simular` y la selección de gráficos no recalcula.
+
+**PYTHON.** El módulo nuevo `diagnostico_motor_50_2.py` contiene:
+
+- `diagnosticar_motor_50_2(resultado)`: recibe el diccionario de salida física
+  de `simular_turborreactor`, comprueba si hay `prestaciones_absolutas.gasto_masico_aire`,
+  `compresor.T1` y `compresor.p1` positivos/finitos y reutiliza las funciones
+  **originales** `mapas_turbomaquinaria_47.flujo_corregido` y
+  `mapas_turbomaquinaria_47.giro_corregido`. Devuelve un diccionario con
+  `caudal_corregido_kg_s` [kg/s de referencia], `giro_real_rpm` [rpm],
+  `giro_corregido_rpm` [rpm corregidas], `entrada_compresor` (K/kPa),
+  `referencia`, `dominio`, `avisos`, `modelo`, `limite` y, solo en C convergido,
+  `curvas_compresor` y `punto_compresor`. Una ausencia se codifica como `None`.
+  En el modo C usa `motor_acoplado.compresor_mapa` para la coordenada actual,
+  y `resultado["referencia_mapa_compresor_47"]`/`cargar_mapas` para las mismas
+  escalas de los nudos HPC que emplea el motor. El adaptador web C conserva
+  estas escalas del punto de diseño que ya había calculado antes de resolver
+  el acoplamiento. No se calcula otro equilibrio ni se extrapola fuera
+  del dominio. Los datos de entrada deben representar una solución ya válida;
+  entradas incompletas o inconsistentes pueden propagar errores controlados del
+  modelo. **Ejemplo**:
+
+  ```python
+  d = diagnosticar_motor_50_2(resultado)
+  valor = d['caudal_corregido_kg_s']  # float o None; nunca se inventa cero
+  ```
+
+- `svg_mapa_compresor_50_2(diagnostico)`: recibe el diccionario anterior y
+  retorna `str` (SVG con relación de compresión adimensional frente a kg/s
+  corregidos) o `''` cuando falta un punto C representable. Cada fila de
+  velocidad tabulada se escala con coeficientes de M47. El marcador circular
+  de C usa solo coordenadas resueltas; `escape` protege textos y atributos SVG.
+  Los nodos `data-plot-info` incluyen unidades, eficiencia y Rline, y son
+  consultables con teclado. No hay nuevas leyes físicas ni una geometría axial.
+
+**INTERPRETACIÓN FÍSICA / INGENIERÍA.** En la entrada del compresor:
+
+\[\dot m_{corr}=\dot m_a\frac{\sqrt{T_{t2}/288.15}}{p_{t2}/101.325},
+\qquad N_{corr}=\frac{N}{\sqrt{T_{t2}/288.15}}.\]
+
+Los denominadores son **temperatura total** en kelvin y **presión total**
+en kPa (nunca presión estática ambiente). M47 fija explícitamente Tref=288,15 K,
+pref=101,325 kPa. La magnitud corregida no representa caudal o rpm medidos a
+esas condiciones. Si A no tiene ṁaire, ṁcorr es `None`; B puede mostrar ṁcorr
+pero no Ncorr; solo C conoce rpm y su Rline. Las curvas HPC proceden de NASA
+T-MATS y están escaladas a un punto de diseño **hipotético**. Rline=1 es un
+borde de la tabla, **no** un margen validado frente al surge. Fallo de Newton,
+límite de interpolación e inestabilidad real son situaciones diferentes.
+
+**FLASK / JAVASCRIPT.** `preparar_vista_turborreactor` añade
+`diagnostico_50_2` y `svg_mapa_compresor_50_2` al diccionario de vista;
+`web_app.api_turborreactor_simular` expone el diagnóstico en el JSON y el SVG
+se incorpora por su clave al objeto `svg` existente. No hay nueva ruta.
+`iniciarDiagnostico50_2(documento)` en
+`static/diagnostico_motor_50_2.js` recibe el DOM y retorna
+`{pendiente, actualizado}` o `null` cuando no existe panel. La función
+`actualizado(respuesta)` usa `textContent` para métricas, `DOMParser` para
+SVG y marcadores accesibles; `pendiente(mensaje)` borra cifras y curva
+anterior. El único controlador `inicializar48` llama a ambos métodos al
+cambiar entradas o recibir un JSON correcto. La versión clásica no incorpora
+este panel. No hay memoria persistente ni petición adicional.
+
+**Comprobación:** `tests/test_diagnostico_motor_50_2.py` y
+`tests/js/test_diagnostico_motor_50_2.cjs`; la disponibilidad de Flask es
+necesaria para los métodos HTTP. Los resultados de ejecución de esta entrega
+se detallan en el documento [técnico 50.2](docs/milestones/50_2_diagnostico_avanzado.md)
+y en la [guía de aprendizaje 50.2](docs/milestones/50_2_diagnostico_avanzado_APRENDIZAJE.md).
+
 ## Evolution of the project
+
+- **Milestone 50.2: diagnóstico corregido y mapa HPC educativo.** Reutilización de flujo y giro corregidos M47, visualización de nudos HPC escalados y punto C resuelto; ausencia explícita de margen de surge, sin nuevo solucionador. [Técnico](docs/milestones/50_2_diagnostico_avanzado.md) y [aprendizaje](docs/milestones/50_2_diagnostico_avanzado_APRENDIZAJE.md). Publicación pendiente.
 
 - **Milestone 50.1: laboratorio comparativo de dos puntos.** Referencia inmutable en memoria, comparación física condicionada por modo y configuración, diferencias con unidades, cuatro gráficos con marcadores calculados y gestión explícita de datos ausentes. [Técnico](docs/milestones/50_1_laboratorio_comparativo.md) y [aprendizaje](docs/milestones/50_1_laboratorio_comparativo_APRENDIZAJE.md). Sin commit.
 
