@@ -12,6 +12,7 @@
  {% if interfaz=='interactivo' %}<script src="{{ url_for('static',filename='diagnostico_motor_50_2.js') }}" defer></script>{% endif %}
  {% if interfaz=='interactivo' %}<script src="{{ url_for('static',filename='configuraciones_modo_c_50_3.js') }}" defer></script>{% endif %}
  {% if interfaz=='interactivo' %}<script src="{{ url_for('static',filename='estudios_parametricos_49_5.js') }}" defer></script>{% endif %}
+ {% if interfaz=='interactivo' %}<script src="{{ url_for('static',filename='navegacion_superior_50_5.js') }}" defer></script>{% endif %}
 </head>
 <body class="turbo-page" data-interfaz="{{ interfaz }}" data-initial-panel="{{ 'configuracion' if interfaz=='interactivo' else (accion if accion in ('sensibilidad','mapa') else ('configuracion' if error or not resultado else 'resultados')) }}" data-simulacion-inicial="{{ 'resuelta' if resultado and not error else ('error' if error else 'pendiente') }}">
 <a class="skip-link" href="#contenido">Ir al contenido</a>
@@ -33,6 +34,22 @@
  <div class="side-footer"><strong>Turborreactor cp(T)</strong>Modelo educativo de aire equivalente, flujo subsónico y combustible simplificado</div>
 </aside>
 <div class="workspace"><div class="topbar"><span><strong>Laboratorio de ciclos</strong> / Propulsión / {{ 'Banco interactivo' if interfaz=='interactivo' else 'Turborreactor clásico' }}</span><a href="{{ url_for('index') }}">← Ciclo Brayton</a></div>
+{% if interfaz=='interactivo' %}
+<div class="turbo-work-header50" id="turbo-work-header50">
+ <div class="turbo-work-brand50"><strong>BRAYTON SIMULATOR</strong><span>Banco interactivo · Propulsión</span><a href="{{ url_for('index') }}">Ciclo Brayton</a></div>
+ <nav class="turbo-work-nav50" id="turbo-work-nav50" aria-label="Espacios de trabajo del simulador">
+  {% for clave,titulo in [('simulacion','Simulación'),('motor','Motor'),('termodinamica','Termodinámica'),('tobera','Tobera'),('turbomaquinas','Turbomáquinas'),('estudios','Estudios'),('comparador','Comparador')] %}
+  <a href="#espacio-{{ clave }}" data-workspace-view="{{ clave }}" {% if clave=='simulacion' %}aria-current="page"{% endif %}>{{ titulo }}</a>
+  {% endfor %}
+ </nav>
+ <div class="turbo-work-context50" aria-label="Estado actual del motor">
+  <span>Modo <strong id="turbo-work-mode50">—</strong></span>
+  <span>Mach <strong id="turbo-work-mach50">—</strong></span>
+  <span>T3 <strong id="turbo-work-t350">—</strong></span>
+  <span>Estado <strong id="turbo-work-status50" role="status" aria-live="polite">Pendiente</strong></span>
+ </div>
+</div>
+{% endif %}
 <main class="main-content" id="contenido">
  <header class="technical-header turbo-intro"><div class="intro"><p class="eyebrow">Modelo de propulsión · fase inicial</p><h1>{{ 'Banco de ensayos interactivo' if interfaz=='interactivo' else 'Turborreactor clásico' }}</h1><p>Del ambiente al empuje neto: difusor, compresor, cámara, turbina y tobera convergente o convergente-divergente.</p></div><span class="turbo-hero-mark" aria-hidden="true">✈</span></header>
  <div class="turbo-disclaimer">Modelo científico educativo con propiedades variables del aire. El combustible se representa mediante un aporte energético, no mediante química detallada. No predice las prestaciones de un motor certificado.</div>

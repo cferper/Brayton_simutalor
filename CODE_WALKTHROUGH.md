@@ -3164,7 +3164,12 @@ y [aprendizaje 30](docs/milestones/30_saneamiento_suite_historica_APRENDIZAJE.md
 | `preparar_vista_turborreactor(resultado)` | Dict M37 → dict con `estaciones`, `adaptacion_cd`, `datos_tobera_graficas` y los diez SVG previos (`svg_componentes`, `svg_temperaturas`, `svg_presiones`, `svg_empuje`, `svg_ts`, `svg_mach_tobera`, `svg_presion_tobera`, `svg_balance_energetico`, `svg_mach_perfil_tobera`, `svg_presion_perfil_tobera`), además de `balance_energetico` y `perfil_tobera`, que pueden ser `None` según disponibilidad. Desde M45 incorpora `svg_empuje_absoluto` [N]; M46.1 añade `svg_geometria_conica` [m] o `None`; M46.2 añade `perfil_axial_tobera`, `svg_mach_axial` y `svg_presion_axial` o `None`, sin recalcular el flujo. Llama a las funciones de estaciones, adaptación y dibujo; lo utiliza Flask sólo tras cálculo. Véanse §§4.81–4.87. Ej.: `preparar_vista_turborreactor(r)['estaciones']`. |
 | `turborreactor()` | Controlador `@app.route('/turborreactor', methods=['GET','POST'])` sin argumentos Python (utiliza `request`); retorna `(HTML, 200/400)` generado por `render_template('turborreactor.html',...)`. GET no llama al motor; POST diferencia `accion='simular'`, `'sensibilidad'` y `'mapa'`, calcula el punto individual y, en las dos últimas, invoca `preparar_estudio` del M41; captura errores de rango, cálculo, dominio y aritmética sin mostrar trazas. El resultado de estudio y su error se guardan separados de los del cálculo individual. Prueba de uso: `app.test_client().get('/turborreactor').status_code == 200`. |
 
-**PYTHON — interfaz y flujo.** El archivo `templates/turborreactor.html` ofrece el formulario original HTTP POST, Jinja de resultados y **seis paneles**: Configuración, Resultados, Estaciones, Visualizaciones, Sensibilidad y Mapas de prestaciones; los dos estudios nuevos se explican en §4.76. Cada panel alberga dos pestañas (uso y fundamentos): la teoría se distribuye mediante macros Jinja, sin formularios anidados. `static/turborreactor.css` reutiliza fuentes y variables de `static/style.css`, y `static/turborreactor.js` introduce mejora progresiva: cuando hay JavaScript, desactiva y vacía el otro modo de ambiente y carga tres ejemplos sin calcular. También **muestra exactamente un panel por vez** con `hidden`, y resalta sólo su enlace lateral con `aria-current='page'`. `location.hash` permite enlaces directos a `#configuracion`, `#resultados`, `#estaciones`, `#graficas`, `#sensibilidad`, `#mapa`; `history.pushState` registra cada navegación, mientras `popstate`/`hashchange` restauran la sección elegida con atrás/adelante del navegador. El identificador del panel inicial lo aporta Jinja mediante `data-initial-panel`: Configuración en GET/error de simulación, Resultados después de POST individual correcto, o Sensibilidad/Mapas después de solicitar el estudio (incluso con error propio de estudio). Los paneles ocultos permanecen en el mismo DOM y conservan campos y resultados; al cambiar por menú, se mueve el foco al encabezado visible para teclado. La rueda sólo desplaza el **contenido del panel activo**, no pasa a otro apartado. Sin JavaScript los seis paneles y ambas vistas de cada uno permanecen **apilados verticalmente** y los tres formularios HTTP POST siguen siendo utilizables (las entradas del motor para estudios son las ya reflejadas por el servidor). `request.form` es un mapping de cadenas; `float` convierte magnitudes e `isfinite` rechaza NaN/inf; `**argumentos` expande un dict a argumentos nombrados del motor. Jinja escapa las entradas por defecto. Sólo los SVG creados en servidor con números y etiquetas conocidas usan `|safe`. El enlace `/turborreactor` en `templates/index.html` está condicionado a **`modo_cp and modo_local`**, por lo que los informes históricos renderizados con `modo_cp=False` no lo incorporan ni cambian de formato. Las rutas `/`, `/informes/<nombre>` y descarga permanecen; la navegación del turborreactor se reduce a seis secciones, sin perder teoría.
+**PYTHON — interfaz y flujo.** El archivo `templates/turborreactor.html` ofrece el formulario original HTTP POST, Jinja de resultados y **seis paneles**: Configuración, Resultados, Estaciones, Visualizaciones, Sensibilidad y Mapas de prestaciones; los dos estudios nuevos se explican en §4.76. Cada panel alberga dos pestañas (uso y fundamentos): la teoría se distribuye mediante macros Jinja, sin formularios anidados. `static/turborreactor.css` reutiliza fuentes y variables de `static/style.css`, y `static/turborreactor.js` introduce mejora progresiva: cuando hay JavaScript,
+desactiva y vacía el otro modo de ambiente y carga tres ejemplos sin calcular.
+En la **ruta clásica** muestra exactamente un panel por vez con `hidden` y
+resalta el enlace lateral con `aria-current='page'`. En el **banco interactivo**
+M50.5 utiliza otro módulo para siete espacios en una barra superior, y mantiene
+estos listeners de ambiente sin activar la navegación histórica (§4.109). `location.hash` permite enlaces directos a `#configuracion`, `#resultados`, `#estaciones`, `#graficas`, `#sensibilidad`, `#mapa`; `history.pushState` registra cada navegación, mientras `popstate`/`hashchange` restauran la sección elegida con atrás/adelante del navegador. El identificador del panel inicial lo aporta Jinja mediante `data-initial-panel`: Configuración en GET/error de simulación, Resultados después de POST individual correcto, o Sensibilidad/Mapas después de solicitar el estudio (incluso con error propio de estudio). Los paneles ocultos permanecen en el mismo DOM y conservan campos y resultados; al cambiar por menú, se mueve el foco al encabezado visible para teclado. La rueda sólo desplaza el **contenido del panel activo**, no pasa a otro apartado. Sin JavaScript los seis paneles y ambas vistas de cada uno permanecen **apilados verticalmente** y los tres formularios HTTP POST siguen siendo utilizables (las entradas del motor para estudios son las ya reflejadas por el servidor). `request.form` es un mapping de cadenas; `float` convierte magnitudes e `isfinite` rechaza NaN/inf; `**argumentos` expande un dict a argumentos nombrados del motor. Jinja escapa las entradas por defecto. Sólo los SVG creados en servidor con números y etiquetas conocidas usan `|safe`. El enlace `/turborreactor` en `templates/index.html` está condicionado a **`modo_cp and modo_local`**, por lo que los informes históricos renderizados con `modo_cp=False` no lo incorporan ni cambian de formato. Las rutas `/`, `/informes/<nombre>` y descarga permanecen; la navegación del turborreactor se reduce a seis secciones, sin perder teoría.
 
 **PYTHON — JavaScript y CSS accesibles.** En `static/turborreactor.js`, `elegir(id, moverFoco=false)` recibe un identificador de sección `string` y un indicador `boolean`, no devuelve un cálculo: para cada panel ejecuta `p.hidden=p.id!==id`, actualiza el único `aria-current` e, si el usuario inició el cambio, desplaza la vista al inicio y centra el foco en el título sin provocarle un nuevo salto de scroll. La función auxiliar `porUrl()` no recibe argumentos y retorna el identificador `string` extraído de `location.hash`. `sincronizarHistoria()` tampoco recibe argumentos ni retorna valores; se conecta a los eventos `popstate`/`hashchange` y llama a `elegir`. El callback `(evento)=>{...}` en cada enlace recibe un evento de clic: `preventDefault()` evita el salto nativo a un elemento oculto; `history.pushState` guarda un fragmento y `elegir` cambia pantalla. `document.body.dataset.initialPanel` permite inicializar correctamente GET, POST y errores, sin sesiones de servidor ni almacenamiento persistente. Las seis parejas de pestañas con `role='tab'` alternan dos paneles con `hidden`, `aria-selected`, `tabIndex` y navegación por flechas/Home/End, sin volver a calcular el motor; sin JS se ven ambas vistas. Los bloques explicativos `<details><summary>` se despliegan con ratón o teclado. Las regiones gráficas tienen `tabindex='0'`, `role='region'` y nombre accesible, y CSS `overflow-x:auto` más `min-width:660px` preservan texto legible en ventanas estrechas **dentro** del gráfico; los tres SVG mantienen sus mismas magnitudes y resultados. Los tres términos del empuje muestran ahora la unidad completa `N/(kg/s de aire)`. Los presets fijan `pi_d=1` (difusor ideal); referencias anteriores del M36/M37 con `pi_d=.97`/`.98` no corresponden exactamente a esos casos de interfaz.
 
@@ -4990,7 +4995,94 @@ cambios de controles. El cálculo directo y la celda deben coincidir cuando
 las entradas del solucionador son idénticas. El estudio no predice una
 frontera continua entre celdas ni caracteriza surge.
 
+## 4.109 — Navegación superior del banco interactivo (milestone 50.5)
+
+**HTML / JINJA — rutas y contenedores actuales.** En
+`templates/turborreactor.html` la ruta `/turborreactor/interactivo` incorpora
+la cabecera `#turbo-work-header50` y los siete enlaces horizontales
+`data-workspace-view="simulacion|motor|termodinamica|tobera|turbomaquinas|estudios|comparador"`.
+La cabecera muestra modalidad A/B/C, Mach [–], T3 [K] y estado del punto.
+El módulo `static/navegacion_superior_50_5.js` se carga con `defer` **solo**
+para `interfaz=='interactivo'`. La ruta clásica `/turborreactor` mantiene
+sus seis paneles, menú histórico y lógica de formulario. El encabezado nuevo
+permanece oculto hasta que JavaScript termina la inicialización; si no se
+inicializa, sigue disponible la página HTML y el formulario original.
+
+**JAVASCRIPT — navegación, sin resolver física.** `fragmento50_5(hash)` recibe
+`string` como `'#espacio-motor'`, devuelve una de las siete claves `string` o
+`'simulacion'` como valor por defecto, y no modifica el DOM. Lo usan la
+inicialización y el listener de historial. `estadoFranja50_5(modo,mach,T3,
+estado,estadoInicial='pendiente')` recibe `string` de modalidad,
+Mach adimensional y T3 [K] (`string|number`), estado del controlador y estado
+inicial opcional; devuelve el objeto `{modo,mach,T3,estado,clase}` de
+etiquetas de presentación, sin cálculos termodinámicos, nulos como `—` y
+estados Pendiente/Calculando/Resuelto/Error. Lo utiliza `actualizarContexto`
+y puede probarse directamente:
+`estadoFranja50_5('acoplado','0.4','1600','actualizado').estado === 'Resuelto'`.
+
+`iniciarNavegacion50_5(documento,ventana)` recibe instancias `Document` y
+`Window`; devuelve `null` si no es la ruta interactiva o faltan elementos
+esenciales, o el controlador `{activar,navegar,actualizarContexto,activo}`.
+Se ejecuta en `DOMContentLoaded`, *después* de los controladores M48–M50.4.
+Crea siete `<section role="region">` con sus encabezados, e inserta en
+ellas **los nodos existentes**, mediante `appendChild`, no copias. Mantiene
+`#configuracion`, el formulario, los resultados y el control de modo A/B/C en
+Simulación; mueve el esquema M49.7 y caracterización M49.9 a Motor, diagnóstico
+M50.2 a Turbomáquinas, explorador M49.5/M50.4 a Estudios y laboratorio M50.1
+a Comparador. Las tablas, estudios clásicos y resultados históricos quedan
+disponibles en `<details>` plegables, pendientes de reorganización visual.
+
+El elemento **completo** `#turbo-live` se desplaza entre el padre original
+en Simulación y las regiones Termodinámica/Tobera. De esta manera el
+controlador antiguo sigue encontrando gráficos y tarjetas mediante
+`panel.querySelector(...)`, sin perder listeners, referencias ni usar otro
+solucionador. Para esas dos vistas, se activa mediante clic visual el grupo
+preexistente `ciclo` o `tobera`. `activar(espacio,{foco=false}={})` verifica
+una de las siete claves y devuelve `boolean`, actualiza únicamente el panel
+visible con `hidden`, el enlace activo mediante `aria-current="page"` y el foco
+si procede; `navegar(espacio,{foco=true}={})` además llama
+`history.pushState` con `#espacio-*` sin recargar. `activo()` devuelve
+la clave seleccionada. `volverPorHistoria()` se conecta a `popstate` y
+`hashchange` y vuelve a activar el espacio. El menú admite Tab/Intro y
+flechas/Home/End para desplazamiento del foco.
+
+**COMPATIBILIDAD.** El listener de captura de `click` intercepta los botones
+históricos `data-study49-view` antes de que el M49.5 los procese. El
+explorador M50.4 sigue enviando una sola simulación al aplicar entradas,
+pero el movimiento entre Estudios y Simulación depende únicamente del
+controlador nuevo. Para compensar el listener de historial de
+`static/turborreactor.js`, `activar` restaura la visibilidad interna de las
+secciones tradicionales antes de ocultar regiones de trabajo inactivas.
+Las referencias guardadas del M50.1 permanecen en su módulo original.
+
+**ESTADO COMPARTIDO.** La franja lee `#turbo-form` y observa
+`data-estado` de `#turbo-live` con `MutationObserver`, sin almacenar otra
+configuración. Los eventos `input/change` solo releen las entradas mostradas;
+la navegación no invoca `fetch`, `simular_turborreactor`, métodos de Newton o
+mecanismos de cálculo. El estado «Resuelto» se refiere únicamente a un punto
+aceptado por el modelo educativo, no a validación experimental.
+
+**CSS Y ACCESIBILIDAD.** En `static/turborreactor.css`, los cambios están
+limitados por `[data-interfaz="interactivo"].turbo-50-5-ready`: desaparece el
+lateral, el ancho se aprovecha sin margen fijo y la nueva cabecera permanece
+`sticky`; los enlaces son horizontales, con `overflow-x:auto` en móvil, foco
+visible y `aria-current`. A 390 px la franja se ordena en dos columnas.
+Se respeta `hidden` de paneles e información inaccesible en vistas inactivas.
+El contenido explicativo extenso conserva scroll vertical natural.
+
+**VERIFICACIÓN Y LIMITACIONES.** En Windows pasaron **7 pruebas Python**
+focalizadas, **29 comprobaciones JavaScript** con DOM simulado y **9 pruebas
+JavaScript de M50.3/M50.4**. La sintaxis Jinja y JavaScript fue correcta.
+La regresión Python ejecutó 829 pruebas (819 correctas, 10 omitidas y 0 fallidas).
+Flask sirvió los siete enlaces y el módulo nuevo en la ruta interactiva.
+El usuario aprobó visualmente la nueva distribución. La conservación de la
+referencia del comparador se comprobó con DOM simulado. Las referencias de esta fase son
+[técnico M50.5](docs/milestones/50_5_navegacion_superior.md) y
+[aprendizaje M50.5](docs/milestones/50_5_navegacion_superior_APRENDIZAJE.md).
+
 ## Evolution of the project
+
+- **Milestone 50.5: navegación superior del banco.** Ingeniería: misma simulación y estado físico en siete espacios, sin recalcular por navegar. HTML/CSS/JS: barra horizontal responsive, estado compartido vía `MutationObserver`, enlace directo e historial, teclado y puente compatible con el explorador M50.4. [Técnico](docs/milestones/50_5_navegacion_superior.md) y [aprendizaje](docs/milestones/50_5_navegacion_superior_APRENDIZAJE.md).
 
 - **Milestone 50.4: explorador avanzado del modo C.** Ingeniería: prestaciones y estados de convergencia sobre muestras Mach–T3 sin extrapolación ni límites de surge; Python/JS: extracción de M47/M50.2, panel de celdas, carga completa mediante un solo controlador y CSV ampliado. La malla 5×5 verificada tuvo 25/25 puntos convergidos; las pruebas focalizadas, regresión, HTTP y revisión visual quedaron completadas. [Técnico](docs/milestones/50_4_explorador_funcionamiento_modo_c.md) y [aprendizaje](docs/milestones/50_4_explorador_funcionamiento_modo_c_APRENDIZAJE.md).
 

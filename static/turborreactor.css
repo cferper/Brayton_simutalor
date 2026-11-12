@@ -361,3 +361,78 @@
 #study49-apply{background:#145b86;color:#fff;border:0;padding:10px;border-radius:7px;font-weight:700;margin:10px 0}
 #study49-apply[hidden]{display:none}
 .turbo-study49-chart [data-study49-index]:focus{outline:3px solid #df921d}
+
+/* M50.5 — navegación horizontal, únicamente /turborreactor/interactivo.
+   Si el módulo nuevo falla, la clase ready no aparece y el HTML clásico se conserva. */
+.turbo-work-header50{display:none}
+body[data-interfaz="interactivo"].turbo-50-5-ready .sidebar,
+body[data-interfaz="interactivo"].turbo-50-5-ready .topbar,
+body[data-interfaz="interactivo"].turbo-50-5-ready .turbo-intro,
+body[data-interfaz="interactivo"].turbo-50-5-ready .turbo-study49-nav{display:none!important}
+body[data-interfaz="interactivo"].turbo-50-5-ready .workspace{margin-left:0;min-width:0}
+body[data-interfaz="interactivo"].turbo-50-5-ready .main-content{
+  max-width:1740px;padding:14px clamp(14px,2.6vw,38px) 30px;
+}
+body[data-interfaz="interactivo"].turbo-50-5-ready .turbo-disclaimer{
+  margin:0 0 12px;padding:8px 13px;font-size:12px;
+}
+body[data-interfaz="interactivo"].turbo-50-5-ready .turbo-work-header50{
+  display:block;position:sticky;top:0;z-index:38;background:#fff;
+  border-bottom:1px solid #dfe6ee;box-shadow:0 2px 9px rgba(23,43,66,.09);
+}
+.turbo-work-brand50{display:flex;align-items:baseline;gap:15px;padding:11px clamp(14px,2.6vw,38px) 3px;min-width:0}
+.turbo-work-brand50 strong{font-size:17px;letter-spacing:.065em;color:#174a70}
+.turbo-work-brand50 span{font-size:12px;color:#65768a}
+.turbo-work-brand50 a{font-size:12px;margin-left:auto;white-space:nowrap}
+.turbo-work-nav50{display:flex;gap:4px;overflow-x:auto;overscroll-behavior-inline:contain;
+  scrollbar-width:thin;padding:3px clamp(14px,2.6vw,38px) 0;white-space:nowrap}
+.turbo-work-nav50 a{flex:0 0 auto;display:inline-flex;align-items:center;min-height:41px;
+  border:0;border-bottom:3px solid transparent;border-radius:3px 3px 0 0;
+  padding:8px 15px;text-decoration:none;font-weight:600;font-size:13px;color:#52677e}
+.turbo-work-nav50 a:hover{background:#f1f6fa;color:#174a70}
+.turbo-work-nav50 a[aria-current="page"]{border-bottom-color:#2563a6;background:#eaf1f8;color:#174a70}
+.turbo-work-nav50 a:focus-visible{outline:3px solid #2563a6;outline-offset:-3px}
+.turbo-work-context50{display:flex;gap:10px 24px;flex-wrap:wrap;padding:7px clamp(14px,2.6vw,38px);
+  background:#f5f8fb;border-top:1px solid #e7edf2;font-size:12px;color:#52677e}
+.turbo-work-context50 strong{margin-left:5px;color:#174a70;font-family:'IBM Plex Mono',Consolas,monospace}
+#turbo-work-status50[data-estado="calculando"]{color:#875c12}
+#turbo-work-status50[data-estado="error"]{color:#a12f35}
+#turbo-work-status50[data-estado="resuelto"]{color:#17745d}
+.turbo-work-panel50[hidden]{display:none!important}
+.turbo-work-panel50{min-width:0;max-width:100%;padding-bottom:12px}
+.turbo-work-panel50>.turbo-work-title50{font-size:21px;line-height:1.25;
+  color:#174a70;padding:0 0 10px;margin:4px 0 17px;border-bottom:1px solid #dfe6ee}
+.turbo-work-panel50>.turbo-work-title50:focus{outline:none}
+.turbo-work-panel50>.turbo-work-title50:focus-visible{outline:3px solid #2563a6;outline-offset:3px}
+.turbo-work-legacy50{margin:16px 0 8px;border:1px solid #dfe6ee;background:#fff;border-radius:7px}
+.turbo-work-legacy50>summary{display:list-item;padding:12px 17px;font-weight:600}
+.turbo-work-legacy50>.turbo-section{margin:0;padding:8px 16px 15px}
+body[data-interfaz="interactivo"].turbo-50-5-ready #configuracion{margin:0}
+body[data-interfaz="interactivo"].turbo-50-5-ready #configuracion>.page-heading{margin-bottom:10px}
+/* Se conserva UN solo visor #turbo-live, desplazado sin clonarlo por el JS. */
+body[data-interfaz="interactivo"].turbo-50-5-ready[data-active-workspace="simulacion"]
+  #turbo-live .turbo-live-plot-viewer{display:none}
+body[data-interfaz="interactivo"].turbo-50-5-ready:is([data-active-workspace="termodinamica"],[data-active-workspace="tobera"])
+  #turbo-live .turbo-live-metrics,
+body[data-interfaz="interactivo"].turbo-50-5-ready:is([data-active-workspace="termodinamica"],[data-active-workspace="tobera"])
+  #turbo-live .turbo-live-details{display:none}
+body[data-interfaz="interactivo"].turbo-50-5-ready #espacio-motor>.turbo-engine-educational,
+body[data-interfaz="interactivo"].turbo-50-5-ready #espacio-motor>.turbo-characterization,
+body[data-interfaz="interactivo"].turbo-50-5-ready #espacio-turbomaquinas>.turbo-diagnostic50,
+body[data-interfaz="interactivo"].turbo-50-5-ready #espacio-comparador>.turbo-lab50{margin-bottom:14px}
+@media (max-width:760px){
+ .turbo-work-brand50{align-items:center;padding-top:8px;gap:8px}
+ .turbo-work-brand50 strong{font-size:14px;letter-spacing:.02em}
+ .turbo-work-brand50 span{display:none}
+ .turbo-work-nav50 a{min-height:42px;padding:8px 12px;font-size:12px}
+ .turbo-work-context50{gap:6px 13px;font-size:11px}
+ body[data-interfaz="interactivo"].turbo-50-5-ready .main-content{padding:12px 12px 20px}
+}
+@media (max-width:390px){
+ .turbo-work-context50{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}
+ .turbo-work-context50 span{white-space:nowrap}
+}
+@media print{
+ body[data-interfaz="interactivo"].turbo-50-5-ready .turbo-work-header50{position:static;box-shadow:none}
+ body[data-interfaz="interactivo"].turbo-50-5-ready .turbo-work-panel50[hidden]{display:block!important}
+}
