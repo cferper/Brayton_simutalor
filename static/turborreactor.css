@@ -436,3 +436,112 @@ body[data-interfaz="interactivo"].turbo-50-5-ready #espacio-comparador>.turbo-la
  body[data-interfaz="interactivo"].turbo-50-5-ready .turbo-work-header50{position:static;box-shadow:none}
  body[data-interfaz="interactivo"].turbo-50-5-ready .turbo-work-panel50[hidden]{display:block!important}
 }
+
+/* M50.6 — organización exclusiva del espacio Simulación. Se mantiene el
+   formulario único y el visor original para los callbacks M48–M50.5. */
+body[data-interfaz="interactivo"].turbo-50-6-ready[data-active-workspace="simulacion"]
+  #turbo-configuracion-vista-uso{
+  grid-template-columns:minmax(360px,.88fr) minmax(0,1.35fr);
+  gap:clamp(12px,1.4vw,22px);align-items:start;
+}
+body[data-interfaz="interactivo"].turbo-50-6-ready[data-active-workspace="simulacion"] #turbo-form{
+  position:static;max-height:none;overflow:visible;
+  padding:clamp(13px,1.5vw,19px);
+}
+body[data-interfaz="interactivo"].turbo-50-6-ready #turbo-form>.turbo-bank-heading{
+  margin:0 0 8px;
+}
+body[data-interfaz="interactivo"].turbo-50-6-ready #turbo-form>.turbo-bank-heading h3{
+  font-size:16px;margin:0;
+}
+body[data-interfaz="interactivo"].turbo-50-6-ready #turbo-form>.turbo-bank-heading>p:last-child{display:none}
+body[data-interfaz="interactivo"].turbo-50-6-ready .turbo-bank-mode-buttons{margin:8px 0;gap:6px}
+body[data-interfaz="interactivo"].turbo-50-6-ready .turbo-bank-mode-buttons button{padding:9px;min-height:54px}
+body[data-interfaz="interactivo"].turbo-50-6-ready .turbo-bank-mode-buttons button small{display:none}
+body[data-interfaz="interactivo"].turbo-50-6-ready .turbo-sim-primary56,
+body[data-interfaz="interactivo"].turbo-50-6-ready .turbo-sim-mode56{
+  border:1px solid #d9e4ed;border-radius:8px;padding:10px 12px;margin:9px 0;background:#f9fbfd;
+}
+body[data-interfaz="interactivo"].turbo-50-6-ready .turbo-sim-primary56 h4,
+body[data-interfaz="interactivo"].turbo-50-6-ready .turbo-sim-mode56 h4{
+  margin:0 0 9px;font-size:13px;color:#174a70;
+}
+body[data-interfaz="interactivo"].turbo-50-6-ready .turbo-sim-axes56{
+  display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;
+}
+body[data-interfaz="interactivo"].turbo-50-6-ready .turbo-sim-axes56 .field{min-width:0;margin:0}
+body[data-interfaz="interactivo"].turbo-50-6-ready .turbo-sim-axes56 input[type=number]{width:100%;min-width:0}
+body[data-interfaz="interactivo"].turbo-50-6-ready .turbo-sim-axes56 .turbo-slider-row{display:flex;gap:5px}
+body[data-interfaz="interactivo"].turbo-50-6-ready .turbo-sim-axes56 input[type=range]{min-width:0;flex:1 1 60px}
+body[data-interfaz="interactivo"].turbo-50-6-ready .turbo-sim-axes56 output{font-size:10px;flex:0 0 auto}
+body[data-interfaz="interactivo"].turbo-50-6-ready .turbo-sim-axes56 small{display:none}
+body[data-interfaz="interactivo"].turbo-50-6-ready .turbo-sim-magnitude56{font-size:11px;color:#52677e;margin:8px 0 0;line-height:1.5}
+body[data-interfaz="interactivo"].turbo-50-6-ready #turbo-form .turbo-sim-mode56 .turbo-bank-other-field{
+  display:block!important;margin:0 0 9px;
+}
+body[data-interfaz="interactivo"].turbo-50-6-ready #turbo-form .turbo-sim-mode56 .turbo-nozzle-config{
+  display:grid!important;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px;
+}
+body[data-interfaz="interactivo"].turbo-50-6-ready #turbo-form .turbo-sim-mode56 .turbo-nozzle-config>.field:first-child,
+body[data-interfaz="interactivo"].turbo-50-6-ready #turbo-form .turbo-sim-mode56 .turbo-design-geometry{grid-column:1/-1}
+body[data-interfaz="interactivo"].turbo-50-6-ready #turbo-form .turbo-sim-mode56 .field small{display:none}
+body[data-interfaz="interactivo"].turbo-50-6-ready #turbo-form .turbo-sim-mode56 [hidden]{display:none!important}
+body[data-interfaz="interactivo"].turbo-50-6-ready #turbo-form #turbo-bank-advanced-fields{display:none!important}
+body[data-interfaz="interactivo"].turbo-50-6-ready #turbo-form.turbo-bank-show-advanced #turbo-bank-advanced-fields{display:grid!important}
+body[data-interfaz="interactivo"].turbo-50-6-ready #turbo-form #turbo-bank-advanced-fields .turbo-fields,
+body[data-interfaz="interactivo"].turbo-50-6-ready #turbo-form #turbo-bank-advanced-fields .turbo-bank-other-field:not([hidden]){
+  display:block!important;
+}
+body[data-interfaz="interactivo"].turbo-50-6-ready #turbo-form #turbo-bank-advanced-fields [hidden]{display:none!important}
+body[data-interfaz="interactivo"].turbo-50-6-ready #turbo-form .turbo-ambient-mode{display:none!important}
+body[data-interfaz="interactivo"].turbo-50-6-ready #turbo-form.turbo-bank-show-advanced .turbo-ambient-mode{display:block!important}
+body[data-interfaz="interactivo"].turbo-50-6-ready .turbo-sim-help56{
+  margin:11px 0 0;border:1px solid #d9e4ed;border-radius:7px;padding:8px 11px;
+}
+body[data-interfaz="interactivo"].turbo-50-6-ready .turbo-sim-help56>summary{padding:0}
+body[data-interfaz="interactivo"].turbo-50-6-ready .turbo-sim-help56 .turbo-guide,
+body[data-interfaz="interactivo"].turbo-50-6-ready .turbo-sim-help56 .turbo-examples{display:block!important;margin:12px 0}
+body[data-interfaz="interactivo"].turbo-50-6-ready[data-active-workspace="simulacion"]
+  #turbo-live .turbo-live-plot-viewer{display:block!important;margin-top:13px}
+body[data-interfaz="interactivo"].turbo-50-6-ready[data-active-workspace="simulacion"]
+  #turbo-live{padding:clamp(12px,1.4vw,18px)}
+body[data-interfaz="interactivo"].turbo-50-6-ready[data-active-workspace="simulacion"]
+  .turbo-live-metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+body[data-interfaz="interactivo"].turbo-50-6-ready[data-active-workspace="simulacion"]
+  .turbo-live-metric{padding:9px;min-width:0}
+body[data-interfaz="interactivo"].turbo-50-6-ready[data-active-workspace="simulacion"]
+  .turbo-live-metric strong{font-size:clamp(15px,1.35vw,21px);overflow-wrap:anywhere}
+body[data-interfaz="interactivo"].turbo-50-6-ready[data-active-workspace="simulacion"]
+  .turbo-live[data-estado="pendiente"] .turbo-live-metrics,
+body[data-interfaz="interactivo"].turbo-50-6-ready[data-active-workspace="simulacion"]
+  .turbo-live[data-estado="actualizando"] .turbo-live-metrics{visibility:hidden}
+body[data-interfaz="interactivo"].turbo-50-6-ready[data-active-workspace="simulacion"]
+  .turbo-sim-plot-title56{font-size:15px;margin:0 0 9px;color:#174a70}
+body[data-interfaz="interactivo"].turbo-50-6-ready[data-active-workspace="simulacion"]
+  .turbo-plot-groups{margin:7px 0;padding-bottom:7px;gap:5px}
+body[data-interfaz="interactivo"].turbo-50-6-ready[data-active-workspace="simulacion"]
+  .turbo-plot-groups button{padding:7px 9px;font-size:11px}
+body[data-interfaz="interactivo"].turbo-50-6-ready[data-active-workspace="simulacion"]
+  .turbo-live-plot-tabs{margin:7px 0;gap:5px}
+body[data-interfaz="interactivo"].turbo-50-6-ready[data-active-workspace="simulacion"]
+  .turbo-live-plot-tabs button{padding:7px 9px;font-size:11px}
+body[data-interfaz="interactivo"].turbo-50-6-ready[data-active-workspace="simulacion"]
+  .turbo-live-preview svg{max-height:350px}
+@media(max-width:1100px){
+ body[data-interfaz="interactivo"].turbo-50-6-ready[data-active-workspace="simulacion"] #turbo-configuracion-vista-uso{
+  grid-template-columns:minmax(0,1fr);
+ }
+ body[data-interfaz="interactivo"].turbo-50-6-ready[data-active-workspace="simulacion"]
+  .turbo-live-metrics{grid-template-columns:repeat(4,minmax(0,1fr))}
+}
+@media(max-width:600px){
+ body[data-interfaz="interactivo"].turbo-50-6-ready .turbo-sim-axes56{grid-template-columns:minmax(0,1fr)}
+ body[data-interfaz="interactivo"].turbo-50-6-ready #turbo-form .turbo-sim-mode56 .turbo-nozzle-config{grid-template-columns:minmax(0,1fr)}
+ body[data-interfaz="interactivo"].turbo-50-6-ready[data-active-workspace="simulacion"]
+  .turbo-live-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}
+ body[data-interfaz="interactivo"].turbo-50-6-ready .turbo-bank-mode-buttons{grid-template-columns:repeat(3,minmax(0,1fr))}
+ body[data-interfaz="interactivo"].turbo-50-6-ready .turbo-bank-mode-buttons button strong{font-size:11px}
+}
+@media(max-width:390px){
+ body[data-interfaz="interactivo"].turbo-50-6-ready .turbo-bank-mode-buttons{grid-template-columns:1fr}
+}

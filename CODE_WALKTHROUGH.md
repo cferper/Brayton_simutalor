@@ -5080,7 +5080,80 @@ referencia del comparador se comprobó con DOM simulado. Las referencias de esta
 [técnico M50.5](docs/milestones/50_5_navegacion_superior.md) y
 [aprendizaje M50.5](docs/milestones/50_5_navegacion_superior_APRENDIZAJE.md).
 
+## 4.110 — Panel Simulación M50.6 (versión actual)
+
+**HTML Y ESTRUCTURA.** `templates/turborreactor.html` añade en la ruta
+interactiva la carga `defer` de `static/panel_simulacion_50_6.js`, después
+de M50.5. Continúan existiendo un único `#turbo-form` y un único
+`#turbo-live`; los scripts anteriores administran simulación, historial,
+comparador, diagnósticos y explorador. La ruta `/turborreactor` clásica no
+inicializa M50.6. Sin JavaScript, conserva el formulario existente.
+
+**JAVASCRIPT — función nueva.**
+`iniciarPanelSimulacion50_6(documento)` recibe `Document` y devuelve `null`
+si no es la vista interactiva, faltan elementos necesarios o ya se montó;
+en el caso correcto retorna el objeto `{formulario,visor,principales,porModo}`
+con referencias DOM, no magnitudes físicas. Desde `DOMContentLoaded`,
+crea dos zonas dentro del formulario y **mueve**, sin copiar, las `.field`
+que contienen Mach [–], T3 [K] y gasto de aire opcional [kg/s] y el bloque
+de tobera/geometría existente. Utiliza `closest('.field')`, `append`,
+`insertAdjacentElement` y `dataset.simPanel56` como guard contra inicialización
+duplicada. Preserva ID, name, valor, eventos y `data-caudal`/`data-tobera`.
+El bloque C M50.3 permanece junto a los controles, con sus seis casos y
+restablecimiento. El formulario sigue enviando el mismo `FormData` a M48.
+Ejemplo: `iniciarPanelSimulacion50_6(document)` devuelve referencias sin hacer
+`fetch` y, tras seleccionar una pestaña de gráfica, M48 no recalcula.
+
+Los bloques de ayuda y ejemplos antiguos se trasladan a `<details>` plegable
+sin eliminar contenido. El botón `#turbo-bank-advanced-toggle` ya posee el
+listener de M48 que alterna `.turbo-bank-show-advanced`; M50.6 no añade otro
+listener ni modifica `aria-expanded` por su cuenta. El contenedor avanzado
+sigue en el mismo formulario, conserva ambiente ISA/directo, parámetros del
+núcleo y valores al cerrarse. Las reglas CSS respetan los `hidden`/`disabled`
+de `turborreactor.js` para las modalidades A/B/C.
+
+**CSS, RESULTADOS Y GRÁFICAS.** `static/turborreactor.css` introduce reglas
+acotadas a `.turbo-50-6-ready` y `data-interfaz="interactivo"`: A (controles)
+y B (tarjetas del `#turbo-live`) en columnas, con C (visualización) dentro
+del visor existente y debajo de las tarjetas. Se muestra en Simulación la
+misma `.turbo-live-plot-viewer` que el M50.5 ocultaba allí. M48 conserva
+`data-plot-tab`, grupos, figuras, zoom, consultas y SVG/PNG; sigue siendo
+una sola gráfica seleccionada a la vez. Los estados `pendiente` y
+`actualizando` ocultan temporalmente las cifras que pudieran pertenecer a
+entradas anteriores. El scroll del formulario pasa a ser natural (sin
+scroll vertical interior). El selector del formulario incluye el espacio
+activo Simulación para que la regla prevalezca sobre el límite de altura
+del banco anterior. A ≤1100 px se apila el layout; a ≤600 px
+se ajustan campos y tarjetas; a ≤390 px se compactan los modos. La
+redistribución restante corresponde a M50.7/M50.8.
+
+**FÍSICA / INGENIERÍA.** No se han alterado cp(T), estados, balances,
+mapas, Newton, geometrías ni tolerancias. Mach y T3 son entradas físicas,
+no resultados; en A puede no existir empuje absoluto sin gasto másico, en
+B el caudal surge de la geometría y en C rpm/caudal dependen del equilibrio
+acoplado. Las tarjetas muestran únicamente los resultados del API y el
+estado vigente. La presentación no verifica estabilidad real, surge ni
+validación experimental.
+
+**CONTROL DE CALIDAD.** Se añaden
+`tests/test_panel_simulacion_50_6.py` (contratos estáticos HTML/CSS/Jinja)
+y `tests/js/test_panel_simulacion_50_6.cjs` (DOM simulado, identidad de
+nodos, eventos, ausencia de cálculo al reorganizar). En Windows pasaron las
+7 pruebas Python de cada milestone 50.5 y 50.6 y las 30 pruebas del ejecutor
+Node. Estas incluyen 25 comprobaciones internas del 50.6 y 29 del 50.5.
+La regresión general terminó con 826 correctas, 10 omitidas y 0 fallos.
+Flask y Chrome en modo automatizado comprobaron A/B/C, recuperación tras
+un error HTTP 422, selección de gráfica, consulta de puntos, zoom,
+exportación SVG/PNG y persistencia de la referencia del comparador.
+Tras ajustar el selector CSS, las medidas a 1920, 1366, 768 y 390 px
+confirmaron que el formulario usa el scroll de la página. La revisión
+visual personal queda pendiente. Documento técnico:
+[50.6](docs/milestones/50_6_panel_simulacion.md); guía educativa:
+[50.6 APRENDIZAJE](docs/milestones/50_6_panel_simulacion_APRENDIZAJE.md).
+
 ## Evolution of the project
+
+- **Milestone 50.6: ventana Simulación compacta.** Ingeniería: una simulación y valores solo disponibles cuando el solucionador los determina. HTML/CSS/JS: controles principales A/B/C, configuración avanzada conservada, tarjetas de salida y galería M48 reusada sin cálculos por presentación. [Técnico](docs/milestones/50_6_panel_simulacion.md) y [aprendizaje](docs/milestones/50_6_panel_simulacion_APRENDIZAJE.md).
 
 - **Milestone 50.5: navegación superior del banco.** Ingeniería: misma simulación y estado físico en siete espacios, sin recalcular por navegar. HTML/CSS/JS: barra horizontal responsive, estado compartido vía `MutationObserver`, enlace directo e historial, teclado y puente compatible con el explorador M50.4. [Técnico](docs/milestones/50_5_navegacion_superior.md) y [aprendizaje](docs/milestones/50_5_navegacion_superior_APRENDIZAJE.md).
 
