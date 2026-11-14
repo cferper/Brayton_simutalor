@@ -5029,8 +5029,9 @@ ellas **los nodos existentes**, mediante `appendChild`, no copias. Mantiene
 `#configuracion`, el formulario, los resultados y el control de modo A/B/C en
 Simulación; mueve el esquema M49.7 a Motor, la caracterización M49.9 y el
 diagnóstico M50.2 a Turbomáquinas, el explorador M49.5/M50.4 a Estudios y laboratorio M50.1
-a Comparador. Las tablas, estudios clásicos y resultados históricos quedan
-disponibles en `<details>` plegables, pendientes de reorganización visual.
+a Comparador. Las tablas y resultados históricos conservan sus secciones;
+M50.8 reubica Estudios clásicos en paneles plegables y organiza el Comparador
+sin cambiar los controladores originales (§4.112).
 
 El elemento **completo** `#turbo-live` se desplaza exclusivamente desde M50.5
 entre el padre original en Simulación y los hosts de Termodinámica/Tobera
@@ -5128,7 +5129,7 @@ scroll vertical interior). El selector del formulario incluye el espacio
 activo Simulación para que la regla prevalezca sobre el límite de altura
 del banco anterior. A ≤1100 px se apila el layout; a ≤600 px
 se ajustan campos y tarjetas; a ≤390 px se compactan los modos. La
-redistribución restante corresponde a M50.7/M50.8.
+redistribución de las demás herramientas ya se documenta en §4.111–4.112.
 
 **FÍSICA / INGENIERÍA.** No se han alterado cp(T), estados, balances,
 mapas, Newton, geometrías ni tolerancias. Mach y T3 son entradas físicas,
@@ -5242,10 +5243,109 @@ Los resultados de esta tarea se registran en
 [documento técnico M50.7](docs/milestones/50_7_espacios_ingenieria.md)
 y la [guía de aprendizaje](docs/milestones/50_7_espacios_ingenieria_APRENDIZAJE.md).
 La revisión visual personal queda pendiente.
-La redistribución de Estudios y Comparador queda para M50.8 y el cierre
-responsive de toda la aplicación para M50.9.
+La reorganización actual de Estudios y Comparador se explica en §4.112;
+el cierre responsive de toda la aplicación corresponde a M50.9.
+
+## 4.112 — Estudios y Comparador M50.8 (versión actual)
+
+**HTML / FLUJO ACTUAL.** Solo `/turborreactor/interactivo` carga con
+`defer` `static/estudios_comparador_50_8.js`, después de los módulos
+M49.5, M50.1, M50.5, M50.6 y M50.7. El formulario motor `#turbo-form`,
+el explorador `#estudio49` y el laboratorio `.turbo-lab50` tienen **una
+única instancia cada uno**. No se crea otro formulario, gráfica, mapa
+físico ni API. Sin JavaScript siguen disponibles los bloques HTML originales.
+El CSS utiliza `.turbo-50-8-ready` y `[data-interfaz="interactivo"]`:
+barridos y mapas comparten un panel con configuración, gráfica y detalle;
+Comparador dispone de controles de referencia siempre visibles y pestañas
+para Prestaciones, Gráficas y Condiciones. Se elige una de las cuatro
+figuras comparativas ya generadas por M50.1. Las vistas clásicas OFAT y
+mapas conservan sus `POST` históricos, que pueden recargar la ruta clásica
+**al calcular**, no al cambiar de vista. En Estudios, el CSS hace visible
+cada formulario clásico al abrir su `<details>`, sobre la regla general
+que oculta las secciones históricas del banco.
+
+**JAVASCRIPT — función pública.**
+`iniciarAnalisis50_8(documento,ventana=raiz)` recibe un `Document` y un
+`Window` opcional; devuelve `null` en la ruta clásica, si faltan elementos
+o si ya se inicializó. En caso correcto retorna
+`{estudios, comparador, aviso, referencia, estudio}`, con controladores de
+interfaz y referencias a los **mismos nodos DOM**, sin magnitudes físicas.
+Se ejecuta en `DOMContentLoaded` tras M50.5–50.7. Ejemplo:
+`const ui=iniciarAnalisis50_8(document,window);`
+`ui?.estudios.seleccionar('clasicos')` abre sensibilidad y mapas clásicos
+sin llamar al motor. Se usa `appendChild` para reubicar el `#estudio49`,
+la sección `.study49-point`, las tablas, los gráficos y las condiciones de
+M50.1. Ni el calculador M49.5 ni el módulo M50.1 pierden sus clausuras,
+listeners o referencias. El botón «Utilizar este punto en modo C» sigue
+emitiendo `brayton:aplicar-estudio-50-4`, que el controlador M48 carga
+mediante M50.3 **una sola vez**; el puente ya existente del M50.5 navega a
+Simulación. M50.8 no añade un nuevo listener de simulación.
+
+**FUNCIONES AUXILIARES.** `crear(tag,clase='',contenido='')` recibe cadenas
+y devuelve un `HTMLElement` con `textContent`, no HTML interpretado.
+`navegacion(id)` recibe `string` con una clave del M50.5 y devuelve su
+`boolean` de navegación. `atajo(destino,texto)` crea un botón y conecta
+ese método, devolviendo el botón, sin petición HTTP.
+`pestañas(padre,config,clase='turbo-ana58',solicitar=null)` recibe un
+nodo, pares `[[clave,título],...]` y opcionalmente un callback; devuelve
+`{seleccionar,actual,paneles,botones}`. Sus `Map` vinculan clave con
+panel/botón. `seleccionar(clave,{foco=false}={})` devuelve `boolean`, cambia
+`hidden`/`aria-selected`/`tabIndex` y mueve el foco si se pide. Flechas,
+Home y End son eventos de teclado: no modifican la simulación. La
+notación `{foco=false}` es desestructuración de opciones con valor por
+defecto, no un cálculo físico.
+
+`elegirEstudios(clave,{foco=false,actualizarTipo=true}={})` recibe clave
+`'barridos'`, `'mapa'` o `'clasicos'`, opcionalmente enfoca y devuelve
+`boolean`. Barridos y mapa reutilizan el mismo nodo `#estudio49`; el
+selector **existente** `#study49-tipo` decide la malla y activa sus
+listeners originales M49.5 mediante evento `change` solo cuando se cambia
+el tipo de estudio. Antes de descartar un gráfico calculado se solicita
+confirmación; cancelar mantiene los datos. Un listener de captura protege
+también los cambios manuales de tipo/fuente. Se ignora el `input` de esos
+selectores para que al cancelar no cambien el aviso ni el botón de aplicar.
+Entrar en *Clásicos* o
+navegar entre espacios no cambia el selector y nunca recalcula.
+
+`invalidar(mensaje)` recibe una cadena y no devuelve datos. Cuando hay
+un SVG previo y cambian límites/resolución o entradas físicas de la fuente
+«banco», conserva el gráfico anterior, muestra aviso de desactualización
+y deshabilita aplicar celda hasta recalcular. No atribuye las muestras
+antiguas a las entradas nuevas. `revisarCondicionesMotor()` atiende
+`input` y `change` del formulario motor y activa el aviso para «banco»;
+no devuelve datos ni solicita un cálculo. El origen «diseño C» usa sus propias
+condiciones fijas, por lo que modificar el formulario motor no afecta a
+esa referencia. `asignar(padre,selector)` mueve el nodo encontrado dentro
+del laboratorio M50.1 sin alterar sus cálculos. `elegirGrafica(tipo)`
+acepta `'ts'`, `'T'`, `'p'` o `'prestaciones'`; devuelve `boolean`, muestra
+solo la figura elegida y dispara el clic delegado original de M50.1 para
+que zoom/exportación SVG operen sobre la figura correcta, sin `fetch`.
+
+**INTERPRETACIÓN FÍSICA / INGENIERÍA.** Un estudio muestra puntos discretos
+calculados por el mismo solucionador A/B/C. Una celda no convergida no
+establece una frontera física. El comparador sigue calculando diferencias
+absolutas `X2−X1` y relativas `100(X2−X1)/X1` **solo si X1≠0** y las
+magnitudes son compatibles, según M50.1. `rpm`, Rline o parámetros C no
+se inventan en A/B; Rline no es margen de surge. La referencia guardada en
+la clausura de M50.1 sobrevive a cualquier navegación, incluso al aplicar
+una celda; en un fallo HTTP 422 se invalida el punto actual sin borrar la
+referencia. M50.8 no cambia cp(T), balances, Newton ni mapas T-MATS.
+
+**VERIFICACIÓN EN WINDOWS.** Se comprobó en Chrome y Flask el traslado de
+una celda convergida con una sola petición de simulación y la conservación
+de la referencia al navegar y tras HTTP 422. Pasaron 31 pruebas Python
+focalizadas y 32 pruebas de Node, con 71 comprobaciones internas del 50.8.
+La regresión general final ejecutó 853 pruebas: 843 correctas, 10 omitidas
+y ninguna fallida.
+La revisión visual personal queda pendiente.
+
+Documentación: [técnico 50.8](docs/milestones/50_8_estudios_comparador.md),
+[aprendizaje 50.8](docs/milestones/50_8_estudios_comparador_APRENDIZAJE.md).
+La evaluación general responsive/accesible pertenece al 50.9.
 
 ## Evolution of the project
+
+- **Milestone 50.8: Estudios y Comparador por vistas.** Ingeniería: resultados discretos y diferencias solo disponibles cuando el modelo las define; una referencia de comparación inmutable ante cambios de ventana. HTML/JS: paneles secundarios, un explorador y un laboratorio únicos, protección de datos obsoletos y navegación mediante M50.5 sin duplicar cálculos. [Técnico](docs/milestones/50_8_estudios_comparador.md) y [aprendizaje](docs/milestones/50_8_estudios_comparador_APRENDIZAJE.md). Publicación pendiente.
 
 - **Milestone 50.7: herramientas de ingeniería en cuatro espacios.** Ingeniería: presentación separada de estados termodinámicos, flujo de tobera, turbomáquinas y componente motor sin modificar el cálculo. JS/CSS: subnavegación, reutilización de SVG/nodos y selección delegada a M48. [Técnico](docs/milestones/50_7_espacios_ingenieria.md) y [aprendizaje](docs/milestones/50_7_espacios_ingenieria_APRENDIZAJE.md).
 

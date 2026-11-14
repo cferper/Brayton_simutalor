@@ -15,6 +15,7 @@
  {% if interfaz=='interactivo' %}<script src="{{ url_for('static',filename='navegacion_superior_50_5.js') }}" defer></script>{% endif %}
  {% if interfaz=='interactivo' %}<script src="{{ url_for('static',filename='panel_simulacion_50_6.js') }}" defer></script>{% endif %}
  {% if interfaz=='interactivo' %}<script src="{{ url_for('static',filename='espacios_ingenieria_50_7.js') }}" defer></script>{% endif %}
+ {% if interfaz=='interactivo' %}<script src="{{ url_for('static',filename='estudios_comparador_50_8.js') }}" defer></script>{% endif %}
 </head>
 <body class="turbo-page" data-interfaz="{{ interfaz }}" data-initial-panel="{{ 'configuracion' if interfaz=='interactivo' else (accion if accion in ('sensibilidad','mapa') else ('configuracion' if error or not resultado else 'resultados')) }}" data-simulacion-inicial="{{ 'resuelta' if resultado and not error else ('error' if error else 'pendiente') }}">
 <a class="skip-link" href="#contenido">Ir al contenido</a>
