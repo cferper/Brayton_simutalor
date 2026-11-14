@@ -5027,17 +5027,19 @@ Se ejecuta en `DOMContentLoaded`, *después* de los controladores M48–M50.4.
 Crea siete `<section role="region">` con sus encabezados, e inserta en
 ellas **los nodos existentes**, mediante `appendChild`, no copias. Mantiene
 `#configuracion`, el formulario, los resultados y el control de modo A/B/C en
-Simulación; mueve el esquema M49.7 y caracterización M49.9 a Motor, diagnóstico
-M50.2 a Turbomáquinas, explorador M49.5/M50.4 a Estudios y laboratorio M50.1
+Simulación; mueve el esquema M49.7 a Motor, la caracterización M49.9 y el
+diagnóstico M50.2 a Turbomáquinas, el explorador M49.5/M50.4 a Estudios y laboratorio M50.1
 a Comparador. Las tablas, estudios clásicos y resultados históricos quedan
 disponibles en `<details>` plegables, pendientes de reorganización visual.
 
-El elemento **completo** `#turbo-live` se desplaza entre el padre original
-en Simulación y las regiones Termodinámica/Tobera. De esta manera el
+El elemento **completo** `#turbo-live` se desplaza exclusivamente desde M50.5
+entre el padre original en Simulación y los hosts de Termodinámica/Tobera
+proporcionados por M50.7 (`destinoVisor50_7`). De esta manera el
 controlador antiguo sigue encontrando gráficos y tarjetas mediante
 `panel.querySelector(...)`, sin perder listeners, referencias ni usar otro
-solucionador. Para esas dos vistas, se activa mediante clic visual el grupo
-preexistente `ciclo` o `tobera`. `activar(espacio,{foco=false}={})` verifica
+solucionador. Para esas dos vistas, se activa mediante clic el grupo preexistente `ciclo`
+o `tobera`, y M50.7 selecciona la subvista elegida.
+`activar(espacio,{foco=false}={})` verifica
 una de las siete claves y devuelve `boolean`, actualiza únicamente el panel
 visible con `hidden`, el enlace activo mediante `aria-current="page"` y el foco
 si procede; `navegar(espacio,{foco=true}={})` además llama
@@ -5051,8 +5053,9 @@ históricos `data-study49-view` antes de que el M49.5 los procese. El
 explorador M50.4 sigue enviando una sola simulación al aplicar entradas,
 pero el movimiento entre Estudios y Simulación depende únicamente del
 controlador nuevo. Para compensar el listener de historial de
-`static/turborreactor.js`, `activar` restaura la visibilidad interna de las
-secciones tradicionales antes de ocultar regiones de trabajo inactivas.
+`static/turborreactor.js`, `activar` restaura la visibilidad de las secciones
+tradicionales antes de ocultar regiones de trabajo inactivas, salvo
+`#estaciones` y `#graficas`, cuya selección secundaria corresponde a M50.7.
 Las referencias guardadas del M50.1 permanecen en su módulo original.
 
 **ESTADO COMPARTIDO.** La franja lee `#turbo-form` y observa
@@ -5151,7 +5154,100 @@ visual personal queda pendiente. Documento técnico:
 [50.6](docs/milestones/50_6_panel_simulacion.md); guía educativa:
 [50.6 APRENDIZAJE](docs/milestones/50_6_panel_simulacion_APRENDIZAJE.md).
 
+## 4.111 — Espacios de ingeniería M50.7 (versión actual)
+
+**HTML/CSS — cuatro entornos sin nueva física.** En el banco interactivo
+`templates/turborreactor.html` carga `static/espacios_ingenieria_50_7.js`
+con `defer` después de los módulos M50.5 y M50.6. El módulo agrega barras
+secundarias a Motor (esquema/ficha o estaciones), Termodinámica (T–s,
+T/p totales, trabajos, balance e informe), Tobera (Mach, presión estática,
+T/velocidad local, geometría y funcionamiento) y Turbomáquinas (diagnóstico
+HPC, caracterización y límites). Los botones usan `aria-pressed` y foco por
+flechas/Home/End. CSS restringe los estilos a `[data-interfaz="interactivo"]`
+y `.turbo-50-7-ready`; la ruta clásica no adquiere estos paneles. Los mapas
+extensos mantienen un desplazamiento horizontal propio cuando lo requieren.
+
+**JAVASCRIPT — inicialización y funciones.**
+`iniciarEspaciosIngenieria50_7(documento, ventana=raiz)` recibe `Document`
+y `Window` opcional. Retorna `null` si no procede (ruta clásica, elementos
+ausentes o inicialización duplicada) o `{vistas, hosts, seleccionar}`:
+controladores de cuatro vistas, destinos de gráficos y una función para
+seleccionar `(id,v)` que devuelve `boolean`. Se invoca en `DOMContentLoaded`
+tras M48, M50.5 y M50.6; no recibe magnitudes físicas ni ejecuta `fetch`.
+Por ejemplo, `c=iniciarEspaciosIngenieria50_7(document,window);`
+`c.seleccionar('motor','estaciones')` activa las tablas originales. El DOM
+fuera de la ruta interactiva permanece intacto.
+
+La función interna `crear(tag,clase,texto)` recibe tres cadenas y crea un
+`HTMLElement` sin unidades físicas. `preparar(id,opciones)` recibe clave del
+espacio `string` y pares `[clave,titulo]`, crea la barra secundaria y devuelve
+`{seleccionar,actual,contenido,panel,botones,contenedores}`. Su método
+`seleccionar(clave,{foco=false}={})` cambia contenido visible y accesible,
+retorna `true` para clave conocida y `false` si no existe, y en Termodinámica
+/ Tobera pulsa los botones originales `data-plot-group-button` y
+`data-plot-tab` de M48 para conservar las funciones de escala, lectura y
+exportación. `contenido(clave,elemento)` registra y mueve un nodo original,
+sin duplicarlo, y no devuelve resultados. `crearHost(id)` crea un elemento
+contenedor para las vistas de gráficos y lo devuelve, sin mover el SVG.
+
+**PROPIEDAD DEL VISOR Y ESTADO COMPARTIDO.**
+`static/navegacion_superior_50_5.js` sigue siendo el único módulo que
+traslada `#turbo-live`: consulta `ventana.destinoVisor50_7?.(espacio)` y hace
+`appendChild(live)` en el destino. Después de activar el espacio notifica
+`ventana.activarEspacioIngenieria50_7?.(espacio)` para restaurar la subvista.
+El controlador M50.5 disponible en `ventana.controladorNavegacion50_5`
+permite la reubicación inicial si la URL abre directamente una vista técnica.
+Las funciones de destino y activación reciben la clave de espacio `string`
+y devuelven, respectivamente, `HTMLElement|null` y `undefined`; se consumen
+solo desde M50.5. En cada espacio la selección se memoriza como
+`dataset.ing57Vista` (estado de interfaz, no estado físico). Cambiar gráfico,
+componente o espacio no altera Mach/T3 ni recalcula el motor. M48 continúa
+siendo responsable de actualizar el punto válido, limpiar resultados obsoletos
+y propagar errores.
+
+Un `MutationObserver` de M50.7 observa solo `data-estado` de `#turbo-live`
+y restaura la subvista de Termodinámica o Tobera después de que M48
+reconcilie las gráficas disponibles. Si falta el SVG, M48 conserva el aviso
+de indisponibilidad. El enlace a la ficha de la tobera despacha un evento
+`click` al grupo SVG para reutilizar el selector de componentes. El CSS
+muestra las secciones de estaciones e informe cuando su subvista está activa.
+
+**CONTENIDO ACTUAL Y LIMITACIONES.** En Motor el esquema M49.7 conserva la
+ficha Funcionamiento/Resultados/Ecuaciones y `#estaciones` se consulta en una
+subvista. Termodinámica reutiliza `#turbo-live` para una sola figura, con
+los diagramas y el informe histórico en su propia subvista. Tobera muestra
+los dos indicadores originales de régimen/velocidad de salida junto al
+visor y su explicación educativa, sin añadir perfiles de flujo. Turbomáquinas
+reubica la caracterización M49.9 junto al mapa HPC y diagnóstico M50.2;
+no genera un mapa HPT nuevo. Las magnitudes que requieren el modo C siguen
+marcadas como no disponibles en A/B.
+
+**INTERPRETACIÓN FÍSICA / INGENIERÍA.** El esquema y los diagramas unen
+estados calculados, no posiciones axiales continuas. T3 interna representa
+la entrada **total** a turbina, equivalente a Tt4 en nomenclatura habitual.
+Las curvas de tobera no acreditan choques ni separación fuera de lo
+implementado por el modelo. El mapa HPC NASA T-MATS escalado es educativo,
+Rline no es margen de surge y la convergencia de Newton no constituye
+validación experimental. No cambian ecuaciones, Newton, tolerancias ni APIs.
+
+**PRUEBAS.** El milestone añade `tests/test_espacios_ingenieria_50_7.py`
+para estructura/Jinja/CSS y `tests/js/test_espacios_ingenieria_50_7.cjs`
+con DOM simulado. En Windows pasaron 9 pruebas Python del 50.7 y 14 del
+50.5/50.6. La regresión general ejecutó 845 pruebas (835 correctas, 10
+omitidas, 0 fallidas). Node registró 31 pruebas correctas y el módulo
+50.7 pasó 49 comprobaciones internas tras añadir la restauración de subvista.
+Flask y Chrome automatizado verificaron los cuatro espacios, dos geometrías
+de tobera, el mapa HPC, la exportación y la recuperación tras HTTP 422.
+Los resultados de esta tarea se registran en
+[documento técnico M50.7](docs/milestones/50_7_espacios_ingenieria.md)
+y la [guía de aprendizaje](docs/milestones/50_7_espacios_ingenieria_APRENDIZAJE.md).
+La revisión visual personal queda pendiente.
+La redistribución de Estudios y Comparador queda para M50.8 y el cierre
+responsive de toda la aplicación para M50.9.
+
 ## Evolution of the project
+
+- **Milestone 50.7: herramientas de ingeniería en cuatro espacios.** Ingeniería: presentación separada de estados termodinámicos, flujo de tobera, turbomáquinas y componente motor sin modificar el cálculo. JS/CSS: subnavegación, reutilización de SVG/nodos y selección delegada a M48. [Técnico](docs/milestones/50_7_espacios_ingenieria.md) y [aprendizaje](docs/milestones/50_7_espacios_ingenieria_APRENDIZAJE.md).
 
 - **Milestone 50.6: ventana Simulación compacta.** Ingeniería: una simulación y valores solo disponibles cuando el solucionador los determina. HTML/CSS/JS: controles principales A/B/C, configuración avanzada conservada, tarjetas de salida y galería M48 reusada sin cálculos por presentación. [Técnico](docs/milestones/50_6_panel_simulacion.md) y [aprendizaje](docs/milestones/50_6_panel_simulacion_APRENDIZAJE.md).
 

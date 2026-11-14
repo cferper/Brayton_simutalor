@@ -545,3 +545,103 @@ body[data-interfaz="interactivo"].turbo-50-6-ready[data-active-workspace="simula
 @media(max-width:390px){
  body[data-interfaz="interactivo"].turbo-50-6-ready .turbo-bank-mode-buttons{grid-template-columns:1fr}
 }
+
+/* M50.7 — vistas de ingeniería. No se duplica ningún SVG ni formulario. */
+body[data-interfaz="interactivo"].turbo-50-7-ready .turbo-ing57-intro{
+  font-size:13px;line-height:1.5;color:#52677e;margin:-6px 0 13px;
+}
+body[data-interfaz="interactivo"].turbo-50-7-ready .turbo-ing57-subnav{
+  display:flex;flex-wrap:wrap;gap:6px;margin:0 0 16px;
+  border-bottom:1px solid #d8e4ed;padding-bottom:10px;
+}
+body[data-interfaz="interactivo"].turbo-50-7-ready .turbo-ing57-tab{
+  border:1px solid #bccede;border-radius:6px;padding:9px 12px;
+  background:#fff;color:#204760;font-size:12px;font-weight:600;min-height:38px;
+}
+body[data-interfaz="interactivo"].turbo-50-7-ready .turbo-ing57-tab[aria-pressed="true"]{
+  border-color:#1b628b;background:#e8f2fa;color:#123c59;box-shadow:inset 0 -2px #1b628b;
+}
+body[data-interfaz="interactivo"].turbo-50-7-ready .turbo-ing57-tab:focus-visible,
+body[data-interfaz="interactivo"].turbo-50-7-ready .turbo-ing57-link:focus-visible{
+  outline:3px solid #2563a6;outline-offset:3px;
+}
+body[data-interfaz="interactivo"].turbo-50-7-ready .turbo-ing57-content[hidden],
+body[data-interfaz="interactivo"].turbo-50-7-ready .turbo-ing57-graph[hidden]{display:none!important}
+body[data-interfaz="interactivo"].turbo-50-7-ready #espacio-motor #estaciones:not([hidden]),
+body[data-interfaz="interactivo"].turbo-50-7-ready #espacio-termodinamica #graficas:not([hidden]){
+  display:block!important;
+}
+body[data-interfaz="interactivo"].turbo-50-7-ready .turbo-ing57-content{min-width:0}
+body[data-interfaz="interactivo"].turbo-50-7-ready .turbo-ing57-graph{min-width:0}
+body[data-interfaz="interactivo"].turbo-50-7-ready .turbo-ing57-graph-host{min-width:0}
+body[data-interfaz="interactivo"].turbo-50-7-ready #espacio-motor .turbo-engine-educational{
+  margin:0;min-width:0;
+}
+body[data-interfaz="interactivo"].turbo-50-7-ready #espacio-motor #estaciones{
+  margin:0;padding:0;min-width:0;
+}
+body[data-interfaz="interactivo"].turbo-50-7-ready #espacio-motor #estaciones>.page-heading{
+  margin-bottom:10px;
+}
+body[data-interfaz="interactivo"].turbo-50-7-ready #espacio-motor #estaciones>.page-heading .eyebrow{display:none}
+body[data-interfaz="interactivo"].turbo-50-7-ready #espacio-termodinamica #graficas{
+  margin:0;padding:0;min-width:0;
+}
+body[data-interfaz="interactivo"].turbo-50-7-ready #espacio-termodinamica #graficas>.page-heading{
+  margin-bottom:10px;
+}
+/* El selector secundario reutiliza las acciones M48. El gráfico y sus herramientas
+   permanecen dentro del mismo #turbo-live, trasladado solo por M50.5. */
+body[data-interfaz="interactivo"].turbo-50-7-ready:is([data-active-workspace="termodinamica"],[data-active-workspace="tobera"])
+  #turbo-live .turbo-plot-groups,
+body[data-interfaz="interactivo"].turbo-50-7-ready:is([data-active-workspace="termodinamica"],[data-active-workspace="tobera"])
+  #turbo-live .turbo-live-plot-tabs,
+body[data-interfaz="interactivo"].turbo-50-7-ready:is([data-active-workspace="termodinamica"],[data-active-workspace="tobera"])
+  #turbo-live .turbo-sim-plot-title56{display:none!important}
+body[data-interfaz="interactivo"].turbo-50-7-ready:is([data-active-workspace="termodinamica"],[data-active-workspace="tobera"])
+  #turbo-live{margin:0;padding:clamp(10px,1.4vw,17px);min-width:0}
+body[data-interfaz="interactivo"].turbo-50-7-ready:is([data-active-workspace="termodinamica"],[data-active-workspace="tobera"])
+  #turbo-live .turbo-live-plot-viewer{display:block!important}
+body[data-interfaz="interactivo"].turbo-50-7-ready:is([data-active-workspace="termodinamica"],[data-active-workspace="tobera"])
+  #turbo-live .turbo-live-preview svg{max-height:480px}
+/* El régimen y velocidad de salida de tobera son las tarjetas originales,
+   no copias: al regresar a Simulación vuelven a verse todas las tarjetas. */
+body[data-interfaz="interactivo"].turbo-50-7-ready[data-active-workspace="tobera"]
+  #turbo-live .turbo-live-metrics{
+  display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;
+}
+body[data-interfaz="interactivo"].turbo-50-7-ready[data-active-workspace="tobera"]
+  #turbo-live .turbo-live-metric:not([data-live-card="regimen_tobera"]):not([data-live-card="velocidad_salida_m_s"]){display:none!important}
+body[data-interfaz="interactivo"].turbo-50-7-ready[data-active-workspace="tobera"]
+  #turbo-live:is([data-estado="pendiente"],[data-estado="actualizando"],[data-estado="error"],[data-estado="fuera-mapa"]) .turbo-live-metrics{
+  visibility:hidden;
+}
+body[data-interfaz="interactivo"].turbo-50-7-ready .turbo-ing57-guide{
+  padding:18px;max-width:850px;color:#294b64;line-height:1.65;
+}
+body[data-interfaz="interactivo"].turbo-50-7-ready .turbo-ing57-guide p{font-size:13px}
+body[data-interfaz="interactivo"].turbo-50-7-ready .turbo-ing57-link{
+  background:#eef5fa;border:1px solid #a4bdcf;border-radius:6px;
+  color:#174a70;font-weight:600;padding:10px 14px;
+}
+body[data-interfaz="interactivo"].turbo-50-7-ready #espacio-turbomaquinas .turbo-diagnostic50,
+body[data-interfaz="interactivo"].turbo-50-7-ready #espacio-turbomaquinas .turbo-characterization{
+  margin:0;min-width:0;
+}
+@media(max-width:820px){
+ body[data-interfaz="interactivo"].turbo-50-7-ready .turbo-ing57-subnav{
+   flex-wrap:nowrap;overflow-x:auto;overscroll-behavior-x:contain;scrollbar-width:thin;
+ }
+ body[data-interfaz="interactivo"].turbo-50-7-ready .turbo-ing57-tab{
+   flex:0 0 auto;white-space:nowrap;
+ }
+}
+@media(max-width:500px){
+ body[data-interfaz="interactivo"].turbo-50-7-ready[data-active-workspace="tobera"]
+   #turbo-live .turbo-live-metrics{grid-template-columns:minmax(0,1fr)}
+ body[data-interfaz="interactivo"].turbo-50-7-ready .turbo-ing57-guide{padding:12px}
+}
+@media print{
+ body[data-interfaz="interactivo"].turbo-50-7-ready .turbo-ing57-subnav{display:none}
+ body[data-interfaz="interactivo"].turbo-50-7-ready .turbo-ing57-content[hidden]{display:block!important}
+}

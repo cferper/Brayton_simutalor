@@ -56,7 +56,7 @@
     anexar('simulacion','#configuracion');
     anexar('simulacion','#resultados','Resultados del informe y diagnósticos detallados');
     anexar('motor','.turbo-engine-educational');
-    anexar('motor','.turbo-characterization');
+    anexar('turbomaquinas','.turbo-characterization');
     anexar('motor','#estaciones','Estaciones y tablas del informe');
     anexar('termodinamica','#graficas','Gráficas y fundamentos del informe');
     anexar('turbomaquinas','#turbo-diagnostic-50-2');
@@ -91,12 +91,15 @@
       // los elementos trasladados tras su posible modificación de hidden.
       for(const id of ['configuracion','resultados','estaciones','graficas',
                        'estudio49','sensibilidad','mapa']){
+        // Las subpestañas M50.7 controlan estaciones y gráficas clásicas.
+        if(documento.body.className.split(/\s+/).includes('turbo-50-7-ready')&&
+            (id==='estaciones'||id==='graficas'))continue;
         const nodo=documento.getElementById(id);if(nodo)nodo.hidden=false;
       }
       if(espacio==='termodinamica'||espacio==='tobera'){
         // El panel de gráficos viaja completo: los eventos registrados por
         // el controlador existente no se pierden, ni se realizan solicitudes.
-        paneles[espacio].appendChild(live);
+        (ventana.destinoVisor50_7?.(espacio)||paneles[espacio]).appendChild(live);
         usarGrupo(espacio==='tobera'?'tobera':'ciclo');
       }else if(live.parentNode!==origenLive){origenLive.appendChild(live);}
       if(espacio==='simulacion'){
@@ -112,6 +115,7 @@
       documento.body.dataset.activeWorkspace=espacio;
       actual=espacio;
       actualizarContexto();
+      ventana.activarEspacioIngenieria50_7?.(espacio);
       if(foco){
         const titulo=paneles[espacio].querySelector('h2');
         titulo?.focus({preventScroll:true});
@@ -163,5 +167,5 @@
   }
   raiz.iniciarNavegacion50_5=iniciarNavegacion50_5;
   if(typeof document!=='undefined')document.addEventListener('DOMContentLoaded',
-    ()=>iniciarNavegacion50_5(document,raiz));
+    ()=>{raiz.controladorNavegacion50_5=iniciarNavegacion50_5(document,raiz);});
 })(typeof window!=='undefined'?window:globalThis);
